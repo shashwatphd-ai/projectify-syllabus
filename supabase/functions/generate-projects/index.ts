@@ -6,122 +6,213 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-function getPrimitivesFromOutcomes(outcomes: string[]): string[] {
-  const text = outcomes.join(' ').toLowerCase();
-  const primitives = new Set<string>();
-
-  if (/scope|define|charter|workplan/.test(text)) {
-    primitives.add("Scope workshop & charter");
-  }
-  if (/external|market|competitor|regulat|customer|discovery|survey|benchmark/.test(text)) {
-    primitives.add("External/market analysis or discovery");
-  }
-  if (/internal|resource|capabil|process|workflow|bottleneck|data request/.test(text)) {
-    primitives.add("Internal/resource/process assessment");
-  }
-  if (/synthes|insight|recommend|option|priorit/.test(text)) {
-    primitives.add("Synthesis & recommendations");
-  }
-  if (/present|deck|pitch|communicat|exec/.test(text)) {
-    primitives.add("Executive deck & presentation");
-  }
-
-  if (primitives.size === 0) {
-    return [
-      "Scope workshop & charter",
-      "External/market analysis or discovery",
-      "Synthesis & recommendations",
-      "Executive deck & presentation"
-    ];
-  }
-
-  return Array.from(primitives);
+interface CompanyInfo {
+  name: string;
+  sector: string;
+  size: string;
+  needs: string[];
+  description: string;
 }
 
-function getIndustries(userIndustries: string[], outcomes: string[]): string[] {
-  if (userIndustries.length > 0) return userIndustries;
-  
-  const text = outcomes.join(' ').toLowerCase();
-  const base = ["Technology", "Healthcare", "Finance", "Energy", "Manufacturing", "Public/Nonprofit"];
-  
-  if (/sustainab|environment/.test(text)) {
-    base.unshift("Sustainability");
-  }
-  
-  return base.slice(0, 5);
+interface ProjectProposal {
+  title: string;
+  company_name: string;
+  sector: string;
+  tasks: string[];
+  deliverables: string[];
+  tier: string;
+  lo_alignment: string;
+  company_needs: string[];
 }
 
-function composeTitle(industry: string, level: string): string {
-  if (level === "MBA") {
-    return `${industry}: Efficiency & Strategy Engagement`;
+// Search for companies in a geographic region
+async function searchCompanies(cityZip: string, industries: string[], count: number): Promise<CompanyInfo[]> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+
+  const prompt = `Find ${count} real companies or organizations in the ${cityZip} area that work in these industries: ${industries.join(', ')}. 
+  
+For each company, provide:
+- Company name
+- Industry sector
+- Size (Small/Medium/Large/Enterprise)
+- 3-4 current business needs or challenges they likely face
+- Brief description of what they do
+
+Focus on companies that would be good partners for university student projects - local businesses, nonprofits, government agencies, or growing companies that could benefit from student consulting work.
+
+Return ONLY valid JSON array format:
+[
+  {
+    "name": "Company Name",
+    "sector": "Industry",
+    "size": "Medium",
+    "needs": ["need1", "need2", "need3"],
+    "description": "What they do"
   }
-  return `${industry}: Opportunity Discovery Sprint`;
+]`;
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: 'You are a business research assistant. Return only valid JSON arrays, no markdown formatting.' },
+        { role: 'user', content: prompt }
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('AI search error:', response.status, error);
+    throw new Error('Failed to search companies');
+  }
+
+  const data = await response.json();
+  const content = data.choices[0].message.content;
+  
+  // Clean up markdown code blocks if present
+  const jsonMatch = content.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) throw new Error('No valid JSON in response');
+  
+  return JSON.parse(jsonMatch[0]);
 }
 
-function getDeliverables(artifacts: string[]): string[] {
-  const arts = artifacts.map(a => a.toLowerCase());
-  const outs: string[] = [];
-  
-  if (arts.some(a => a.includes("proposal"))) {
-    outs.push("Scope & proposal");
-  }
-  outs.push("Analysis memo", "Recommendations report");
-  
-  if (arts.some(a => a.includes("slide") || a.includes("deck"))) {
-    outs.push("Slide deck");
-  }
-  if (arts.some(a => a.includes("present"))) {
-    outs.push("Final presentation");
-  }
-  
-  return outs;
-}
+// Match company needs to learning outcomes and generate project proposal
+async function generateProjectProposal(
+  company: CompanyInfo,
+  outcomes: string[],
+  artifacts: string[],
+  level: string,
+  weeks: number,
+  hrsPerWeek: number
+): Promise<ProjectProposal> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
 
-function getTier(primitives: string[]): string {
-  const text = primitives.join(' ').toLowerCase();
-  const advancedTriggers = ["process", "internal", "analytics", "model", "regulatory", "pricing"];
-  return advancedTriggers.some(t => text.includes(t)) ? "Advanced" : "Intermediate";
-}
+  const prompt = `Design an experiential learning project for ${level} students working with ${company.name}.
 
-function scoreLOCoverage(outcomes: string[], tasks: string[], deliverables: string[]): number {
-  const dims = {
-    external: ["external", "market", "competitor", "regulatory", "customer", "survey", "discovery", "benchmark"],
-    internal: ["internal", "resource", "capability", "process", "workflow", "bottleneck", "data request"],
-    synthesis: ["synthesize", "insight", "recommendation", "options", "prioritize", "recommend"],
-    presentation: ["presentation", "deck", "pitch", "exec", "stakeholder"],
-    scoping: ["scope", "workplan", "define", "charter"]
+Company Context:
+- Sector: ${company.sector}
+- Description: ${company.description}
+- Size: ${company.size}
+- Current Needs: ${company.needs.join('; ')}
+
+Course Learning Outcomes:
+${outcomes.map((o, i) => `${i + 1}. ${o}`).join('\n')}
+
+Course Details:
+- Duration: ${weeks} weeks
+- Time commitment: ${hrsPerWeek} hours/week
+- Required artifacts: ${artifacts.join(', ')}
+
+Create a project that:
+1. Addresses real company needs
+2. Aligns with learning outcomes
+3. Is feasible within the timeframe
+4. Benefits both students and company
+
+Return ONLY valid JSON:
+{
+  "title": "Project title",
+  "tasks": ["task1", "task2", "task3", "task4"],
+  "deliverables": ["deliverable1", "deliverable2", "deliverable3"],
+  "tier": "Intermediate or Advanced",
+  "lo_alignment": "Brief explanation of how project aligns with learning outcomes",
+  "company_needs": ["Which company needs this addresses"]
+}`;
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: 'You are an experiential learning designer. Return only valid JSON, no markdown.' },
+        { role: 'user', content: prompt }
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('AI proposal error:', response.status, error);
+    throw new Error('Failed to generate proposal');
+  }
+
+  const data = await response.json();
+  const content = data.choices[0].message.content;
+  
+  // Clean up markdown code blocks
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('No valid JSON in response');
+  
+  const proposal = JSON.parse(jsonMatch[0]);
+  
+  return {
+    ...proposal,
+    company_name: company.name,
+    sector: company.sector,
   };
+}
 
+// Calculate scores
+function calculateScores(tasks: string[], deliverables: string[], outcomes: string[], weeks: number) {
+  // LO coverage - check alignment between tasks and outcomes
   const outcomeText = outcomes.join(' ').toLowerCase();
   const projectText = [...tasks, ...deliverables].join(' ').toLowerCase();
   
-  let score = 0;
-  for (const keywords of Object.values(dims)) {
-    const hitLO = keywords.some(kw => outcomeText.includes(kw));
-    const hitPJ = keywords.some(kw => projectText.includes(kw));
-    if (hitLO && hitPJ) score++;
+  const dimensions = {
+    external: ["external", "market", "competitor", "customer", "research"],
+    internal: ["internal", "process", "operations", "efficiency"],
+    synthesis: ["analysis", "recommendations", "insights", "strategy"],
+    presentation: ["presentation", "report", "communication"],
+    scoping: ["scope", "planning", "objectives"]
+  };
+  
+  let matches = 0;
+  for (const keywords of Object.values(dimensions)) {
+    const inOutcomes = keywords.some(kw => outcomeText.includes(kw));
+    const inProject = keywords.some(kw => projectText.includes(kw));
+    if (inOutcomes && inProject) matches++;
   }
   
-  return score / Object.keys(dims).length;
+  const lo_score = matches / Object.keys(dimensions).length;
+  const feasibility_score = weeks >= 12 ? 0.8 : 0.6;
+  const mutual_benefit_score = 0.8; // Assumed since AI matched needs
+  const final_score = 0.5 * lo_score + 0.3 * feasibility_score + 0.2 * mutual_benefit_score;
+  
+  return {
+    lo_score: Math.round(lo_score * 100) / 100,
+    feasibility_score,
+    mutual_benefit_score,
+    final_score: Math.round(final_score * 100) / 100
+  };
 }
 
-function estimateBudget(weeks: number, hrsPerWeek: number, teamSize: number, tier: string): number {
+// Estimate budget
+function estimateBudget(weeks: number, hrsPerWeek: number, teamSize: number, tier: string, companySize: string): number {
   const rate = tier === "Advanced" ? 20 : 15;
   const allowance = tier === "Advanced" ? 300 : 150;
   const hours = weeks * hrsPerWeek * teamSize;
-  return Math.round((hours * rate + allowance) / 10) * 10;
-}
-
-function generateMilestones(weeks: number): any[] {
-  return [
-    { week: "1", task: "Scope workshop & charter" },
-    { week: "2-3", task: "Data collection / discovery" },
-    { week: "4", task: "Interim check-in" },
-    { week: "6-7", task: "Analysis complete / draft findings" },
-    { week: "9", task: "Draft deck & report" },
-    { week: "11", task: "Stakeholder dry-run" },
-    { week: weeks.toString(), task: "Final presentation & handoff" }
-  ];
+  let budget = hours * rate + allowance;
+  
+  // Adjust for company size
+  if (companySize === "Small" || companySize === "Nonprofit") {
+    budget *= 0.85;
+  } else if (companySize === "Enterprise") {
+    budget *= 1.10;
+  }
+  
+  return Math.round(budget / 10) * 10;
 }
 
 serve(async (req) => {
@@ -130,7 +221,7 @@ serve(async (req) => {
   }
 
   try {
-    // Extract the JWT token from the Authorization header
+    // Extract JWT and verify user
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('Missing authorization header');
@@ -141,7 +232,6 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     );
 
-    // Verify the JWT and get the user
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser(
       authHeader.replace('Bearer ', '')
     );
@@ -151,7 +241,7 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    // Create a service role client for database operations
+    // Create service role client for database operations
     const serviceRoleClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -173,44 +263,62 @@ serve(async (req) => {
 
     const outcomes = course.outcomes as string[];
     const artifacts = course.artifacts as string[];
+    const cityZip = course.city_zip;
     
-    const primitives = getPrimitivesFromOutcomes(outcomes);
-    const deliverables = getDeliverables(artifacts);
-    const industryList = getIndustries(industries, outcomes);
-    const companyList = companies.length > 0 ? companies : null;
-    const pool = companyList || industryList;
+    console.log('Starting intelligent project generation...');
+    console.log('Location:', cityZip);
+    console.log('Industries:', industries);
+    console.log('Teams requested:', numTeams);
     
+    // Step 1: Search for companies in the region
+    const companiesFound = await searchCompanies(
+      cityZip,
+      industries.length > 0 ? industries : ["Technology", "Healthcare", "Finance", "Manufacturing"],
+      numTeams
+    );
+    
+    console.log('Found companies:', companiesFound.map(c => c.name));
+    
+    // Step 2: Generate project proposals for each company
     const projectsToCreate = [];
     
-    for (let i = 0; i < numTeams; i++) {
-      const tag = pool[i % pool.length];
-      const company = companyList ? tag : null;
-      const industry = company ? industryList[i % industryList.length] : tag;
-      const tier = getTier(primitives);
-      const teamSize = 4;
+    for (const company of companiesFound) {
+      console.log(`Generating proposal for ${company.name}...`);
       
-      const title = composeTitle(industry, course.level);
-      const loScore = scoreLOCoverage(outcomes, primitives, deliverables);
-      const feasScore = course.weeks >= 12 ? 0.8 : 0.6;
-      const mbScore = 0.8;
-      const finalScore = 0.5 * loScore + 0.3 * feasScore + 0.2 * mbScore;
-      const budget = estimateBudget(course.weeks, course.hrs_per_week, teamSize, tier);
+      const proposal = await generateProjectProposal(
+        company,
+        outcomes,
+        artifacts,
+        course.level,
+        course.weeks,
+        course.hrs_per_week
+      );
+      
+      const teamSize = 4;
+      const scores = calculateScores(proposal.tasks, proposal.deliverables, outcomes, course.weeks);
+      const budget = estimateBudget(
+        course.weeks,
+        course.hrs_per_week,
+        teamSize,
+        proposal.tier,
+        company.size
+      );
       
       projectsToCreate.push({
         course_id: course.id,
-        title,
-        company_name: company || "Prospect Partner (to be recruited)",
-        sector: industry,
+        title: proposal.title,
+        company_name: proposal.company_name,
+        sector: proposal.sector,
         duration_weeks: course.weeks,
         team_size: teamSize,
-        tasks: primitives,
-        deliverables,
+        tasks: proposal.tasks,
+        deliverables: proposal.deliverables,
         pricing_usd: budget,
-        tier,
-        lo_score: loScore,
-        feasibility_score: feasScore,
-        mutual_benefit_score: mbScore,
-        final_score: finalScore
+        tier: proposal.tier,
+        lo_score: scores.lo_score,
+        feasibility_score: scores.feasibility_score,
+        mutual_benefit_score: scores.mutual_benefit_score,
+        final_score: scores.final_score
       });
     }
 
@@ -220,7 +328,12 @@ serve(async (req) => {
       .insert(projectsToCreate)
       .select();
 
-    if (projectError) throw projectError;
+    if (projectError) {
+      console.error('Project insert error:', projectError);
+      throw projectError;
+    }
+
+    console.log('Projects created:', projects.length);
 
     // Create forms for each project
     const formsToCreate = projects!.map(p => ({
@@ -228,13 +341,13 @@ serve(async (req) => {
       form1: {
         title: p.title,
         industry: p.sector,
-        description: "Drafted from syllabus learning outcomes",
+        description: "AI-generated project matching company needs to learning outcomes",
         budget: p.pricing_usd
       },
       form2: {
         company: p.company_name,
         sector: p.sector,
-        size: "TBD"
+        size: companiesFound.find(c => c.name === p.company_name)?.size || "Unknown"
       },
       form3: {
         skills: ["research", "analysis", "presentation"],
@@ -257,14 +370,25 @@ serve(async (req) => {
         year: course.level === "MBA" ? "Graduate" : "Any",
         hours_per_week: course.hrs_per_week
       },
-      milestones: generateMilestones(p.duration_weeks)
+      milestones: [
+        { week: "1", task: "Scope workshop & charter" },
+        { week: "2-3", task: "Data collection / discovery" },
+        { week: "4", task: "Interim check-in" },
+        { week: Math.floor(course.weeks * 0.5), task: "Analysis complete / draft findings" },
+        { week: Math.floor(course.weeks * 0.75), task: "Draft deck & report" },
+        { week: course.weeks - 1, task: "Stakeholder dry-run" },
+        { week: course.weeks, task: "Final presentation & handoff" }
+      ]
     }));
 
     const { error: formsError } = await serviceRoleClient
       .from('project_forms')
       .insert(formsToCreate);
 
-    if (formsError) throw formsError;
+    if (formsError) {
+      console.error('Forms insert error:', formsError);
+      throw formsError;
+    }
 
     return new Response(JSON.stringify({ projects }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
