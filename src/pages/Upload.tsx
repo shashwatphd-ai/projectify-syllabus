@@ -50,25 +50,11 @@ const Upload = () => {
       formData.append('file', file);
       formData.append('cityZip', cityZip);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-syllabus`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-          body: formData,
-        }
-      );
+      const { data, error } = await supabase.functions.invoke('parse-syllabus', {
+        body: formData,
+      });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to parse syllabus');
-      }
-
-      const data = await response.json();
+      if (error) throw error;
 
       toast.success("Syllabus parsed successfully!");
       navigate("/configure", { 
