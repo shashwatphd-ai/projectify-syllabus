@@ -14,11 +14,50 @@ const Upload = () => {
   const [file, setFile] = useState<File | null>(null);
   const [cityZip, setCityZip] = useState("");
   const [loading, setLoading] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     requireAuth();
   }, [authLoading]);
+
+  useEffect(() => {
+    // Auto-detect location on mount
+    detectLocation();
+  }, []);
+
+  const detectLocation = async () => {
+    setLocationLoading(true);
+    try {
+      // Use browser geolocation
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+      });
+
+      const { latitude, longitude } = position.coords;
+
+      // Reverse geocode using OpenStreetMap Nominatim (free, no API key needed)
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+      );
+      const data = await response.json();
+
+      if (data.address) {
+        const city = data.address.city || data.address.town || data.address.village || '';
+        const state = data.address.state || '';
+        const postcode = data.address.postcode || '';
+        
+        if (city && postcode) {
+          setCityZip(`${city}, ${state} ${postcode}`);
+        }
+      }
+    } catch (error) {
+      console.log('Could not auto-detect location:', error);
+      // Silently fail - user can enter manually
+    } finally {
+      setLocationLoading(false);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -50,11 +89,29 @@ const Upload = () => {
       formData.append('file', file);
       formData.append('cityZip', cityZip);
 
-      const { data, error } = await supabase.functions.invoke('parse-syllabus', {
-        body: formData,
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
 
-      if (error) throw error;
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-syllabus`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
 
       toast.success("Syllabus parsed successfully!");
       navigate("/configure", { 
@@ -100,15 +157,30 @@ const Upload = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="cityZip">City & ZIP Code</Label>
-                <Input
-                  id="cityZip"
-                  placeholder="Kansas City, MO 64110"
-                  value={cityZip}
-                  onChange={(e) => setCityZip(e.target.value)}
-                  required
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="cityZip"
+                    placeholder="Kansas City, MO 64110"
+                    value={cityZip}
+                    onChange={(e) => setCityZip(e.target.value)}
+                    required
+                    disabled={locationLoading}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={detectLocation}
+                    disabled={locationLoading}
+                  >
+                    {locationLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Auto-detect"
+                    )}
+                  </Button>
+                </div>
                 <p className="text-sm text-muted-foreground">
-                  For location-based project matching
+                  Location auto-detected from your browser
                 </p>
               </div>
 
