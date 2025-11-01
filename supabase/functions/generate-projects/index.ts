@@ -130,21 +130,37 @@ serve(async (req) => {
   }
 
   try {
+    // Extract the JWT token from the Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('Missing authorization header');
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     );
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    // Verify the JWT and get the user
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+    
     if (userError || !user) {
+      console.error('Auth error:', userError);
       throw new Error('Unauthorized');
     }
+
+    // Create a service role client for database operations
+    const serviceRoleClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
     const { courseId, industries, companies, numTeams } = await req.json();
 
     // Get course profile
-    const { data: course, error: courseError } = await supabaseClient
+    const { data: course, error: courseError } = await serviceRoleClient
       .from('course_profiles')
       .select('*')
       .eq('id', courseId)
@@ -199,7 +215,7 @@ serve(async (req) => {
     }
 
     // Insert projects
-    const { data: projects, error: projectError } = await supabaseClient
+    const { data: projects, error: projectError } = await serviceRoleClient
       .from('projects')
       .insert(projectsToCreate)
       .select();
@@ -244,7 +260,7 @@ serve(async (req) => {
       milestones: generateMilestones(p.duration_weeks)
     }));
 
-    const { error: formsError } = await supabaseClient
+    const { error: formsError } = await serviceRoleClient
       .from('project_forms')
       .insert(formsToCreate);
 
