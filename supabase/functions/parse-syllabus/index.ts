@@ -105,9 +105,16 @@ serve(async (req) => {
       throw new Error('No file provided');
     }
 
-    // Upload to storage
+    // Upload to storage using service role to bypass RLS
     const filePath = `${user.id}/${Date.now()}_${file.name}`;
-    const { error: uploadError } = await supabaseClient.storage
+    
+    // Create a service role client for storage operations
+    const serviceRoleClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    
+    const { error: uploadError } = await serviceRoleClient.storage
       .from('syllabi')
       .upload(filePath, file);
 
