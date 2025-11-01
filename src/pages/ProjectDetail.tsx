@@ -14,6 +14,7 @@ const ProjectDetail = () => {
   const navigate = useNavigate();
   const [project, setProject] = useState<any>(null);
   const [forms, setForms] = useState<any>(null);
+  const [courseProfile, setCourseProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,8 +45,18 @@ const ProjectDetail = () => {
 
       if (formsError) throw formsError;
 
+      // Load course profile for LO mapping
+      const { data: courseData, error: courseError } = await supabase
+        .from('course_profiles')
+        .select('*')
+        .eq('id', projectData.course_id)
+        .single();
+
+      if (courseError) throw courseError;
+
       setProject(projectData);
       setForms(formsData);
+      setCourseProfile(courseData);
     } catch (error: any) {
       console.error('Load error:', error);
     } finally {
@@ -153,8 +164,10 @@ const ProjectDetail = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="company">Company</TabsTrigger>
+            <TabsTrigger value="lo-mapping">LO Mapping</TabsTrigger>
             <TabsTrigger value="forms">Forms</TabsTrigger>
             <TabsTrigger value="milestones">Milestones</TabsTrigger>
             <TabsTrigger value="scoring">Scoring</TabsTrigger>
@@ -196,19 +209,188 @@ const ProjectDetail = () => {
             </Card>
           </TabsContent>
 
+          <TabsContent value="company" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Company Information</CardTitle>
+                <CardDescription>Partner organization details</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <h3 className="font-semibold mb-2">Company Name</h3>
+                  <p>{forms.form2.company}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-2">Sector</h3>
+                  <p>{forms.form2.sector}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-2">Company Size</h3>
+                  <p>{forms.form2.size}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-2">Project Description</h3>
+                  <p className="text-muted-foreground">{forms.form1.description}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="lo-mapping" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Learning Outcomes Mapping</CardTitle>
+                <CardDescription>How this project aligns with course learning outcomes</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="font-semibold mb-3">Course Learning Outcomes</h3>
+                    <ul className="space-y-2 mb-4">
+                      {courseProfile?.outcomes && JSON.parse(courseProfile.outcomes).map((outcome: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <Badge variant="outline" className="mt-0.5">LO{i + 1}</Badge>
+                          <span>{outcome}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="border-t pt-6">
+                    <h3 className="font-semibold mb-3">Project Tasks Mapping</h3>
+                    <ul className="space-y-2 mb-4">
+                      {(project.tasks as string[]).map((task, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="text-secondary font-bold">→</span>
+                          <span>{task}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="border-t pt-6">
+                    <h3 className="font-semibold mb-3">Required Skills</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {forms.form3.skills.map((skill: string, i: number) => (
+                        <Badge key={i} variant="secondary">{skill}</Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-6">
+                    <h3 className="font-semibold mb-3">Deliverables</h3>
+                    <ul className="space-y-2">
+                      {(project.deliverables as string[]).map((del, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="text-primary font-bold">✓</span>
+                          <span>{del}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="border-t pt-6">
+                    <h3 className="font-semibold mb-3">Alignment Score</h3>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary"
+                          style={{ width: `${project.lo_score * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-2xl font-bold text-primary">{Math.round(project.lo_score * 100)}%</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      This project covers {Math.round(project.lo_score * 100)}% of the course learning outcomes.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="forms" className="space-y-6">
-            {[1, 2, 3, 4, 5, 6].map(num => (
-              <Card key={num}>
-                <CardHeader>
-                  <CardTitle>Form {num}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <pre className="text-sm bg-muted p-4 rounded overflow-auto">
-                    {JSON.stringify(forms[`form${num}`], null, 2)}
-                  </pre>
-                </CardContent>
-              </Card>
-            ))}
+            <Card>
+              <CardHeader>
+                <CardTitle>Form 1: Project Overview</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div><span className="font-semibold">Title:</span> {forms.form1.title}</div>
+                <div><span className="font-semibold">Industry:</span> {forms.form1.industry}</div>
+                <div><span className="font-semibold">Description:</span> {forms.form1.description}</div>
+                <div><span className="font-semibold">Budget:</span> ${forms.form1.budget.toLocaleString()}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Form 2: Company Profile</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div><span className="font-semibold">Company:</span> {forms.form2.company}</div>
+                <div><span className="font-semibold">Sector:</span> {forms.form2.sector}</div>
+                <div><span className="font-semibold">Size:</span> {forms.form2.size}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Form 3: Team Requirements</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <span className="font-semibold">Skills:</span>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {forms.form3.skills.map((skill: string, i: number) => (
+                      <Badge key={i} variant="outline">{skill}</Badge>
+                    ))}
+                  </div>
+                </div>
+                <div><span className="font-semibold">Team Size:</span> {forms.form3.team_size} students</div>
+                <div>
+                  <span className="font-semibold">Deliverables:</span>
+                  <ul className="list-disc list-inside mt-2">
+                    {forms.form3.deliverables.map((d: string, i: number) => (
+                      <li key={i}>{d}</li>
+                    ))}
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Form 4: Timeline</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div><span className="font-semibold">Start:</span> {forms.form4.start}</div>
+                <div><span className="font-semibold">End:</span> {forms.form4.end}</div>
+                <div><span className="font-semibold">Duration:</span> {forms.form4.weeks} weeks</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Form 5: Project Structure</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div><span className="font-semibold">Type:</span> {forms.form5.type}</div>
+                <div><span className="font-semibold">Scope:</span> {forms.form5.scope}</div>
+                <div><span className="font-semibold">Location:</span> {forms.form5.location}</div>
+                <div><span className="font-semibold">IP Rights:</span> {forms.form5.ip}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Form 6: Course Integration</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div><span className="font-semibold">Category:</span> {forms.form6.category}</div>
+                <div><span className="font-semibold">Year:</span> {forms.form6.year}</div>
+                <div><span className="font-semibold">Hours per Week:</span> {forms.form6.hours_per_week}</div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="milestones" className="space-y-4">
