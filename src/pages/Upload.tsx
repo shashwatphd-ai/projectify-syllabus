@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,12 +6,19 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Upload as UploadIcon, FileText, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const Upload = () => {
+  const { user, loading: authLoading, requireAuth } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [cityZip, setCityZip] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    requireAuth();
+  }, [authLoading]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -31,35 +38,60 @@ const Upload = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!file) {
+    if (!file || !user) {
       toast.error("Please select a syllabus file");
       return;
     }
 
     setLoading(true);
 
-    // TODO: Implement actual file upload and parsing with Lovable Cloud
-    // Mock parsed data for now
-    setTimeout(() => {
-      const mockCourseData = {
-        title: "Strategic Management Consulting",
-        level: "MBA",
-        weeks: 12,
-        hrs_per_week: 4,
-        outcomes: [
-          "Define project scope and objectives",
-          "Conduct market and competitive analysis",
-          "Build fact-based recommendations",
-          "Present findings to stakeholders",
-        ],
-        artifacts: ["proposal", "analysis memo", "final presentation"],
-      };
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('cityZip', cityZip);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-syllabus`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to parse syllabus');
+      }
+
+      const data = await response.json();
 
       toast.success("Syllabus parsed successfully!");
-      navigate("/configure", { state: { courseData: mockCourseData } });
+      navigate("/configure", { 
+        state: { 
+          courseId: data.course.id,
+          courseData: data.parsed 
+        } 
+      });
+    } catch (error: any) {
+      console.error('Parse error:', error);
+      toast.error(error.message || "Failed to parse syllabus");
+    } finally {
       setLoading(false);
-    }, 2000);
+    }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

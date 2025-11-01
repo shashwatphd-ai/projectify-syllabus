@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,9 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, Settings } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const Configure = () => {
+  const { user, loading: authLoading, requireAuth } = useAuth();
   const location = useLocation();
+  const courseId = location.state?.courseId;
   const courseData = location.state?.courseData;
   const [industries, setIndustries] = useState("");
   const [companies, setCompanies] = useState("");
@@ -16,10 +20,14 @@ const Configure = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    requireAuth();
+  }, [authLoading]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!courseData) {
+    if (!courseId || !user) {
       toast.error("Course data not found. Please upload a syllabus first.");
       navigate("/upload");
       return;
@@ -27,26 +35,38 @@ const Configure = () => {
 
     setLoading(true);
 
-    // TODO: Call edge function to generate projects
-    setTimeout(() => {
-      toast.success("Projects generated successfully!");
-      navigate("/projects", {
-        state: {
-          projects: [
-            // Mock data - will be replaced with actual generated projects
-            {
-              id: "1",
-              title: "Healthcare Efficiency Analysis",
-              company: "Metro Health Partners",
-              sector: "Healthcare",
-              lo_score: 0.85,
-            },
-          ],
-        },
+    try {
+      const industriesArray = industries.split(',').map(i => i.trim()).filter(Boolean);
+      const companiesArray = companies.split(',').map(c => c.trim()).filter(Boolean);
+
+      const { data, error } = await supabase.functions.invoke('generate-projects', {
+        body: {
+          courseId,
+          industries: industriesArray,
+          companies: companiesArray,
+          numTeams: parseInt(numTeams)
+        }
       });
+
+      if (error) throw error;
+
+      toast.success(`${data.projects.length} projects generated successfully!`);
+      navigate("/projects", { state: { courseId } });
+    } catch (error: any) {
+      console.error('Generation error:', error);
+      toast.error(error.message || "Failed to generate projects");
+    } finally {
       setLoading(false);
-    }, 2000);
+    }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

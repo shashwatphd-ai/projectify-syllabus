@@ -1,13 +1,53 @@
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Briefcase, TrendingUp } from "lucide-react";
+import { ArrowLeft, Briefcase, TrendingUp, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const Projects = () => {
+  const { user, loading: authLoading, requireAuth } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const projects = location.state?.projects || [];
+  const courseId = location.state?.courseId;
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    requireAuth();
+  }, [authLoading]);
+
+  useEffect(() => {
+    if (user && courseId) {
+      loadProjects();
+    }
+  }, [user, courseId]);
+
+  const loadProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('course_id', courseId);
+
+      if (error) throw error;
+      setProjects(data || []);
+    } catch (error: any) {
+      console.error('Load projects error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (projects.length === 0) {
     return (
@@ -61,7 +101,7 @@ const Projects = () => {
                     <CardTitle className="text-xl mb-2">{project.title}</CardTitle>
                     <CardDescription className="flex items-center gap-2">
                       <Briefcase className="h-4 w-4" />
-                      {project.company}
+                      {project.company_name}
                     </CardDescription>
                   </div>
                   <Badge variant="secondary">{project.sector}</Badge>
@@ -75,6 +115,16 @@ const Projects = () => {
                       <TrendingUp className="h-4 w-4 text-secondary" />
                       <span className="font-semibold">{Math.round(project.lo_score * 100)}%</span>
                     </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Budget</span>
+                    <span className="font-semibold">${project.pricing_usd.toLocaleString()}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Tier</span>
+                    <Badge variant="outline">{project.tier}</Badge>
                   </div>
 
                   <div className="pt-3 border-t">

@@ -1,1 +1,7 @@
 project_id = "wnxjeldvzjubfgzvvzov"
+
+[functions.parse-syllabus]
+verify_jwt = true
+
+[functions.generate-projects]
+verify_jwt = true
