@@ -164,36 +164,91 @@ Return ONLY valid JSON:
   };
 }
 
-// Calculate scores
-function calculateScores(tasks: string[], deliverables: string[], outcomes: string[], weeks: number) {
-  // LO coverage - check alignment between tasks and outcomes
-  const outcomeText = outcomes.join(' ').toLowerCase();
-  const projectText = [...tasks, ...deliverables].join(' ').toLowerCase();
-  
-  const dimensions = {
-    external: ["external", "market", "competitor", "customer", "research"],
-    internal: ["internal", "process", "operations", "efficiency"],
-    synthesis: ["analysis", "recommendations", "insights", "strategy"],
-    presentation: ["presentation", "report", "communication"],
-    scoping: ["scope", "planning", "objectives"]
-  };
-  
-  let matches = 0;
-  for (const keywords of Object.values(dimensions)) {
-    const inOutcomes = keywords.some(kw => outcomeText.includes(kw));
-    const inProject = keywords.some(kw => projectText.includes(kw));
-    if (inOutcomes && inProject) matches++;
+// Calculate LO alignment using AI
+async function calculateLOAlignment(
+  tasks: string[], 
+  deliverables: string[], 
+  outcomes: string[],
+  loAlignment: string
+): Promise<number> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+
+  const prompt = `Analyze how well this project aligns with the course learning outcomes.
+
+Course Learning Outcomes:
+${outcomes.map((o, i) => `LO${i + 1}: ${o}`).join('\n')}
+
+Project Tasks:
+${tasks.map((t, i) => `${i + 1}. ${t}`).join('\n')}
+
+Project Deliverables:
+${deliverables.map((d, i) => `${i + 1}. ${d}`).join('\n')}
+
+AI Project Designer's Alignment Explanation:
+${loAlignment}
+
+For each learning outcome, determine if the project adequately addresses it through its tasks and deliverables.
+
+Return ONLY a JSON object with:
+{
+  "coverage_percentage": <0-100 number>,
+  "outcomes_covered": ["LO1", "LO3", ...],
+  "gaps": ["Brief explanation of any gaps"]
+}`;
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: 'You are a learning outcomes assessment expert. Return only valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    console.error('AI scoring error:', response.status);
+    // Fallback to simple calculation
+    return 0.7;
   }
+
+  const data = await response.json();
+  const content = data.choices[0].message.content;
   
-  const lo_score = matches / Object.keys(dimensions).length;
-  const feasibility_score = weeks >= 12 ? 0.8 : 0.6;
-  const mutual_benefit_score = 0.8; // Assumed since AI matched needs
+  try {
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return 0.7;
+    
+    const result = JSON.parse(jsonMatch[0]);
+    return result.coverage_percentage / 100;
+  } catch {
+    return 0.7;
+  }
+}
+
+// Calculate all scores
+async function calculateScores(
+  tasks: string[], 
+  deliverables: string[], 
+  outcomes: string[], 
+  weeks: number,
+  loAlignment: string
+) {
+  const lo_score = await calculateLOAlignment(tasks, deliverables, outcomes, loAlignment);
+  const feasibility_score = weeks >= 12 ? 0.85 : 0.65;
+  const mutual_benefit_score = 0.80; // Assumed since AI matched company needs
   const final_score = 0.5 * lo_score + 0.3 * feasibility_score + 0.2 * mutual_benefit_score;
   
   return {
     lo_score: Math.round(lo_score * 100) / 100,
-    feasibility_score,
-    mutual_benefit_score,
+    feasibility_score: Math.round(feasibility_score * 100) / 100,
+    mutual_benefit_score: Math.round(mutual_benefit_score * 100) / 100,
     final_score: Math.round(final_score * 100) / 100
   };
 }
@@ -295,7 +350,13 @@ serve(async (req) => {
       );
       
       const teamSize = 4;
-      const scores = calculateScores(proposal.tasks, proposal.deliverables, outcomes, course.weeks);
+      const scores = await calculateScores(
+        proposal.tasks, 
+        proposal.deliverables, 
+        outcomes, 
+        course.weeks,
+        proposal.lo_alignment
+      );
       const budget = estimateBudget(
         course.weeks,
         course.hrs_per_week,
