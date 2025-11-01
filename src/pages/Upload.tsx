@@ -22,11 +22,11 @@ const Upload = () => {
   }, [authLoading]);
 
   useEffect(() => {
-    // Auto-detect location from user's email domain
-    if (user?.email) {
+    // Auto-detect location from user's email domain once when user is loaded
+    if (user?.email && !cityZip && !locationLoading) {
       detectLocationFromEmail(user.email);
     }
-  }, [user]);
+  }, [user?.email]);
 
   const detectLocationFromEmail = async (email: string) => {
     setLocationLoading(true);
