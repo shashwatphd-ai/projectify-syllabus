@@ -85,33 +85,46 @@ const Upload = () => {
     setLoading(true);
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('cityZip', cityZip);
-
+      console.log('Starting file upload...');
+      
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.access_token) {
-        throw new Error('Not authenticated');
+        throw new Error('Not authenticated. Please log in again.');
       }
+
+      console.log('Session valid, uploading file...');
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('cityZip', cityZip);
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-syllabus`,
         {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${session.access_token}`,
+            'Authorization': `Bearer ${session.access_token}`,
           },
           body: formData,
         }
       );
 
+      console.log('Response status:', response.status);
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        let errorMessage = `Failed to parse syllabus (${response.status})`;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+        } catch {}
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
+      console.log('Parse successful:', data);
 
       toast.success("Syllabus parsed successfully!");
       navigate("/configure", { 
