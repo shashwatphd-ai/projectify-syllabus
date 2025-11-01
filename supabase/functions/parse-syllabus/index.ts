@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import pdf from 'https://esm.sh/pdf-parse@1.1.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -120,13 +121,22 @@ serve(async (req) => {
 
     if (uploadError) throw uploadError;
 
-    // For now, we'll do basic text extraction
-    // In production, you'd use a PDF parsing library
+    // Parse the PDF file
     const arrayBuffer = await file.arrayBuffer();
-    const text = new TextDecoder().decode(arrayBuffer);
+    const buffer = new Uint8Array(arrayBuffer);
     
-    // Parse the PDF text
-    const parsed = extractText(text);
+    let pdfText = '';
+    try {
+      const data = await pdf(buffer);
+      pdfText = data.text;
+    } catch (pdfError) {
+      console.error('PDF parsing error:', pdfError);
+      // Fallback: Try to extract basic text
+      pdfText = 'Course syllabus';
+    }
+    
+    // Parse the extracted text
+    const parsed = extractText(pdfText);
 
     // Insert course profile
     const { data: course, error: insertError } = await supabaseClient
