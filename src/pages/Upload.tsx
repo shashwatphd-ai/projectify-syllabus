@@ -39,9 +39,24 @@ const Upload = () => {
     setLoading(true);
 
     // TODO: Implement actual file upload and parsing with Lovable Cloud
+    // Mock parsed data for now
     setTimeout(() => {
+      const mockCourseData = {
+        title: "Strategic Management Consulting",
+        level: "MBA",
+        weeks: 12,
+        hrs_per_week: 4,
+        outcomes: [
+          "Define project scope and objectives",
+          "Conduct market and competitive analysis",
+          "Build fact-based recommendations",
+          "Present findings to stakeholders",
+        ],
+        artifacts: ["proposal", "analysis memo", "final presentation"],
+      };
+
       toast.success("Syllabus parsed successfully!");
-      navigate("/configure");
+      navigate("/configure", { state: { courseData: mockCourseData } });
       setLoading(false);
     }, 2000);
   };

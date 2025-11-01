@@ -6,12 +6,15 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, Loader2 } from "lucide-react";
+import { authService } from "@/lib/supabase";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState("faculty");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"faculty" | "student">("faculty");
   const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(true);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,15 +25,30 @@ const Auth = () => {
       return;
     }
 
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+
     setLoading(true);
-    
-    // TODO: Implement actual authentication with Lovable Cloud
-    setTimeout(() => {
-      localStorage.setItem("eduthree_user", JSON.stringify({ email, role }));
-      toast.success("Welcome to EduThree!");
-      navigate("/upload");
+
+    try {
+      if (isSignUp) {
+        const { error } = await authService.signUp(email, password, role);
+        if (error) throw error;
+        toast.success("Account created! Redirecting...");
+        navigate("/upload");
+      } else {
+        const { error } = await authService.signIn(email, password);
+        if (error) throw error;
+        toast.success("Welcome back!");
+        navigate("/upload");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Authentication failed");
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -40,9 +58,9 @@ const Auth = () => {
           <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <GraduationCap className="h-8 w-8 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Welcome to EduThree</CardTitle>
+          <CardTitle className="text-2xl">{isSignUp ? "Create Account" : "Welcome Back"}</CardTitle>
           <CardDescription>
-            Sign in with your .edu email to get started
+            {isSignUp ? "Sign up with your .edu email to get started" : "Sign in to continue"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -62,27 +80,59 @@ const Auth = () => {
               </p>
             </div>
 
-            <div className="space-y-3">
-              <Label>I am a...</Label>
-              <RadioGroup value={role} onValueChange={setRole}>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="faculty" id="faculty" />
-                  <Label htmlFor="faculty" className="font-normal cursor-pointer">
-                    Faculty / Instructor
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="student" id="student" />
-                  <Label htmlFor="student" className="font-normal cursor-pointer">
-                    Student
-                  </Label>
-                </div>
-              </RadioGroup>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+              />
             </div>
 
+            {isSignUp && (
+              <div className="space-y-3">
+                <Label>I am a...</Label>
+                <RadioGroup value={role} onValueChange={(v) => setRole(v as any)}>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="faculty" id="faculty" />
+                    <Label htmlFor="faculty" className="font-normal cursor-pointer">
+                      Faculty / Instructor
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="student" id="student" />
+                    <Label htmlFor="student" className="font-normal cursor-pointer">
+                      Student
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            )}
+
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Continue"}
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {isSignUp ? "Creating account..." : "Signing in..."}
+                </>
+              ) : (
+                isSignUp ? "Create Account" : "Sign In"
+              )}
             </Button>
+
+            <div className="text-center text-sm">
+              <button
+                type="button"
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-primary hover:underline"
+              >
+                {isSignUp ? "Already have an account? Sign in" : "Need an account? Sign up"}
+              </button>
+            </div>
           </form>
         </CardContent>
       </Card>

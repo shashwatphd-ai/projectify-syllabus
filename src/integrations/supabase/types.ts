@@ -14,7 +14,243 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      course_profiles: {
+        Row: {
+          artifacts: Json
+          city_zip: string | null
+          created_at: string
+          file_path: string | null
+          hrs_per_week: number
+          id: string
+          level: string
+          outcomes: Json
+          owner_id: string
+          schedule: Json | null
+          title: string
+          weeks: number
+        }
+        Insert: {
+          artifacts: Json
+          city_zip?: string | null
+          created_at?: string
+          file_path?: string | null
+          hrs_per_week: number
+          id?: string
+          level: string
+          outcomes: Json
+          owner_id: string
+          schedule?: Json | null
+          title: string
+          weeks: number
+        }
+        Update: {
+          artifacts?: Json
+          city_zip?: string | null
+          created_at?: string
+          file_path?: string | null
+          hrs_per_week?: number
+          id?: string
+          level?: string
+          outcomes?: Json
+          owner_id?: string
+          schedule?: Json | null
+          title?: string
+          weeks?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_profiles_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evaluations: {
+        Row: {
+          alignment: number | null
+          comments: string | null
+          created_at: string
+          evaluator_id: string
+          evaluator_role: Database["public"]["Enums"]["app_role"]
+          feasibility: number | null
+          fit: number | null
+          id: string
+          liked: boolean
+          project_id: string
+        }
+        Insert: {
+          alignment?: number | null
+          comments?: string | null
+          created_at?: string
+          evaluator_id: string
+          evaluator_role: Database["public"]["Enums"]["app_role"]
+          feasibility?: number | null
+          fit?: number | null
+          id?: string
+          liked: boolean
+          project_id: string
+        }
+        Update: {
+          alignment?: number | null
+          comments?: string | null
+          created_at?: string
+          evaluator_id?: string
+          evaluator_role?: Database["public"]["Enums"]["app_role"]
+          feasibility?: number | null
+          fit?: number | null
+          id?: string
+          liked?: boolean
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evaluations_evaluator_id_fkey"
+            columns: ["evaluator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+        }
+        Relationships: []
+      }
+      project_forms: {
+        Row: {
+          form1: Json
+          form2: Json
+          form3: Json
+          form4: Json
+          form5: Json
+          form6: Json
+          id: string
+          milestones: Json
+          project_id: string
+        }
+        Insert: {
+          form1: Json
+          form2: Json
+          form3: Json
+          form4: Json
+          form5: Json
+          form6: Json
+          id?: string
+          milestones: Json
+          project_id: string
+        }
+        Update: {
+          form1?: Json
+          form2?: Json
+          form3?: Json
+          form4?: Json
+          form5?: Json
+          form6?: Json
+          id?: string
+          milestones?: Json
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_forms_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          company_name: string
+          course_id: string
+          created_at: string
+          deliverables: Json
+          duration_weeks: number
+          feasibility_score: number
+          final_score: number
+          id: string
+          lo_score: number
+          mutual_benefit_score: number
+          pricing_usd: number
+          sector: string
+          tasks: Json
+          team_size: number
+          tier: string
+          title: string
+        }
+        Insert: {
+          company_name: string
+          course_id: string
+          created_at?: string
+          deliverables: Json
+          duration_weeks: number
+          feasibility_score: number
+          final_score: number
+          id?: string
+          lo_score: number
+          mutual_benefit_score: number
+          pricing_usd: number
+          sector: string
+          tasks: Json
+          team_size: number
+          tier: string
+          title: string
+        }
+        Update: {
+          company_name?: string
+          course_id?: string
+          created_at?: string
+          deliverables?: Json
+          duration_weeks?: number
+          feasibility_score?: number
+          final_score?: number
+          id?: string
+          lo_score?: number
+          mutual_benefit_score?: number
+          pricing_usd?: number
+          sector?: string
+          tasks?: Json
+          team_size?: number
+          tier?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +259,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      app_role: "faculty" | "student"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +386,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["faculty", "student"],
+    },
   },
 } as const
