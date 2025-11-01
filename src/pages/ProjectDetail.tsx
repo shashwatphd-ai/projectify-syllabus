@@ -249,7 +249,7 @@ const ProjectDetail = () => {
                   <div>
                     <h3 className="font-semibold mb-3">Course Learning Outcomes</h3>
                     <ul className="space-y-2 mb-4">
-                      {courseProfile?.outcomes && JSON.parse(courseProfile.outcomes).map((outcome: string, i: number) => (
+                      {courseProfile?.outcomes && (Array.isArray(courseProfile.outcomes) ? courseProfile.outcomes : []).map((outcome: string, i: number) => (
                         <li key={i} className="flex items-start gap-2">
                           <Badge variant="outline" className="mt-0.5">LO{i + 1}</Badge>
                           <span>{outcome}</span>
