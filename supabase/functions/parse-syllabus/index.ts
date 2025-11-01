@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-import pdf from 'https://esm.sh/pdf-parse@1.1.1';
+import { getDocument } from 'https://esm.sh/pdfjs-serverless@0.3.2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -127,11 +127,18 @@ serve(async (req) => {
     
     let pdfText = '';
     try {
-      const data = await pdf(buffer);
-      pdfText = data.text;
+      const doc = await getDocument(buffer).promise;
+      const numPages = doc.numPages;
+      
+      // Extract text from all pages
+      for (let i = 1; i <= numPages; i++) {
+        const page = await doc.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items.map((item: any) => item.str).join(' ');
+        pdfText += pageText + '\n';
+      }
     } catch (pdfError) {
       console.error('PDF parsing error:', pdfError);
-      // Fallback: Try to extract basic text
       pdfText = 'Course syllabus';
     }
     
