@@ -22,38 +22,58 @@ const Upload = () => {
   }, [authLoading]);
 
   useEffect(() => {
-    // Auto-detect location on mount
-    detectLocation();
-  }, []);
+    // Auto-detect location from user's email domain
+    if (user?.email) {
+      detectLocationFromEmail(user.email);
+    }
+  }, [user]);
 
-  const detectLocation = async () => {
+  const detectLocationFromEmail = async (email: string) => {
     setLocationLoading(true);
     try {
-      // Use browser geolocation
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject);
-      });
+      // Extract domain from email (e.g., user@university.edu -> university.edu)
+      const domain = email.split('@')[1];
+      
+      if (!domain) {
+        console.log('No domain found in email');
+        return;
+      }
 
-      const { latitude, longitude } = position.coords;
+      console.log('Detecting location for domain:', domain);
 
-      // Reverse geocode using OpenStreetMap Nominatim (free, no API key needed)
+      // Use Nominatim to search for the university/organization
+      const searchQuery = domain.split('.')[0]; // e.g., "university" from "university.edu"
+      
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery + ' university')}&format=json&limit=1`
       );
       const data = await response.json();
 
-      if (data.address) {
-        const city = data.address.city || data.address.town || data.address.village || '';
-        const state = data.address.state || '';
-        const postcode = data.address.postcode || '';
+      if (data && data.length > 0) {
+        const location = data[0];
+        console.log('Found location:', location);
         
-        if (city && postcode) {
-          setCityZip(`${city}, ${state} ${postcode}`);
+        // Get detailed address with reverse geocoding
+        const reverseResponse = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${location.lat}&lon=${location.lon}`
+        );
+        const reverseData = await reverseResponse.json();
+        
+        if (reverseData.address) {
+          const city = reverseData.address.city || reverseData.address.town || reverseData.address.village || '';
+          const state = reverseData.address.state || '';
+          const postcode = reverseData.address.postcode || '';
+          
+          if (city && postcode) {
+            setCityZip(`${city}, ${state} ${postcode}`);
+            toast.success(`Location detected: ${city}, ${state}`);
+          }
         }
+      } else {
+        console.log('No location found for domain');
       }
     } catch (error) {
       console.log('Could not auto-detect location:', error);
-      // Silently fail - user can enter manually
     } finally {
       setLocationLoading(false);
     }
@@ -182,18 +202,18 @@ const Upload = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={detectLocation}
-                    disabled={locationLoading}
+                    onClick={() => user?.email && detectLocationFromEmail(user.email)}
+                    disabled={locationLoading || !user?.email}
                   >
                     {locationLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      "Auto-detect"
+                      "Re-detect"
                     )}
                   </Button>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Location auto-detected from your browser
+                  {locationLoading ? 'Detecting location from your email...' : 'Location auto-detected from your university email domain'}
                 </p>
               </div>
 
