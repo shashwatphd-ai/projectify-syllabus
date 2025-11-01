@@ -145,8 +145,8 @@ serve(async (req) => {
     // Parse the extracted text
     const parsed = extractText(pdfText);
 
-    // Insert course profile
-    const { data: course, error: insertError } = await supabaseClient
+    // Insert course profile using service role to bypass RLS
+    const { data: course, error: insertError } = await serviceRoleClient
       .from('course_profiles')
       .insert({
         owner_id: user.id,
