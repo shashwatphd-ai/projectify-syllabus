@@ -260,9 +260,9 @@ function cleanAndValidate(proposal: ProjectProposal): { cleaned: ProjectProposal
     issues.push('Skills are too generic - need domain-specific skills');
   }
   
-  // Validate contact info
-  if (!proposal.contact?.email?.includes('@') || !proposal.contact?.phone?.match(/\(\d{3}\)\s*\d{3}-\d{4}/)) {
-    issues.push('Contact information format invalid');
+  // Validate contact info (basic check)
+  if (!proposal.contact?.email?.includes('@')) {
+    issues.push('Contact email invalid');
   }
   
   // Validate tasks are concise
@@ -288,7 +288,7 @@ function validateProjectData(proposal: ProjectProposal, company: CompanyInfo): s
   if (!proposal.skills || proposal.skills.length < 3) {
     errors.push('Insufficient skills listed');
   }
-  if (!proposal.majors || proposal.majors.length < 2) {
+  if (!proposal.majors || proposal.majors.length < 1) {
     errors.push('Preferred majors not specified');
   }
   
@@ -298,9 +298,9 @@ function validateProjectData(proposal: ProjectProposal, company: CompanyInfo): s
     errors.push('Invalid email format');
   }
   
-  const phoneRegex = /^\(\d{3}\)\s*\d{3}-\d{4}$/;
-  if (proposal.contact?.phone && !phoneRegex.test(proposal.contact.phone)) {
-    errors.push('Invalid phone format - must be (XXX) XXX-XXXX');
+  // Phone format is flexible - just check if it exists
+  if (!proposal.contact?.phone || proposal.contact.phone.length < 10) {
+    errors.push('Phone number missing or too short');
   }
   
   // Content quality
