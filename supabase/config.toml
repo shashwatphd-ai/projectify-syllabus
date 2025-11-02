@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.generate-projects]
 verify_jwt = true
+
+[functions.data-enrichment-pipeline]
+verify_jwt = false

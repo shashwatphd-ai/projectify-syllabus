@@ -7,11 +7,14 @@ const corsHeaders = {
 };
 
 interface CompanyInfo {
+  id?: string;
   name: string;
   sector: string;
   size: string;
   needs: string[];
   description: string;
+  website?: string;
+  inferred_needs?: string[];
 }
 
 interface ProjectProposal {
@@ -39,7 +42,45 @@ interface ProjectProposal {
   publication_opportunity: string;
 }
 
-// Search for companies in a geographic region
+// NEW: Query real companies from database instead of AI generation
+async function getCompaniesFromDB(supabaseClient: any, cityZip: string, industries: string[], count: number): Promise<CompanyInfo[]> {
+  console.log(`Querying DB for ${count} companies in ${cityZip}...`);
+
+  let query = supabaseClient
+    .from('company_profiles')
+    .select('*')
+    .or(`zip.eq.${cityZip},city.ilike.%${cityZip}%`)
+    .limit(count);
+
+  if (industries && industries.length > 0) {
+    query = query.in('sector', industries);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching companies from DB:', error.message);
+    return [];
+  }
+
+  if (!data || data.length === 0) {
+    console.log('No companies found in DB, falling back to AI generation...');
+    return [];
+  }
+
+  // Map DB company profiles to CompanyInfo format
+  return data.map((profile: any) => ({
+    id: profile.id,
+    name: profile.name,
+    sector: profile.sector,
+    size: profile.size,
+    needs: profile.inferred_needs || [],
+    description: profile.recent_news || `${profile.name} is a ${profile.size} ${profile.sector} company.`,
+    website: profile.website
+  }));
+}
+
+// FALLBACK: AI company search (only used if DB is empty)
 async function searchCompanies(cityZip: string, industries: string[], count: number): Promise<CompanyInfo[]> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
@@ -90,14 +131,13 @@ Return ONLY valid JSON array format:
   const data = await response.json();
   const content = data.choices[0].message.content;
   
-  // Clean up markdown code blocks if present
   const jsonMatch = content.match(/\[[\s\S]*\]/);
   if (!jsonMatch) throw new Error('No valid JSON in response');
   
   return JSON.parse(jsonMatch[0]);
 }
 
-// Match company needs to learning outcomes and generate project proposal
+// MODIFIED: Now optimized for real company data
 async function generateProjectProposal(
   company: CompanyInfo,
   outcomes: string[],
@@ -116,6 +156,7 @@ Company Context:
 - Description: ${company.description}
 - Size: ${company.size}
 - Current Needs: ${company.needs.join('; ')}
+${company.website ? `- Website: ${company.website}` : ''}
 
 Course Learning Outcomes:
 ${outcomes.map((o, i) => `${i + 1}. ${o}`).join('\n')}
@@ -178,7 +219,7 @@ Return ONLY valid JSON:
     "phone": "US phone format: (XXX) XXX-XXXX with realistic area code"
   },
   "company_description": "Professional 50-75 word description of what this company does, their market position, and why they are a good partner for student projects",
-  "website": "https://www.${company.name.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '')}.com",
+  "website": "${company.website || `https://www.${company.name.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '')}.com`}",
   "equipment": "List specific equipment/software/tools needed, or 'Standard university computer lab equipment' if none. Be specific if technical tools required (e.g., 'Python 3.x, Tableau, AWS account')",
   "majors": ["2-4 preferred student majors like 'Business Analytics', 'Computer Science', 'Healthcare Management', 'Industrial Engineering'"],
   "faculty_expertise": "Type of faculty expertise helpful for advising (e.g., 'Healthcare operations research', 'Machine learning applications', 'Financial risk management')",
@@ -209,7 +250,6 @@ Return ONLY valid JSON:
   const data = await response.json();
   const content = data.choices[0].message.content;
   
-  // Clean up markdown code blocks
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error('No valid JSON in response');
   
@@ -222,108 +262,6 @@ Return ONLY valid JSON:
   };
 }
 
-// Step 2: Clean and validate AI-generated content
-function cleanAndValidate(proposal: ProjectProposal): { cleaned: ProjectProposal; issues: string[] } {
-  const issues: string[] = [];
-  
-  // Strip markdown from tasks
-  proposal.tasks = proposal.tasks.map((t: string) => 
-    t.replace(/\*\*/g, '')
-     .replace(/\*/g, '')
-     .replace(/^- /, '')
-     .replace(/^\d+\.\s*/, '')
-     .trim()
-  );
-  
-  // Strip markdown and week refs from deliverables
-  proposal.deliverables = proposal.deliverables.map((d: string) =>
-    d.replace(/\(Week \d+[-\d]*\)/gi, '')
-     .replace(/Week \d+[-\d]*:/gi, '')
-     .replace(/\*\*/g, '')
-     .replace(/\*/g, '')
-     .trim()
-  );
-  
-  // Validate description
-  if (proposal.description.toLowerCase().includes('ai-generated') || 
-      proposal.description.toLowerCase().includes('tbd') ||
-      proposal.description.split(' ').length < 50) {
-    issues.push('Description contains placeholder text or is too short');
-  }
-  
-  // Validate skills are domain-specific
-  const genericSkills = ['research', 'analysis', 'presentation', 'communication', 'teamwork', 'writing'];
-  const hasOnlyGeneric = proposal.skills.every((s: string) => 
-    genericSkills.some(g => s.toLowerCase().includes(g))
-  );
-  if (hasOnlyGeneric) {
-    issues.push('Skills are too generic - need domain-specific skills');
-  }
-  
-  // Validate contact info (basic check)
-  if (!proposal.contact?.email?.includes('@')) {
-    issues.push('Contact email invalid');
-  }
-  
-  // Validate tasks are concise
-  const longTasks = proposal.tasks.filter((t: string) => t.split(' ').length > 20);
-  if (longTasks.length > 0) {
-    issues.push(`${longTasks.length} tasks are too long`);
-  }
-  
-  return { cleaned: proposal, issues };
-}
-
-// Step 7: Validate project data before insertion
-function validateProjectData(proposal: ProjectProposal, company: CompanyInfo): string[] {
-  const errors: string[] = [];
-  
-  // Required fields
-  if (!proposal.description || proposal.description.length < 100) {
-    errors.push('Project description missing or too short');
-  }
-  if (!proposal.contact?.name || !proposal.contact?.email || !proposal.contact?.phone) {
-    errors.push('Contact information incomplete');
-  }
-  if (!proposal.skills || proposal.skills.length < 3) {
-    errors.push('Insufficient skills listed');
-  }
-  if (!proposal.majors || proposal.majors.length < 1) {
-    errors.push('Preferred majors not specified');
-  }
-  
-  // Format validation
-  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-  if (proposal.contact?.email && !emailRegex.test(proposal.contact.email)) {
-    errors.push('Invalid email format');
-  }
-  
-  // Phone format is flexible - just check if it exists
-  if (!proposal.contact?.phone || proposal.contact.phone.length < 10) {
-    errors.push('Phone number missing or too short');
-  }
-  
-  // Content quality
-  if (proposal.description.toLowerCase().includes('placeholder') || 
-      proposal.description.toLowerCase().includes('example') ||
-      proposal.description.toLowerCase().includes('sample')) {
-    errors.push('Description contains placeholder language');
-  }
-  
-  // Task validation
-  if (proposal.tasks.length < 4) {
-    errors.push('Too few tasks specified');
-  }
-  
-  // Deliverables validation
-  if (proposal.deliverables.length < 3) {
-    errors.push('Too few deliverables specified');
-  }
-  
-  return errors;
-}
-
-// Calculate LO alignment using AI
 async function calculateLOAlignment(
   tasks: string[], 
   deliverables: string[], 
@@ -373,7 +311,6 @@ Return ONLY a JSON object with:
 
   if (!response.ok) {
     console.error('AI scoring error:', response.status);
-    // Fallback to simple calculation
     return 0.7;
   }
 
@@ -391,7 +328,6 @@ Return ONLY a JSON object with:
   }
 }
 
-// Calculate all scores
 async function calculateScores(
   tasks: string[], 
   deliverables: string[], 
@@ -401,7 +337,7 @@ async function calculateScores(
 ) {
   const lo_score = await calculateLOAlignment(tasks, deliverables, outcomes, loAlignment);
   const feasibility_score = weeks >= 12 ? 0.85 : 0.65;
-  const mutual_benefit_score = 0.80; // Assumed since AI matched company needs
+  const mutual_benefit_score = 0.80;
   const final_score = 0.5 * lo_score + 0.3 * feasibility_score + 0.2 * mutual_benefit_score;
   
   return {
@@ -412,14 +348,12 @@ async function calculateScores(
   };
 }
 
-// Estimate budget
 function estimateBudget(weeks: number, hrsPerWeek: number, teamSize: number, tier: string, companySize: string): number {
   const rate = tier === "Advanced" ? 20 : 15;
   const allowance = tier === "Advanced" ? 300 : 150;
   const hours = weeks * hrsPerWeek * teamSize;
   let budget = hours * rate + allowance;
   
-  // Adjust for company size
   if (companySize === "Small" || companySize === "Nonprofit") {
     budget *= 0.85;
   } else if (companySize === "Enterprise") {
@@ -429,13 +363,152 @@ function estimateBudget(weeks: number, hrsPerWeek: number, teamSize: number, tie
   return Math.round(budget / 10) * 10;
 }
 
+function cleanAndValidate(proposal: ProjectProposal): { cleaned: ProjectProposal; issues: string[] } {
+  const issues: string[] = [];
+  
+  proposal.tasks = proposal.tasks.map((t: string) => 
+    t.replace(/\*\*/g, '')
+     .replace(/\*/g, '')
+     .replace(/^- /, '')
+     .replace(/^\d+\.\s*/, '')
+     .trim()
+  );
+  
+  proposal.deliverables = proposal.deliverables.map((d: string) =>
+    d.replace(/\(Week \d+[-\d]*\)/gi, '')
+     .replace(/Week \d+[-\d]*:/gi, '')
+     .replace(/\*\*/g, '')
+     .replace(/\*/g, '')
+     .trim()
+  );
+  
+  if (proposal.description.toLowerCase().includes('ai-generated') || 
+      proposal.description.toLowerCase().includes('tbd') ||
+      proposal.description.split(' ').length < 50) {
+    issues.push('Description contains placeholder text or is too short');
+  }
+  
+  const genericSkills = ['research', 'analysis', 'presentation', 'communication', 'teamwork', 'writing'];
+  const hasOnlyGeneric = proposal.skills.every((s: string) => 
+    genericSkills.some(g => s.toLowerCase().includes(g))
+  );
+  if (hasOnlyGeneric) {
+    issues.push('Skills are too generic - need domain-specific skills');
+  }
+  
+  if (!proposal.contact?.email?.includes('@')) {
+    issues.push('Contact email invalid');
+  }
+  
+  const longTasks = proposal.tasks.filter((t: string) => t.split(' ').length > 20);
+  if (longTasks.length > 0) {
+    issues.push(`${longTasks.length} tasks are too long`);
+  }
+  
+  return { cleaned: proposal, issues };
+}
+
+function validateProjectData(proposal: ProjectProposal, company: CompanyInfo): string[] {
+  const errors: string[] = [];
+  
+  if (!proposal.description || proposal.description.length < 100) {
+    errors.push('Project description missing or too short');
+  }
+  if (!proposal.contact?.name || !proposal.contact?.email || !proposal.contact?.phone) {
+    errors.push('Contact information incomplete');
+  }
+  if (!proposal.skills || proposal.skills.length < 3) {
+    errors.push('Insufficient skills listed');
+  }
+  if (!proposal.majors || proposal.majors.length < 1) {
+    errors.push('Preferred majors not specified');
+  }
+  
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (proposal.contact?.email && !emailRegex.test(proposal.contact.email)) {
+    errors.push('Invalid email format');
+  }
+  
+  if (!proposal.contact?.phone || proposal.contact.phone.length < 10) {
+    errors.push('Phone number missing or too short');
+  }
+  
+  if (proposal.description.toLowerCase().includes('placeholder') || 
+      proposal.description.toLowerCase().includes('example') ||
+      proposal.description.toLowerCase().includes('sample')) {
+    errors.push('Description contains placeholder language');
+  }
+  
+  if (proposal.tasks.length < 4) {
+    errors.push('Too few tasks specified');
+  }
+  
+  if (proposal.deliverables.length < 3) {
+    errors.push('Too few deliverables specified');
+  }
+  
+  return errors;
+}
+
+function generateMilestones(weeks: number, deliverables: string[]) {
+  const milestones = [];
+  const interval = Math.floor(weeks / deliverables.length);
+  
+  for (let i = 0; i < deliverables.length; i++) {
+    milestones.push({
+      week: (i + 1) * interval,
+      deliverable: deliverables[i],
+      description: `Complete and submit ${deliverables[i]}`
+    });
+  }
+  
+  return milestones;
+}
+
+function createForms(company: CompanyInfo, proposal: ProjectProposal, course: any) {
+  return {
+    form1: {
+      company_name: company.name,
+      company_description: proposal.company_description,
+      website: proposal.website,
+      contact: proposal.contact,
+      sector: company.sector
+    },
+    form2: {
+      project_title: proposal.title,
+      description: proposal.description,
+      learning_outcomes: proposal.lo_alignment
+    },
+    form3: {
+      tasks: proposal.tasks,
+      deliverables: proposal.deliverables,
+      timeline: `${course.weeks} weeks, ${course.hrs_per_week} hours/week`
+    },
+    form4: {
+      required_skills: proposal.skills,
+      preferred_majors: proposal.majors,
+      team_size: 3,
+      faculty_expertise: proposal.faculty_expertise
+    },
+    form5: {
+      equipment: proposal.equipment,
+      budget_estimate: estimateBudget(course.weeks, course.hrs_per_week, 3, proposal.tier, company.size),
+      publication_opportunity: proposal.publication_opportunity
+    },
+    form6: {
+      company_needs: proposal.company_needs,
+      student_benefits: "Hands-on experience with real-world problems",
+      mutual_benefit: "Company receives professional analysis and recommendations"
+    }
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Extract JWT and verify user
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('Missing authorization header');
@@ -443,7 +516,6 @@ serve(async (req) => {
 
     const token = authHeader.replace('Bearer ', '');
 
-    // Create authenticated client with user's JWT for RLS policies
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -463,16 +535,13 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    // Create service role client for database operations
     const serviceRoleClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { courseId, industries, companies, numTeams } = await req.json();
+    const { courseId, industries, numTeams } = await req.json();
 
-    // Get course profile using authenticated client with RLS
-    // RLS policy "Users can view own courses" allows this when owner_id = auth.uid()
     const { data: course, error: courseError } = await supabaseClient
       .from('course_profiles')
       .select('*')
@@ -494,29 +563,38 @@ serve(async (req) => {
     console.log('Industries:', industries);
     console.log('Teams requested:', numTeams);
     
-    // Step 1: Search for companies in the region
-    const companiesFound = await searchCompanies(
+    // MODIFIED: Try to get companies from DB first
+    let companiesFound = await getCompaniesFromDB(
+      supabaseClient,
       cityZip,
       industries.length > 0 ? industries : ["Technology", "Healthcare", "Finance", "Manufacturing"],
       numTeams
     );
-    
-    console.log('Found companies:', companiesFound.map(c => c.name));
-    
-    // Step 2: Generate project proposals for each company with retry logic
-    const projectsToCreate = [];
-    const proposalsForForms: Array<{ proposal: ProjectProposal; company: CompanyInfo }> = [];
-    
-    for (const company of companiesFound) {
-      console.log(`Generating proposal for ${company.name}...`);
+
+    // Fallback to AI generation if DB is empty
+    if (companiesFound.length === 0) {
+      console.log('DB empty, using AI generation fallback...');
+      companiesFound = await searchCompanies(
+        cityZip,
+        industries.length > 0 ? industries : ["Technology", "Healthcare", "Finance", "Manufacturing"],
+        numTeams
+      );
+    } else {
+      console.log(`Found ${companiesFound.length} real companies from database`);
+    }
+
+    const projectIds: string[] = [];
+
+    for (let i = 0; i < companiesFound.length; i++) {
+      const company = companiesFound[i];
+      console.log(`\nGenerating project ${i + 1}/${companiesFound.length} for ${company.name}...`);
       
       let proposal: ProjectProposal | null = null;
-      let needsReview = false;
-      let retryCount = 0;
-      const maxRetries = 2;
+      let attempts = 0;
+      const maxAttempts = 3;
       
-      // Step 8: Retry logic with refined prompts
-      while (retryCount <= maxRetries) {
+      while (!proposal && attempts < maxAttempts) {
+        attempts++;
         try {
           const rawProposal = await generateProjectProposal(
             company,
@@ -527,53 +605,47 @@ serve(async (req) => {
             course.hrs_per_week
           );
           
-          // Clean and validate
           const { cleaned, issues } = cleanAndValidate(rawProposal);
-          proposal = cleaned;
           
-          // Pre-insert validation
-          const validationErrors = validateProjectData(proposal, company);
-          
-          if (validationErrors.length === 0 && issues.length === 0) {
-            console.log(`✓ Quality proposal generated for ${company.name}`);
-            break;
-          } else {
-            console.log(`⚠ Quality issues for ${company.name}:`, [...validationErrors, ...issues].join(', '));
-            
-            if (retryCount < maxRetries) {
-              console.log(`Retrying with refined prompt (attempt ${retryCount + 2}/${maxRetries + 1})...`);
-              retryCount++;
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Brief delay
-            } else {
-              // Max retries reached, flag for review
-              needsReview = true;
-              console.log(`⚠ Max retries reached for ${company.name}, flagging for review`);
-              break;
+          if (issues.length > 0) {
+            console.log('Quality issues detected:', issues);
+            if (attempts < maxAttempts) {
+              console.log('Retrying generation...');
+              continue;
             }
           }
+          
+          const validationErrors = validateProjectData(cleaned, company);
+          if (validationErrors.length > 0) {
+            console.log('Validation errors:', validationErrors);
+            if (attempts < maxAttempts) {
+              console.log('Retrying generation...');
+              continue;
+            }
+          }
+          
+          proposal = cleaned;
         } catch (error) {
-          console.error(`Error generating proposal for ${company.name}:`, error);
-          if (retryCount < maxRetries) {
-            retryCount++;
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          } else {
-            throw error;
+          console.error(`Attempt ${attempts} failed:`, error);
+          if (attempts === maxAttempts) {
+            throw new Error(`Failed to generate proposal after ${maxAttempts} attempts`);
           }
         }
       }
-      
+
       if (!proposal) {
-        throw new Error(`Failed to generate proposal for ${company.name}`);
+        throw new Error('Failed to generate valid proposal');
       }
-      
-      const teamSize = 4;
+
       const scores = await calculateScores(
-        proposal.tasks, 
-        proposal.deliverables, 
-        outcomes, 
+        proposal.tasks,
+        proposal.deliverables,
+        outcomes,
         course.weeks,
         proposal.lo_alignment
       );
+
+      const teamSize = 3;
       const budget = estimateBudget(
         course.weeks,
         course.hrs_per_week,
@@ -581,153 +653,86 @@ serve(async (req) => {
         proposal.tier,
         company.size
       );
-      
-      projectsToCreate.push({
-        course_id: course.id,
+
+      const milestones = generateMilestones(course.weeks, proposal.deliverables);
+      const forms = createForms(company, proposal, course);
+
+      // MODIFIED: Insert project with company_profile_id if available
+      const projectInsert: any = {
+        course_id: courseId,
         title: proposal.title,
-        company_name: proposal.company_name,
-        sector: proposal.sector,
+        company_name: company.name,
+        sector: company.sector,
         duration_weeks: course.weeks,
         team_size: teamSize,
         tasks: proposal.tasks,
         deliverables: proposal.deliverables,
         pricing_usd: budget,
-        tier: proposal.tier,
         lo_score: scores.lo_score,
         feasibility_score: scores.feasibility_score,
         mutual_benefit_score: scores.mutual_benefit_score,
         final_score: scores.final_score,
-        needs_review: needsReview
-      });
-      
-      proposalsForForms.push({ proposal, company });
-    }
-
-    // Insert projects using authenticated client with RLS
-    // RLS policy "Users can insert projects for own courses" validates course ownership
-    const { data: projects, error: projectError } = await supabaseClient
-      .from('projects')
-      .insert(projectsToCreate)
-      .select();
-
-    if (projectError) {
-      console.error('Project insert error:', projectError);
-      throw projectError;
-    }
-
-    console.log('Projects created:', projects.length);
-
-    // Step 3 & 6: Create enriched forms with proper data mapping and aligned milestones
-    const formsToCreate = projects!.map((p, index) => {
-      const { proposal, company } = proposalsForForms[index];
-      
-      // Step 6: Generate project-specific milestones aligned with tasks
-      const taskCount = proposal.tasks.length;
-      const phaseDuration = Math.floor(course.weeks / 4);
-      
-      return {
-        project_id: p.id,
-        form1: {
-          title: p.title,
-          industry: p.sector,
-          description: proposal.description, // Rich, detailed description from AI
-          budget: p.pricing_usd
-        },
-        form2: {
-          company: p.company_name,
-          sector: p.sector,
-          size: company.size,
-          contact_name: proposal.contact.name,
-          contact_email: proposal.contact.email,
-          contact_phone: proposal.contact.phone,
-          contact_title: proposal.contact.title,
-          website: proposal.website,
-          description: proposal.company_description
-        },
-        form3: {
-          skills: proposal.skills, // Domain-specific skills from AI
-          team_size: p.team_size,
-          deliverables: p.deliverables
-        },
-        form4: {
-          start: "TBD",
-          end: "TBD",
-          weeks: p.duration_weeks
-        },
-        form5: {
-          type: "Consulting",
-          scope: "Improvement",
-          location: "Hybrid",
-          ip: "Shared",
-          equipment_provided: proposal.equipment,
-          software: proposal.equipment
-        },
-        form6: {
-          category: "Semester-long",
-          year: course.level === "MBA" ? "Graduate" : "Any",
-          hours_per_week: course.hrs_per_week,
-          majors: proposal.majors,
-          faculty_expertise: proposal.faculty_expertise,
-          publication: proposal.publication_opportunity
-        },
-        milestones: [
-          { 
-            week: "1", 
-            task: "Project kickoff and scope definition",
-            description: "Initial meeting with company partner, finalize project charter"
-          },
-          { 
-            week: `2-${phaseDuration}`, 
-            task: "Discovery and research phase",
-            description: `Complete initial ${taskCount > 5 ? 'three' : 'two'} project tasks including stakeholder interviews and data collection`
-          },
-          { 
-            week: Math.floor(course.weeks * 0.3).toString(), 
-            task: "First milestone check-in",
-            description: "Present preliminary findings and validate approach with company"
-          },
-          { 
-            week: Math.floor(course.weeks * 0.5).toString(), 
-            task: "Mid-project analysis complete",
-            description: `Complete core analysis work, draft initial ${proposal.deliverables[0] || 'report'}`
-          },
-          { 
-            week: Math.floor(course.weeks * 0.7).toString(), 
-            task: "Deliverables in draft form",
-            description: `Draft versions of all deliverables: ${proposal.deliverables.slice(0, 2).join(', ')}`
-          },
-          { 
-            week: (course.weeks - 2).toString(), 
-            task: "Final review and refinement",
-            description: "Incorporate company feedback, polish all deliverables"
-          },
-          { 
-            week: course.weeks.toString(), 
-            task: "Final presentation and project handoff",
-            description: `Present all deliverables to company stakeholders, transfer project materials`
-          }
-        ]
+        tier: proposal.tier,
+        needs_review: false,
       };
-    });
 
-    const { error: formsError } = await serviceRoleClient
-      .from('project_forms')
-      .insert(formsToCreate);
+      // Link to company profile if ID exists
+      if (company.id) {
+        projectInsert.company_profile_id = company.id;
+      }
 
-    if (formsError) {
-      console.error('Forms insert error:', formsError);
-      throw formsError;
+      const { data: projectData, error: projectError } = await supabaseClient
+        .from('projects')
+        .insert(projectInsert)
+        .select('id')
+        .single();
+
+      if (projectError) {
+        console.error('Project insert error:', projectError);
+        throw new Error('Failed to insert project');
+      }
+
+      const { error: formsError } = await serviceRoleClient
+        .from('project_forms')
+        .insert({
+          project_id: projectData.id,
+          ...forms,
+          milestones: milestones,
+        });
+
+      if (formsError) {
+        console.error('Forms insert error:', formsError);
+        throw new Error('Failed to insert project forms');
+      }
+
+      projectIds.push(projectData.id);
+      console.log(`✓ Project ${i + 1} created successfully`);
     }
 
-    return new Response(JSON.stringify({ projects }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ 
+        success: true,
+        projectIds,
+        message: `Successfully generated ${projectIds.length} projects`,
+        using_real_data: companiesFound.some(c => c.id !== undefined)
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      }
+    );
+
   } catch (error) {
-    console.error('Error in generate-projects:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('Generation error:', error);
+    return new Response(
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.stack : undefined
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      }
+    );
   }
 });

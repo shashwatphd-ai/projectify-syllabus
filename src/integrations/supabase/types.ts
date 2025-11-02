@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      company_profiles: {
+        Row: {
+          city: string | null
+          id: string
+          inferred_needs: Json | null
+          last_enriched_at: string
+          name: string
+          open_roles: Json | null
+          recent_news: string | null
+          sector: string | null
+          size: string | null
+          source: string | null
+          technologies: Json | null
+          website: string | null
+          zip: string | null
+        }
+        Insert: {
+          city?: string | null
+          id?: string
+          inferred_needs?: Json | null
+          last_enriched_at?: string
+          name: string
+          open_roles?: Json | null
+          recent_news?: string | null
+          sector?: string | null
+          size?: string | null
+          source?: string | null
+          technologies?: Json | null
+          website?: string | null
+          zip?: string | null
+        }
+        Update: {
+          city?: string | null
+          id?: string
+          inferred_needs?: Json | null
+          last_enriched_at?: string
+          name?: string
+          open_roles?: Json | null
+          recent_news?: string | null
+          sector?: string | null
+          size?: string | null
+          source?: string | null
+          technologies?: Json | null
+          website?: string | null
+          zip?: string | null
+        }
+        Relationships: []
+      }
       course_profiles: {
         Row: {
           artifacts: Json
@@ -186,6 +234,7 @@ export type Database = {
       projects: {
         Row: {
           company_name: string
+          company_profile_id: string | null
           course_id: string
           created_at: string
           deliverables: Json
@@ -205,6 +254,7 @@ export type Database = {
         }
         Insert: {
           company_name: string
+          company_profile_id?: string | null
           course_id: string
           created_at?: string
           deliverables: Json
@@ -224,6 +274,7 @@ export type Database = {
         }
         Update: {
           company_name?: string
+          company_profile_id?: string | null
           course_id?: string
           created_at?: string
           deliverables?: Json
@@ -242,6 +293,13 @@ export type Database = {
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "projects_company_profile_id_fkey"
+            columns: ["company_profile_id"]
+            isOneToOne: false
+            referencedRelation: "company_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "projects_course_id_fkey"
             columns: ["course_id"]
