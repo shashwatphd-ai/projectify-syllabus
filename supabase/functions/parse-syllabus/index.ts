@@ -106,10 +106,11 @@ serve(async (req) => {
       throw new Error('No file provided');
     }
 
-    // Upload to storage using service role to bypass RLS
+    // Upload to storage using service role (required for storage operations)
     const filePath = `${user.id}/${Date.now()}_${file.name}`;
     
-    // Create a service role client for storage operations
+    // Create a service role client ONLY for storage operations
+    // Storage APIs require service role key for file uploads
     const serviceRoleClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -145,8 +146,9 @@ serve(async (req) => {
     // Parse the extracted text
     const parsed = extractText(pdfText);
 
-    // Insert course profile using service role to bypass RLS
-    const { data: course, error: insertError } = await serviceRoleClient
+    // Insert course profile using authenticated client with RLS
+    // RLS policy "Users can insert own courses" allows this when owner_id = auth.uid()
+    const { data: course, error: insertError } = await supabaseClient
       .from('course_profiles')
       .insert({
         owner_id: user.id,
@@ -163,7 +165,10 @@ serve(async (req) => {
       .select()
       .single();
 
-    if (insertError) throw insertError;
+    if (insertError) {
+      console.error('Database insert error:', insertError);
+      throw insertError;
+    }
 
     return new Response(JSON.stringify({ course, parsed }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

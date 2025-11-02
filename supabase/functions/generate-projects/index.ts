@@ -304,8 +304,9 @@ serve(async (req) => {
 
     const { courseId, industries, companies, numTeams } = await req.json();
 
-    // Get course profile
-    const { data: course, error: courseError } = await serviceRoleClient
+    // Get course profile using authenticated client with RLS
+    // RLS policy "Users can view own courses" allows this when owner_id = auth.uid()
+    const { data: course, error: courseError } = await supabaseClient
       .from('course_profiles')
       .select('*')
       .eq('id', courseId)
@@ -313,6 +314,7 @@ serve(async (req) => {
       .single();
 
     if (courseError || !course) {
+      console.error('Course fetch error:', courseError);
       throw new Error('Course not found');
     }
 
@@ -383,8 +385,9 @@ serve(async (req) => {
       });
     }
 
-    // Insert projects
-    const { data: projects, error: projectError } = await serviceRoleClient
+    // Insert projects using authenticated client with RLS
+    // RLS policy "Users can insert projects for own courses" validates course ownership
+    const { data: projects, error: projectError } = await supabaseClient
       .from('projects')
       .insert(projectsToCreate)
       .select();
@@ -396,7 +399,9 @@ serve(async (req) => {
 
     console.log('Projects created:', projects.length);
 
-    // Create forms for each project
+    // Create forms for each project using service role
+    // No RLS policy exists for project_forms INSERT, so service role is required
+    // TODO: Consider adding RLS policy for project_forms to enable authenticated client usage
     const formsToCreate = projects!.map(p => ({
       project_id: p.id,
       form1: {

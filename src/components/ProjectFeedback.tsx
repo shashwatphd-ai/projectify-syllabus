@@ -7,11 +7,21 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ThumbsUp, ThumbsDown, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { z } from "zod";
 
 interface ProjectFeedbackProps {
   projectId: string;
   onSubmitted?: () => void;
 }
+
+// Input validation schema to prevent injection attacks and invalid data
+const feedbackSchema = z.object({
+  liked: z.boolean(),
+  fit: z.number().int().min(1).max(5).nullable(),
+  alignment: z.number().int().min(1).max(5).nullable(),
+  feasibility: z.number().int().min(1).max(5).nullable(),
+  comments: z.string().max(1000, "Comments must be less than 1000 characters").trim().nullable()
+});
 
 const ProjectFeedback = ({ projectId, onSubmitted }: ProjectFeedbackProps) => {
   const [liked, setLiked] = useState<boolean | null>(null);
@@ -27,6 +37,21 @@ const ProjectFeedback = ({ projectId, onSubmitted }: ProjectFeedbackProps) => {
       return;
     }
 
+    // Validate input data before submission
+    const validationResult = feedbackSchema.safeParse({
+      liked,
+      fit: fit ? parseInt(fit) : null,
+      alignment: alignment ? parseInt(alignment) : null,
+      feasibility: feasibility ? parseInt(feasibility) : null,
+      comments: comments.trim() || null
+    });
+
+    if (!validationResult.success) {
+      const errorMessage = validationResult.error.errors[0]?.message || "Invalid feedback data";
+      toast.error(errorMessage);
+      return;
+    }
+
     setSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -38,17 +63,19 @@ const ProjectFeedback = ({ projectId, onSubmitted }: ProjectFeedbackProps) => {
         .eq('id', user.id)
         .single();
 
+      const validData = validationResult.data;
+
       const { error } = await supabase
         .from('evaluations')
         .insert({
           project_id: projectId,
           evaluator_id: user.id,
           evaluator_role: profile?.role || 'faculty',
-          liked,
-          fit: fit ? parseInt(fit) : null,
-          alignment: alignment ? parseInt(alignment) : null,
-          feasibility: feasibility ? parseInt(feasibility) : null,
-          comments: comments.trim() || null
+          liked: validData.liked,
+          fit: validData.fit,
+          alignment: validData.alignment,
+          feasibility: validData.feasibility,
+          comments: validData.comments
         });
 
       if (error) throw error;
@@ -164,7 +191,11 @@ const ProjectFeedback = ({ projectId, onSubmitted }: ProjectFeedbackProps) => {
                 onChange={(e) => setComments(e.target.value)}
                 placeholder="Share any suggestions or concerns..."
                 rows={4}
+                maxLength={1000}
               />
+              <p className="text-xs text-muted-foreground">
+                {comments.length}/1000 characters
+              </p>
             </div>
 
             <Button 
