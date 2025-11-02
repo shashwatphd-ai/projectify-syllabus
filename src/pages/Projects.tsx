@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Briefcase, TrendingUp, Loader2 } from "lucide-react";
+import { ArrowLeft, Briefcase, TrendingUp, Loader2, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -98,7 +98,15 @@ const Projects = () => {
               <CardHeader>
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
-                    <CardTitle className="text-xl mb-2">{project.title}</CardTitle>
+                    <div className="flex items-center gap-2 mb-2">
+                      <CardTitle className="text-xl">{project.title}</CardTitle>
+                      {project.needs_review && (
+                        <Badge variant="outline" className="text-amber-600 border-amber-600">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Review
+                        </Badge>
+                      )}
+                    </div>
                     <CardDescription className="flex items-center gap-2">
                       <Briefcase className="h-4 w-4" />
                       {project.company_name}

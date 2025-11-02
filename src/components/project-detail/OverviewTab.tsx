@@ -57,17 +57,19 @@ export const OverviewTab = ({ project, forms }: OverviewTabProps) => {
             <Target className="h-5 w-5" />
             Project Tasks
           </CardTitle>
-          <CardDescription>Core activities derived from learning outcomes</CardDescription>
+          <CardDescription>Key activities and responsibilities</CardDescription>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-2">
+          <ol className="space-y-3">
             {(project.tasks as string[]).map((task, i) => (
-              <li key={i} className="flex items-start gap-2">
-                <span className="text-secondary mt-1">•</span>
-                <span>{task}</span>
+              <li key={i} className="flex items-start gap-3 group">
+                <span className="text-primary font-semibold min-w-[32px] text-lg mt-0.5">
+                  {i + 1}.
+                </span>
+                <span className="leading-relaxed text-foreground flex-1">{task}</span>
               </li>
             ))}
-          </ul>
+          </ol>
         </CardContent>
       </Card>
 
@@ -77,17 +79,18 @@ export const OverviewTab = ({ project, forms }: OverviewTabProps) => {
             <Package className="h-5 w-5" />
             Deliverables
           </CardTitle>
-          <CardDescription>Expected outputs from the project</CardDescription>
+          <CardDescription>Expected project outputs</CardDescription>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-2">
-            {(project.deliverables as string[]).map((del, i) => (
-              <li key={i} className="flex items-start gap-2">
-                <span className="text-secondary mt-1">•</span>
-                <span>{del}</span>
-              </li>
+          <div className="space-y-2">
+            {(project.deliverables as string[]).map((deliverable, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-sm font-medium">
+                  {deliverable}
+                </Badge>
+              </div>
             ))}
-          </ul>
+          </div>
         </CardContent>
       </Card>
 

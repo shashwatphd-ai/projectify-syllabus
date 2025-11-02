@@ -195,6 +195,7 @@ export type Database = {
           id: string
           lo_score: number
           mutual_benefit_score: number
+          needs_review: boolean | null
           pricing_usd: number
           sector: string
           tasks: Json
@@ -213,6 +214,7 @@ export type Database = {
           id?: string
           lo_score: number
           mutual_benefit_score: number
+          needs_review?: boolean | null
           pricing_usd: number
           sector: string
           tasks: Json
@@ -231,6 +233,7 @@ export type Database = {
           id?: string
           lo_score?: number
           mutual_benefit_score?: number
+          needs_review?: boolean | null
           pricing_usd?: number
           sector?: string
           tasks?: Json
