@@ -32,7 +32,9 @@ const Landing = () => {
               <Button
                 size="lg"
                 variant="outline"
-                onClick={() => navigate("/about")}
+                onClick={() => {
+                  document.querySelector('#how-it-works')?.scrollIntoView({ behavior: 'smooth' });
+                }}
                 className="text-lg px-8"
               >
                 Learn More
@@ -80,7 +82,7 @@ const Landing = () => {
       </section>
 
       {/* How It Works */}
-      <section className="py-20">
+      <section id="how-it-works" className="py-20">
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">How It Works</h2>
