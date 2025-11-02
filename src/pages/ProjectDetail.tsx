@@ -405,8 +405,15 @@ const ProjectDetail = () => {
                 <div className="space-y-4">
                   {forms.milestones.map((milestone: any, i: number) => (
                     <div key={i} className="flex items-start gap-4 pb-4 border-b last:border-0">
-                      <div className="w-20 font-semibold text-primary">{milestone.week}</div>
-                      <div className="flex-1">{milestone.task}</div>
+                      <div className="w-20 font-semibold text-primary">
+                        {milestone.week || milestone.name || `Week ${i + 1}`}
+                      </div>
+                      <div className="flex-1">
+                        <div>{milestone.task || milestone.description || ''}</div>
+                        {milestone.duration && (
+                          <div className="text-sm text-muted-foreground mt-1">{milestone.duration}</div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
