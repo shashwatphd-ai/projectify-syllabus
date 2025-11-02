@@ -4,10 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Building2, Calendar, DollarSign, Users, Target, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import ProjectFeedback from "@/components/ProjectFeedback";
+import { ProjectHeader } from "@/components/project-detail/ProjectHeader";
+import { OverviewTab } from "@/components/project-detail/OverviewTab";
+import { ContactTab } from "@/components/project-detail/ContactTab";
+import { LogisticsTab } from "@/components/project-detail/LogisticsTab";
+import { AcademicTab } from "@/components/project-detail/AcademicTab";
 
 const ProjectDetail = () => {
   const { id } = useParams();
@@ -96,78 +101,14 @@ const ProjectDetail = () => {
           Back
         </Button>
 
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">{project.title}</h1>
-              <p className="text-muted-foreground flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                {project.company_name}
-              </p>
-            </div>
-            <Badge variant="secondary" className="text-lg px-4 py-2">
-              {project.sector}
-            </Badge>
-          </div>
+        <ProjectHeader project={project} />
 
-          {/* Key Metrics */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <Target className="h-5 w-5 text-secondary" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">LO Coverage</p>
-                    <p className="text-2xl font-bold">{Math.round(project.lo_score * 100)}%</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <DollarSign className="h-5 w-5 text-secondary" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Budget</p>
-                    <p className="text-2xl font-bold">${project.pricing_usd.toLocaleString()}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <Calendar className="h-5 w-5 text-secondary" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Duration</p>
-                    <p className="text-2xl font-bold">{project.duration_weeks} weeks</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <Users className="h-5 w-5 text-secondary" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Team Size</p>
-                    <p className="text-2xl font-bold">{project.team_size} students</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-9 gap-1">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="company">Company</TabsTrigger>
+            <TabsTrigger value="contact">Contact</TabsTrigger>
+            <TabsTrigger value="logistics">Logistics</TabsTrigger>
+            <TabsTrigger value="academic">Academic</TabsTrigger>
             <TabsTrigger value="lo-mapping">LO Mapping</TabsTrigger>
             <TabsTrigger value="forms">Forms</TabsTrigger>
             <TabsTrigger value="milestones">Milestones</TabsTrigger>
@@ -175,67 +116,20 @@ const ProjectDetail = () => {
             <TabsTrigger value="feedback">Feedback</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Project Tasks</CardTitle>
-                <CardDescription>Core activities derived from learning outcomes</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {(project.tasks as string[]).map((task, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="text-secondary mt-1">•</span>
-                      <span>{task}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Deliverables</CardTitle>
-                <CardDescription>Expected outputs from the project</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {(project.deliverables as string[]).map((del, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="text-secondary mt-1">•</span>
-                      <span>{del}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
+          <TabsContent value="overview">
+            <OverviewTab project={project} forms={forms} />
           </TabsContent>
 
-          <TabsContent value="company" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Company Information</CardTitle>
-                <CardDescription>Partner organization details</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h3 className="font-semibold mb-2">Company Name</h3>
-                  <p>{forms.form2.company}</p>
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-2">Sector</h3>
-                  <p>{forms.form2.sector}</p>
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-2">Company Size</h3>
-                  <p>{forms.form2.size}</p>
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-2">Project Description</h3>
-                  <p className="text-muted-foreground">{forms.form1.description}</p>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="contact">
+            <ContactTab forms={forms} />
+          </TabsContent>
+
+          <TabsContent value="logistics">
+            <LogisticsTab forms={forms} />
+          </TabsContent>
+
+          <TabsContent value="academic">
+            <AcademicTab forms={forms} />
           </TabsContent>
 
           <TabsContent value="lo-mapping" className="space-y-6">
