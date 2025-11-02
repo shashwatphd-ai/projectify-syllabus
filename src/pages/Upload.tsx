@@ -212,7 +212,6 @@ const Upload = () => {
                     placeholder="Kansas City, MO 64110"
                     value={cityZip}
                     onChange={(e) => setCityZip(e.target.value)}
-                    required
                   />
                   <Button
                     type="button"
