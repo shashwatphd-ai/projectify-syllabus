@@ -1,12 +1,65 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, BookOpen, Briefcase, Target } from "lucide-react";
+import { ArrowRight, BookOpen, Briefcase, Target, Menu } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const Landing = () => {
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Navigation Bar */}
+      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+        <div className="container mx-auto px-4">
+          <div className="flex h-16 items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Briefcase className="h-6 w-6 text-primary" />
+              <span className="text-xl font-bold">Project Generator</span>
+            </div>
+            
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center gap-6">
+              <button 
+                onClick={() => document.querySelector('#how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
+                className="text-sm font-medium hover:text-primary transition-colors"
+              >
+                How It Works
+              </button>
+              <Button onClick={() => navigate("/auth")} variant="default">
+                Sign In
+              </Button>
+            </div>
+
+            {/* Mobile Navigation */}
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild className="md:hidden">
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right">
+                <div className="flex flex-col gap-4 mt-8">
+                  <button 
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      document.querySelector('#how-it-works')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="text-lg font-medium hover:text-primary transition-colors text-left"
+                  >
+                    How It Works
+                  </button>
+                  <Button onClick={() => navigate("/auth")} className="w-full">
+                    Sign In
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+        </div>
+      </nav>
+
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-[var(--gradient-hero)] opacity-5" />

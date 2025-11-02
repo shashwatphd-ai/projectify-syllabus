@@ -13,6 +13,10 @@ import { OverviewTab } from "@/components/project-detail/OverviewTab";
 import { ContactTab } from "@/components/project-detail/ContactTab";
 import { LogisticsTab } from "@/components/project-detail/LogisticsTab";
 import { AcademicTab } from "@/components/project-detail/AcademicTab";
+import { AlgorithmTab } from "@/components/project-detail/AlgorithmTab";
+import { LearningOutcomeAlignment } from "@/components/project-detail/LearningOutcomeAlignment";
+import { TimelineTab } from "@/components/project-detail/TimelineTab";
+import { Navigation } from "@/components/Navigation";
 
 const ProjectDetail = () => {
   const { id } = useParams();
@@ -95,19 +99,30 @@ const ProjectDetail = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Navigation />
       <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/projects")}
+          className="mb-6"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Projects
+        </Button>
+
         <ProjectHeader project={project} />
 
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="flex flex-wrap h-auto gap-2 p-2">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="contact">Contact</TabsTrigger>
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
             <TabsTrigger value="logistics">Logistics</TabsTrigger>
             <TabsTrigger value="academic">Academic</TabsTrigger>
-            <TabsTrigger value="lo-mapping">LO Mapping</TabsTrigger>
-            <TabsTrigger value="milestones">Milestones</TabsTrigger>
+            <TabsTrigger value="lo-mapping">LO Alignment</TabsTrigger>
             <TabsTrigger value="scoring">Scoring</TabsTrigger>
-            <TabsTrigger value="forms">Forms</TabsTrigger>
+            <TabsTrigger value="forms">All Forms</TabsTrigger>
+            <TabsTrigger value="algorithm">Algorithm</TabsTrigger>
             <TabsTrigger value="feedback">Feedback</TabsTrigger>
           </TabsList>
 
@@ -119,6 +134,10 @@ const ProjectDetail = () => {
             <ContactTab forms={forms} />
           </TabsContent>
 
+          <TabsContent value="timeline">
+            <TimelineTab forms={forms} />
+          </TabsContent>
+
           <TabsContent value="logistics">
             <LogisticsTab forms={forms} />
           </TabsContent>
@@ -128,76 +147,7 @@ const ProjectDetail = () => {
           </TabsContent>
 
           <TabsContent value="lo-mapping" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Learning Outcomes Mapping</CardTitle>
-                <CardDescription>How this project aligns with course learning outcomes</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="font-semibold mb-3">Course Learning Outcomes</h3>
-                    <ul className="space-y-2 mb-4">
-                      {courseProfile?.outcomes && (Array.isArray(courseProfile.outcomes) ? courseProfile.outcomes : []).map((outcome: string, i: number) => (
-                        <li key={i} className="flex items-start gap-2">
-                          <Badge variant="outline" className="mt-0.5">LO{i + 1}</Badge>
-                          <span>{outcome}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="border-t pt-6">
-                    <h3 className="font-semibold mb-3">Project Tasks Mapping</h3>
-                    <ul className="space-y-2 mb-4">
-                      {(project.tasks as string[]).map((task, i) => (
-                        <li key={i} className="flex items-start gap-2">
-                          <span className="text-secondary font-bold">→</span>
-                          <span>{task}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="border-t pt-6">
-                    <h3 className="font-semibold mb-3">Required Skills</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {forms.form3.skills.map((skill: string, i: number) => (
-                        <Badge key={i} variant="secondary">{skill}</Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="border-t pt-6">
-                    <h3 className="font-semibold mb-3">Deliverables</h3>
-                    <ul className="space-y-2">
-                      {(project.deliverables as string[]).map((del, i) => (
-                        <li key={i} className="flex items-start gap-2">
-                          <span className="text-primary font-bold">✓</span>
-                          <span>{del}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="border-t pt-6">
-                    <h3 className="font-semibold mb-3">Alignment Score</h3>
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-primary"
-                          style={{ width: `${project.lo_score * 100}%` }}
-                        />
-                      </div>
-                      <span className="text-2xl font-bold text-primary">{Math.round(project.lo_score * 100)}%</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      This project covers {Math.round(project.lo_score * 100)}% of the course learning outcomes.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <LearningOutcomeAlignment project={project} courseProfile={courseProfile} />
           </TabsContent>
 
           <TabsContent value="forms" className="space-y-6">
@@ -341,38 +291,6 @@ const ProjectDetail = () => {
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-
-          <TabsContent value="milestones" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Project Timeline</CardTitle>
-                <CardDescription>Key checkpoints throughout the engagement</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="relative">
-                  <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-border" />
-                  <div className="space-y-6">
-                    {forms.milestones.map((milestone: any, i: number) => (
-                      <div key={i} className="relative flex items-start gap-6">
-                        <div className="relative z-10 flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 border-2 border-primary shrink-0">
-                          <span className="text-sm font-bold text-primary">
-                            {milestone.week || `W${i + 1}`}
-                          </span>
-                        </div>
-                        <div className="flex-1 pt-3">
-                          <h4 className="font-semibold mb-1">{milestone.name || `Milestone ${i + 1}`}</h4>
-                          <p className="text-sm text-muted-foreground">{milestone.task || milestone.description || ''}</p>
-                          {milestone.duration && (
-                            <Badge variant="outline" className="mt-2">{milestone.duration}</Badge>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           <TabsContent value="scoring" className="space-y-6">
@@ -529,6 +447,10 @@ const ProjectDetail = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="algorithm">
+            <AlgorithmTab />
           </TabsContent>
 
           <TabsContent value="feedback">

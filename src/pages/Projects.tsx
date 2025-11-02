@@ -3,9 +3,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Briefcase, TrendingUp, Loader2, AlertTriangle } from "lucide-react";
+import { Briefcase, TrendingUp, Loader2, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { Navigation } from "@/components/Navigation";
 
 const Projects = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
@@ -71,16 +72,8 @@ const Projects = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Navigation />
       <div className="container mx-auto px-4 py-8">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/upload")}
-          className="mb-6"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Upload
-        </Button>
-
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Generated Projects</h1>
           <p className="text-muted-foreground">
