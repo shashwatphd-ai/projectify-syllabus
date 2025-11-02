@@ -1,14 +1,27 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Building2, Target, DollarSign, Calendar, Users } from "lucide-react";
+import { Building2, Target, DollarSign, Calendar, Users, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface ProjectHeaderProps {
   project: any;
 }
 
 export const ProjectHeader = ({ project }: ProjectHeaderProps) => {
+  const navigate = useNavigate();
+  
   return (
     <div className="mb-8">
+      <Button
+        variant="ghost"
+        onClick={() => navigate('/projects')}
+        className="mb-4"
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Back to Projects
+      </Button>
+      
       <div className="flex items-start justify-between mb-4">
         <div>
           <h1 className="text-3xl font-bold mb-2">{project.title}</h1>
