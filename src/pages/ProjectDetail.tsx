@@ -104,19 +104,17 @@ const ProjectDetail = () => {
         <ProjectHeader project={project} />
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <div className="w-full overflow-x-auto overflow-y-visible pb-2 -mx-4 px-4">
-            <TabsList className="inline-flex w-max gap-1">
-              <TabsTrigger value="overview" className="cursor-pointer">Overview</TabsTrigger>
-              <TabsTrigger value="contact" className="cursor-pointer">Contact</TabsTrigger>
-              <TabsTrigger value="logistics" className="cursor-pointer">Logistics</TabsTrigger>
-              <TabsTrigger value="academic" className="cursor-pointer">Academic</TabsTrigger>
-              <TabsTrigger value="lo-mapping" className="cursor-pointer">LO Mapping</TabsTrigger>
-              <TabsTrigger value="milestones" className="cursor-pointer">Milestones</TabsTrigger>
-              <TabsTrigger value="scoring" className="cursor-pointer">Scoring</TabsTrigger>
-              <TabsTrigger value="forms" className="cursor-pointer">Forms</TabsTrigger>
-              <TabsTrigger value="feedback" className="cursor-pointer">Feedback</TabsTrigger>
-            </TabsList>
-          </div>
+          <TabsList className="flex flex-wrap h-auto gap-2 p-2">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="contact">Contact</TabsTrigger>
+            <TabsTrigger value="logistics">Logistics</TabsTrigger>
+            <TabsTrigger value="academic">Academic</TabsTrigger>
+            <TabsTrigger value="lo-mapping">LO Mapping</TabsTrigger>
+            <TabsTrigger value="milestones">Milestones</TabsTrigger>
+            <TabsTrigger value="scoring">Scoring</TabsTrigger>
+            <TabsTrigger value="forms">Forms</TabsTrigger>
+            <TabsTrigger value="feedback">Feedback</TabsTrigger>
+          </TabsList>
 
           <TabsContent value="overview">
             <OverviewTab project={project} forms={forms} />
