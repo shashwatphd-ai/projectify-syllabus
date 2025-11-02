@@ -104,17 +104,19 @@ const ProjectDetail = () => {
         <ProjectHeader project={project} />
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-9 gap-1">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="contact">Contact</TabsTrigger>
-            <TabsTrigger value="logistics">Logistics</TabsTrigger>
-            <TabsTrigger value="academic">Academic</TabsTrigger>
-            <TabsTrigger value="lo-mapping">LO Mapping</TabsTrigger>
-            <TabsTrigger value="forms">Forms</TabsTrigger>
-            <TabsTrigger value="milestones">Milestones</TabsTrigger>
-            <TabsTrigger value="scoring">Scoring</TabsTrigger>
-            <TabsTrigger value="feedback">Feedback</TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto pb-2">
+            <TabsList className="inline-flex w-max min-w-full">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="contact">Contact</TabsTrigger>
+              <TabsTrigger value="logistics">Logistics</TabsTrigger>
+              <TabsTrigger value="academic">Academic</TabsTrigger>
+              <TabsTrigger value="lo-mapping">LO Mapping</TabsTrigger>
+              <TabsTrigger value="milestones">Milestones</TabsTrigger>
+              <TabsTrigger value="scoring">Scoring</TabsTrigger>
+              <TabsTrigger value="forms">Forms</TabsTrigger>
+              <TabsTrigger value="feedback">Feedback</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="overview">
             <OverviewTab project={project} forms={forms} />
@@ -206,87 +208,146 @@ const ProjectDetail = () => {
           </TabsContent>
 
           <TabsContent value="forms" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Form 1: Project Overview</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div><span className="font-semibold">Title:</span> {forms.form1.title}</div>
-                <div><span className="font-semibold">Industry:</span> {forms.form1.industry}</div>
-                <div><span className="font-semibold">Description:</span> {forms.form1.description}</div>
-                <div><span className="font-semibold">Budget:</span> ${forms.form1.budget.toLocaleString()}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Form 2: Company Profile</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div><span className="font-semibold">Company:</span> {forms.form2.company}</div>
-                <div><span className="font-semibold">Sector:</span> {forms.form2.sector}</div>
-                <div><span className="font-semibold">Size:</span> {forms.form2.size}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Form 3: Team Requirements</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <span className="font-semibold">Skills:</span>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {forms.form3.skills.map((skill: string, i: number) => (
-                      <Badge key={i} variant="outline">{skill}</Badge>
-                    ))}
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Project Overview</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Title</p>
+                    <p className="font-medium">{forms.form1.title}</p>
                   </div>
-                </div>
-                <div><span className="font-semibold">Team Size:</span> {forms.form3.team_size} students</div>
-                <div>
-                  <span className="font-semibold">Deliverables:</span>
-                  <ul className="list-disc list-inside mt-2">
-                    {forms.form3.deliverables.map((d: string, i: number) => (
-                      <li key={i}>{d}</li>
-                    ))}
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Industry</p>
+                    <Badge variant="secondary">{forms.form1.industry}</Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Description</p>
+                    <p className="text-sm">{forms.form1.description}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Budget</p>
+                    <p className="text-lg font-bold text-primary">${forms.form1.budget.toLocaleString()}</p>
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Form 4: Timeline</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div><span className="font-semibold">Start:</span> {forms.form4.start}</div>
-                <div><span className="font-semibold">End:</span> {forms.form4.end}</div>
-                <div><span className="font-semibold">Duration:</span> {forms.form4.weeks} weeks</div>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Company Profile</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Company</p>
+                    <p className="font-medium">{forms.form2.company}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Sector</p>
+                    <Badge variant="secondary">{forms.form2.sector}</Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Size</p>
+                    <p>{forms.form2.size}</p>
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Form 5: Project Structure</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div><span className="font-semibold">Type:</span> {forms.form5.type}</div>
-                <div><span className="font-semibold">Scope:</span> {forms.form5.scope}</div>
-                <div><span className="font-semibold">Location:</span> {forms.form5.location}</div>
-                <div><span className="font-semibold">IP Rights:</span> {forms.form5.ip}</div>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Team Requirements</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">Skills</p>
+                    <div className="flex flex-wrap gap-2">
+                      {forms.form3.skills.map((skill: string, i: number) => (
+                        <Badge key={i} variant="outline">{skill}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Team Size</p>
+                    <p className="font-medium">{forms.form3.team_size} students</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">Deliverables</p>
+                    <ul className="space-y-1">
+                      {forms.form3.deliverables.map((d: string, i: number) => (
+                        <li key={i} className="text-sm flex items-start gap-2">
+                          <span className="text-primary mt-0.5">•</span>
+                          <span>{d}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Form 6: Course Integration</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div><span className="font-semibold">Category:</span> {forms.form6.category}</div>
-                <div><span className="font-semibold">Year:</span> {forms.form6.year}</div>
-                <div><span className="font-semibold">Hours per Week:</span> {forms.form6.hours_per_week}</div>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Timeline</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Start Date</p>
+                    <p className="font-medium">{forms.form4.start}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">End Date</p>
+                    <p className="font-medium">{forms.form4.end}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Duration</p>
+                    <p className="text-lg font-bold text-primary">{forms.form4.weeks} weeks</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Project Structure</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Type</p>
+                    <Badge variant="secondary">{forms.form5.type}</Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Scope</p>
+                    <p>{forms.form5.scope}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Location</p>
+                    <p>{forms.form5.location}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">IP Rights</p>
+                    <p>{forms.form5.ip}</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Course Integration</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Category</p>
+                    <Badge variant="secondary">{forms.form6.category}</Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Year</p>
+                    <p>{forms.form6.year}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Hours per Week</p>
+                    <p className="font-medium">{forms.form6.hours_per_week} hrs</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="milestones" className="space-y-4">
@@ -296,79 +357,185 @@ const ProjectDetail = () => {
                 <CardDescription>Key checkpoints throughout the engagement</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {forms.milestones.map((milestone: any, i: number) => (
-                    <div key={i} className="flex items-start gap-4 pb-4 border-b last:border-0">
-                      <div className="w-20 font-semibold text-primary">
-                        {milestone.week || milestone.name || `Week ${i + 1}`}
+                <div className="relative">
+                  <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-border" />
+                  <div className="space-y-6">
+                    {forms.milestones.map((milestone: any, i: number) => (
+                      <div key={i} className="relative flex items-start gap-6">
+                        <div className="relative z-10 flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 border-2 border-primary shrink-0">
+                          <span className="text-sm font-bold text-primary">
+                            {milestone.week || `W${i + 1}`}
+                          </span>
+                        </div>
+                        <div className="flex-1 pt-3">
+                          <h4 className="font-semibold mb-1">{milestone.name || `Milestone ${i + 1}`}</h4>
+                          <p className="text-sm text-muted-foreground">{milestone.task || milestone.description || ''}</p>
+                          {milestone.duration && (
+                            <Badge variant="outline" className="mt-2">{milestone.duration}</Badge>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <div>{milestone.task || milestone.description || ''}</div>
-                        {milestone.duration && (
-                          <div className="text-sm text-muted-foreground mt-1">{milestone.duration}</div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="scoring" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Project Scoring</CardTitle>
-                <CardDescription>Evaluation metrics for project fit</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span>Learning Outcome Coverage</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-secondary"
-                        style={{ width: `${project.lo_score * 100}%` }}
-                      />
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Learning Outcome Coverage</CardTitle>
+                  <CardDescription>How well project aligns with course goals</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-center py-8">
+                    <div className="relative w-40 h-40">
+                      <svg className="w-full h-full" viewBox="0 0 100 100">
+                        <circle
+                          className="text-muted stroke-current"
+                          strokeWidth="10"
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          fill="transparent"
+                        />
+                        <circle
+                          className="text-primary stroke-current"
+                          strokeWidth="10"
+                          strokeLinecap="round"
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          fill="transparent"
+                          strokeDasharray={`${2 * Math.PI * 40}`}
+                          strokeDashoffset={`${2 * Math.PI * 40 * (1 - project.lo_score)}`}
+                          transform="rotate(-90 50 50)"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-3xl font-bold text-primary">{Math.round(project.lo_score * 100)}%</span>
+                      </div>
                     </div>
-                    <span className="font-bold">{Math.round(project.lo_score * 100)}%</span>
                   </div>
-                </div>
+                </CardContent>
+              </Card>
 
-                <div className="flex items-center justify-between">
-                  <span>Feasibility</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-secondary"
-                        style={{ width: `${project.feasibility_score * 100}%` }}
-                      />
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Feasibility</CardTitle>
+                  <CardDescription>Project complexity and achievability</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-center py-8">
+                    <div className="relative w-40 h-40">
+                      <svg className="w-full h-full" viewBox="0 0 100 100">
+                        <circle
+                          className="text-muted stroke-current"
+                          strokeWidth="10"
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          fill="transparent"
+                        />
+                        <circle
+                          className="text-secondary stroke-current"
+                          strokeWidth="10"
+                          strokeLinecap="round"
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          fill="transparent"
+                          strokeDasharray={`${2 * Math.PI * 40}`}
+                          strokeDashoffset={`${2 * Math.PI * 40 * (1 - project.feasibility_score)}`}
+                          transform="rotate(-90 50 50)"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-3xl font-bold text-secondary">{Math.round(project.feasibility_score * 100)}%</span>
+                      </div>
                     </div>
-                    <span className="font-bold">{Math.round(project.feasibility_score * 100)}%</span>
                   </div>
-                </div>
+                </CardContent>
+              </Card>
 
-                <div className="flex items-center justify-between">
-                  <span>Mutual Benefit</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-secondary"
-                        style={{ width: `${project.mutual_benefit_score * 100}%` }}
-                      />
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Mutual Benefit</CardTitle>
+                  <CardDescription>Value for both students and partner</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-center py-8">
+                    <div className="relative w-40 h-40">
+                      <svg className="w-full h-full" viewBox="0 0 100 100">
+                        <circle
+                          className="text-muted stroke-current"
+                          strokeWidth="10"
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          fill="transparent"
+                        />
+                        <circle
+                          className="text-accent stroke-current"
+                          strokeWidth="10"
+                          strokeLinecap="round"
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          fill="transparent"
+                          strokeDasharray={`${2 * Math.PI * 40}`}
+                          strokeDashoffset={`${2 * Math.PI * 40 * (1 - project.mutual_benefit_score)}`}
+                          transform="rotate(-90 50 50)"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-3xl font-bold text-accent">{Math.round(project.mutual_benefit_score * 100)}%</span>
+                      </div>
                     </div>
-                    <span className="font-bold">{Math.round(project.mutual_benefit_score * 100)}%</span>
                   </div>
-                </div>
+                </CardContent>
+              </Card>
 
-                <div className="pt-4 border-t">
-                  <div className="flex items-center justify-between text-lg">
-                    <span className="font-semibold">Final Score</span>
-                    <span className="font-bold text-primary">{Math.round(project.final_score * 100)}%</span>
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle className="text-xl">Final Score</CardTitle>
+                  <CardDescription>Overall project rating</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-center py-8">
+                    <div className="relative w-48 h-48">
+                      <svg className="w-full h-full" viewBox="0 0 100 100">
+                        <circle
+                          className="text-muted stroke-current"
+                          strokeWidth="8"
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          fill="transparent"
+                        />
+                        <circle
+                          className="text-primary stroke-current"
+                          strokeWidth="8"
+                          strokeLinecap="round"
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          fill="transparent"
+                          strokeDasharray={`${2 * Math.PI * 40}`}
+                          strokeDashoffset={`${2 * Math.PI * 40 * (1 - project.final_score)}`}
+                          transform="rotate(-90 50 50)"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-5xl font-bold text-primary">{Math.round(project.final_score * 100)}%</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="feedback">
