@@ -93,7 +93,7 @@ const Projects = () => {
             <Card
               key={project.id}
               className="shadow-[var(--shadow-card)] hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => navigate(`/projects/${project.id}`, { state: { project } })}
+              onClick={() => navigate(`/projects/${project.id}`, { state: { courseId } })}
             >
               <CardHeader>
                 <div className="flex items-start justify-between gap-4">

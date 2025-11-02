@@ -15,7 +15,7 @@ export const ProjectHeader = ({ project }: ProjectHeaderProps) => {
     <div className="mb-8">
       <Button
         variant="ghost"
-        onClick={() => navigate('/projects')}
+        onClick={() => navigate('/projects', { state: { courseId: project.course_id } })}
         className="mb-4"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
