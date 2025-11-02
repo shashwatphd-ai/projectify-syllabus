@@ -206,7 +206,6 @@ const Upload = () => {
                     value={cityZip}
                     onChange={(e) => setCityZip(e.target.value)}
                     required
-                    disabled={locationLoading}
                   />
                   <Button
                     type="button"
