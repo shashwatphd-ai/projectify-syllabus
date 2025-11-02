@@ -57,11 +57,11 @@ const ProjectFeedback = ({ projectId, onSubmitted }: ProjectFeedbackProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { data: profile } = await supabase
-        .from('profiles')
+      const { data: userRole } = await supabase
+        .from('user_roles')
         .select('role')
-        .eq('id', user.id)
-        .single();
+        .eq('user_id', user.id)
+        .maybeSingle();
 
       const validData = validationResult.data;
 
@@ -70,7 +70,7 @@ const ProjectFeedback = ({ projectId, onSubmitted }: ProjectFeedbackProps) => {
         .insert({
           project_id: projectId,
           evaluator_id: user.id,
-          evaluator_role: profile?.role || 'faculty',
+          evaluator_role: userRole?.role || 'student',
           liked: validData.liked,
           fit: validData.fit,
           alignment: validData.alignment,

@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { GraduationCap, Loader2 } from "lucide-react";
@@ -12,7 +11,6 @@ import { authService } from "@/lib/supabase";
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"faculty" | "student">("faculty");
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(true);
   const navigate = useNavigate();
@@ -34,9 +32,9 @@ const Auth = () => {
 
     try {
       if (isSignUp) {
-        const { error } = await authService.signUp(email, password, role);
+        const { error } = await authService.signUp(email, password);
         if (error) throw error;
-        toast.success("Account created! Redirecting...");
+        toast.success("Account created as student! Redirecting...");
         navigate("/upload");
       } else {
         const { error } = await authService.signIn(email, password);
@@ -94,23 +92,9 @@ const Auth = () => {
             </div>
 
             {isSignUp && (
-              <div className="space-y-3">
-                <Label>I am a...</Label>
-                <RadioGroup value={role} onValueChange={(v) => setRole(v as any)}>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="faculty" id="faculty" />
-                    <Label htmlFor="faculty" className="font-normal cursor-pointer">
-                      Faculty / Instructor
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="student" id="student" />
-                    <Label htmlFor="student" className="font-normal cursor-pointer">
-                      Student
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
+              <p className="text-sm text-muted-foreground">
+                All new accounts are registered as students by default for security.
+              </p>
             )}
 
             <Button type="submit" className="w-full" disabled={loading}>
