@@ -159,19 +159,19 @@ const ProjectDetail = () => {
                 <CardContent className="space-y-4">
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Title</p>
-                    <p className="font-medium">{forms.form1.title}</p>
+                    <p className="font-medium">{forms.form1?.title || 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Industry</p>
-                    <Badge variant="secondary">{forms.form1.industry}</Badge>
+                    <Badge variant="secondary">{forms.form1?.industry || 'N/A'}</Badge>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Description</p>
-                    <p className="text-sm">{forms.form1.description}</p>
+                    <p className="text-sm">{forms.form1?.description || 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Budget</p>
-                    <p className="text-lg font-bold text-primary">${forms.form1.budget.toLocaleString()}</p>
+                    <p className="text-lg font-bold text-primary">${forms.form1?.budget?.toLocaleString() || '0'}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -183,15 +183,15 @@ const ProjectDetail = () => {
                 <CardContent className="space-y-4">
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Company</p>
-                    <p className="font-medium">{forms.form2.company}</p>
+                    <p className="font-medium">{forms.form2?.company || 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Sector</p>
-                    <Badge variant="secondary">{forms.form2.sector}</Badge>
+                    <Badge variant="secondary">{forms.form2?.sector || 'N/A'}</Badge>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Size</p>
-                    <p>{forms.form2.size}</p>
+                    <p>{forms.form2?.size || 'N/A'}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -204,24 +204,24 @@ const ProjectDetail = () => {
                   <div>
                     <p className="text-sm text-muted-foreground mb-2">Skills</p>
                     <div className="flex flex-wrap gap-2">
-                      {forms.form3.skills.map((skill: string, i: number) => (
+                      {forms.form3?.skills?.map((skill: string, i: number) => (
                         <Badge key={i} variant="outline">{skill}</Badge>
-                      ))}
+                      )) || <span className="text-sm text-muted-foreground">N/A</span>}
                     </div>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Team Size</p>
-                    <p className="font-medium">{forms.form3.team_size} students</p>
+                    <p className="font-medium">{forms.form3?.team_size || 'N/A'} students</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-2">Deliverables</p>
                     <ul className="space-y-1">
-                      {forms.form3.deliverables.map((d: string, i: number) => (
+                      {forms.form3?.deliverables?.map((d: string, i: number) => (
                         <li key={i} className="text-sm flex items-start gap-2">
                           <span className="text-primary mt-0.5">•</span>
                           <span>{d}</span>
                         </li>
-                      ))}
+                      )) || <span className="text-sm text-muted-foreground">N/A</span>}
                     </ul>
                   </div>
                 </CardContent>
@@ -234,15 +234,15 @@ const ProjectDetail = () => {
                 <CardContent className="space-y-4">
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Start Date</p>
-                    <p className="font-medium">{forms.form4.start}</p>
+                    <p className="font-medium">{forms.form4?.start || 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">End Date</p>
-                    <p className="font-medium">{forms.form4.end}</p>
+                    <p className="font-medium">{forms.form4?.end || 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Duration</p>
-                    <p className="text-lg font-bold text-primary">{forms.form4.weeks} weeks</p>
+                    <p className="text-lg font-bold text-primary">{forms.form4?.weeks || 'N/A'} weeks</p>
                   </div>
                 </CardContent>
               </Card>
@@ -254,19 +254,19 @@ const ProjectDetail = () => {
                 <CardContent className="space-y-4">
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Type</p>
-                    <Badge variant="secondary">{forms.form5.type}</Badge>
+                    <Badge variant="secondary">{forms.form5?.type || 'N/A'}</Badge>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Scope</p>
-                    <p>{forms.form5.scope}</p>
+                    <p>{forms.form5?.scope || 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Location</p>
-                    <p>{forms.form5.location}</p>
+                    <p>{forms.form5?.location || 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">IP Rights</p>
-                    <p>{forms.form5.ip}</p>
+                    <p>{forms.form5?.ip || 'N/A'}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -278,15 +278,15 @@ const ProjectDetail = () => {
                 <CardContent className="space-y-4">
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Category</p>
-                    <Badge variant="secondary">{forms.form6.category}</Badge>
+                    <Badge variant="secondary">{forms.form6?.category || 'N/A'}</Badge>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Year</p>
-                    <p>{forms.form6.year}</p>
+                    <p>{forms.form6?.year || 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Hours per Week</p>
-                    <p className="font-medium">{forms.form6.hours_per_week} hrs</p>
+                    <p className="font-medium">{forms.form6?.hours_per_week || 'N/A'} hrs</p>
                   </div>
                 </CardContent>
               </Card>
