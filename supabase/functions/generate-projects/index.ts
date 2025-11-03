@@ -639,6 +639,9 @@ function createForms(company: CompanyInfo, proposal: ProjectProposal, course: an
   };
 }
 
+// Helper function for delays
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -747,6 +750,7 @@ serve(async (req) => {
             console.log('Quality issues detected:', issues);
             if (attempts < maxAttempts) {
               console.log('Retrying generation...');
+              await delay(2000 * attempts); // 2s, 4s, 6s
               continue;
             }
           }
@@ -756,6 +760,7 @@ serve(async (req) => {
             console.log('Validation errors:', validationErrors);
             if (attempts < maxAttempts) {
               console.log('Retrying generation...');
+              await delay(2000 * attempts); // 2s, 4s, 6s
               continue;
             }
           }
@@ -763,7 +768,12 @@ serve(async (req) => {
           proposal = cleaned;
         } catch (error) {
           console.error(`Attempt ${attempts} failed:`, error);
-          if (attempts === maxAttempts) {
+          if (attempts < maxAttempts) {
+            // Exponential backoff: 3s, 8s, 15s
+            const backoffDelay = Math.min(3000 * Math.pow(2, attempts - 1), 15000);
+            console.log(`Waiting ${backoffDelay}ms before retry...`);
+            await delay(backoffDelay);
+          } else {
             throw new Error(`Failed to generate proposal after ${maxAttempts} attempts`);
           }
         }
