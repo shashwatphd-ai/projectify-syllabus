@@ -53,7 +53,7 @@ async function geocodeLocation(cityZip: string): Promise<{ lat: number; lng: num
   }
 }
 
-// Fetch companies using Google Places API
+// Fetch companies using NEW Google Places API (v1)
 async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
   const GOOGLE_API_KEY = Deno.env.get('GOOGLE_PLACES_API_KEY');
   if (!GOOGLE_API_KEY) {
@@ -68,97 +68,125 @@ async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
     return [];
   }
 
-  console.log(`Fetching companies near ${location.lat},${location.lng}...`);
+  console.log(`Fetching companies near ${location.lat},${location.lng} using NEW Places API...`);
 
   try {
-    // Step 2: Search for businesses using Google Places Nearby Search
+    // Step 2: Search for businesses using NEW Google Places API
     const searchResponse = await fetch(
-      `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.lat},${location.lng}&radius=5000&type=establishment&key=${GOOGLE_API_KEY}`
+      'https://places.googleapis.com/v1/places:searchNearby',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': GOOGLE_API_KEY,
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.types,places.websiteUri,places.rating,places.userRatingCount,places.businessStatus'
+        },
+        body: JSON.stringify({
+          includedTypes: ['establishment'],
+          maxResultCount: 20,
+          locationRestriction: {
+            circle: {
+              center: {
+                latitude: location.lat,
+                longitude: location.lng
+              },
+              radius: 5000.0
+            }
+          }
+        })
+      }
     );
 
     if (!searchResponse.ok) {
-      throw new Error(`Google Places API error: ${searchResponse.status}`);
+      const errorText = await searchResponse.text();
+      console.error(`Google Places API error: ${searchResponse.status} - ${errorText}`);
+      return [];
     }
 
     const searchData = await searchResponse.json();
     
-    if (searchData.status !== 'OK' && searchData.status !== 'ZERO_RESULTS') {
-      console.error('Google Places API error:', searchData.status, searchData.error_message);
-      return [];
-    }
-
-    if (!searchData.results || searchData.results.length === 0) {
+    if (!searchData.places || searchData.places.length === 0) {
       console.log('No places found in this area');
       return [];
     }
 
-    // Step 3: Get details for each place (limit to first 10)
+    console.log(`Found ${searchData.places.length} places from NEW Google Places API`);
+
+    // Map place types to industries
+    const industryMap: { [key: string]: string } = {
+      'restaurant': 'Food & Beverage',
+      'store': 'Retail',
+      'hospital': 'Healthcare',
+      'school': 'Education',
+      'bank': 'Finance',
+      'accounting': 'Finance',
+      'lawyer': 'Legal Services',
+      'real_estate_agency': 'Real Estate',
+      'car_dealer': 'Automotive',
+      'gym': 'Health & Fitness',
+      'beauty_salon': 'Personal Services',
+      'lodging': 'Hospitality',
+      'electronics_store': 'Technology',
+      'clothing_store': 'Retail',
+      'furniture_store': 'Retail',
+      'home_goods_store': 'Retail',
+      'construction_company': 'Construction',
+      'contractor': 'Construction',
+      'roofing_contractor': 'Construction',
+      'plumber': 'Construction',
+      'electrician': 'Construction'
+    };
+
+    // Step 3: Process each place
     const companies = [];
-    for (const place of searchData.results.slice(0, 10)) {
+    for (const place of searchData.places) {
       try {
-        const detailsResponse = await fetch(
-          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,website,formatted_address,types,business_status,rating,user_ratings_total&key=${GOOGLE_API_KEY}`
-        );
-
-        if (!detailsResponse.ok) continue;
-
-        const detailsData = await detailsResponse.json();
+        const name = place.displayName?.text || 'Unknown';
+        const address = place.formattedAddress || '';
         
-        if (detailsData.status !== 'OK') continue;
+        // Extract zip from address
+        const zipMatch = address.match(/\b\d{5}\b/);
+        const zip = zipMatch ? zipMatch[0] : '';
+        
+        // Extract city from address
+        const addressParts = address.split(',');
+        const city = addressParts.length > 1 ? addressParts[addressParts.length - 2].trim() : '';
 
-        const details = detailsData.result;
-
-        // Map Google place types to industries
-        const industryMap: { [key: string]: string } = {
-          'restaurant': 'Food & Beverage',
-          'store': 'Retail',
-          'hospital': 'Healthcare',
-          'school': 'Education',
-          'bank': 'Finance',
-          'accounting': 'Finance',
-          'lawyer': 'Legal Services',
-          'real_estate_agency': 'Real Estate',
-          'car_dealer': 'Automotive',
-          'gym': 'Health & Fitness',
-          'beauty_salon': 'Personal Services',
-          'lodging': 'Hospitality',
-          'electronics_store': 'Technology',
-          'clothing_store': 'Retail',
-          'furniture_store': 'Retail',
-          'home_goods_store': 'Retail',
-        };
-
+        // Determine industry from types
         let industry = 'General Business';
-        for (const type of details.types || []) {
-          if (industryMap[type]) {
-            industry = industryMap[type];
-            break;
+        if (place.types && Array.isArray(place.types)) {
+          for (const type of place.types) {
+            if (industryMap[type]) {
+              industry = industryMap[type];
+              break;
+            }
           }
         }
 
         // Estimate company size based on ratings count
         let size = 'Small';
-        if (details.user_ratings_total > 100) size = 'Medium';
-        if (details.user_ratings_total > 500) size = 'Large';
+        const ratingCount = place.userRatingCount || 0;
+        if (ratingCount > 100) size = 'Medium';
+        if (ratingCount > 500) size = 'Large';
 
         companies.push({
-          name: details.name,
-          website: details.website || '',
-          snippet: `${details.name} is located at ${details.formatted_address}. Rating: ${details.rating || 'N/A'} (${details.user_ratings_total || 0} reviews)`,
+          name: name,
+          website: place.websiteUri || '',
+          snippet: `${name} is located at ${address}. Rating: ${place.rating || 'N/A'} (${ratingCount} reviews)`,
           industry: industry,
           size: size,
-          address: details.formatted_address
+          address: address,
+          city: city,
+          zip: zip
         });
 
-        // Rate limiting - wait 100ms between requests
-        await new Promise(resolve => setTimeout(resolve, 100));
-      } catch (detailError) {
-        console.error('Error fetching place details:', detailError);
+      } catch (placeError) {
+        console.error('Error processing place:', placeError);
         continue;
       }
     }
 
-    console.log(`Found ${companies.length} companies from Google Places`);
+    console.log(`Processed ${companies.length} companies successfully`);
     return companies;
   } catch (error) {
     console.error('Error fetching from Google Places:', error);
@@ -264,10 +292,9 @@ serve(async (req) => {
         // Analyze business needs with AI
         const inferredNeeds = await analyzeNeeds(enrichedCompany);
 
-        // Extract city from address if available
-        const cityName = enrichedCompany.address 
-          ? enrichedCompany.address.split(',')[1]?.trim() || "Unknown"
-          : "Unknown";
+        // Use city and zip from company data
+        const cityName = enrichedCompany.city || "Unknown";
+        const zipCode = enrichedCompany.zip || targetZip;
 
         // Prepare company profile
         const profileToStore: Omit<CompanyProfile, 'id'> = {
@@ -275,7 +302,7 @@ serve(async (req) => {
           source: 'google_places',
           website: enrichedCompany.website || '',
           city: cityName,
-          zip: targetZip,
+          zip: zipCode,
           sector: enrichedCompany.industry,
           size: enrichedCompany.size,
           technologies: enrichedCompany.technologies,
