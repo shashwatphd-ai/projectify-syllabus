@@ -82,7 +82,30 @@ async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
           'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.types,places.websiteUri,places.rating,places.userRatingCount,places.businessStatus'
         },
         body: JSON.stringify({
-          includedTypes: ['establishment'],
+          includedTypes: [
+            'accounting',
+            'bank',
+            'hospital',
+            'insurance_agency',
+            'lawyer',
+            'real_estate_agency',
+            'restaurant',
+            'store',
+            'shopping_mall',
+            'university',
+            'school',
+            'travel_agency',
+            'pharmacy',
+            'doctor',
+            'dentist',
+            'veterinary_care',
+            'car_dealer',
+            'car_repair',
+            'electronics_store',
+            'furniture_store',
+            'hardware_store',
+            'home_goods_store'
+          ],
           maxResultCount: 20,
           locationRestriction: {
             circle: {
