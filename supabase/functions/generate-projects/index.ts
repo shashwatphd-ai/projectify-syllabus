@@ -46,15 +46,31 @@ interface ProjectProposal {
 async function getCompaniesFromDB(supabaseClient: any, cityZip: string, industries: string[], count: number): Promise<CompanyInfo[]> {
   console.log(`Querying DB for ${count} companies in ${cityZip}...`);
 
-  let query = supabaseClient
-    .from('company_profiles')
-    .select('*')
-    .or(`zip.eq.${cityZip},city.ilike.%${cityZip}%`)
-    .limit(count);
+  // Parse city_zip to extract zip code and city name
+  // Examples: "66006", "Lawrence, KS 66006", "Kansas City, Missouri 64131"
+  const zipMatch = cityZip.match(/\b\d{5}\b/);
+  const zipCode = zipMatch ? zipMatch[0] : null;
+  
+  // Extract city name (everything before state abbreviation or last comma)
+  let cityName = cityZip.split(',')[0].trim();
+  
+  console.log(`Parsed - City: ${cityName}, Zip: ${zipCode}`);
+
+  // Build flexible query
+  let query = supabaseClient.from('company_profiles').select('*');
+  
+  // Try to match by zip first, then city
+  if (zipCode) {
+    query = query.eq('zip', zipCode);
+  } else if (cityName) {
+    query = query.ilike('city', `%${cityName}%`);
+  }
 
   if (industries && industries.length > 0) {
     query = query.in('sector', industries);
   }
+
+  query = query.limit(count * 2); // Get more than needed for filtering
 
   const { data, error } = await query;
 
@@ -68,15 +84,18 @@ async function getCompaniesFromDB(supabaseClient: any, cityZip: string, industri
     return [];
   }
 
-  // Map DB company profiles to CompanyInfo format
-  return data.map((profile: any) => ({
+  console.log(`Found ${data.length} companies in database`);
+
+  // Map DB company profiles to CompanyInfo format and limit to requested count
+  return data.slice(0, count).map((profile: any) => ({
     id: profile.id,
     name: profile.name,
     sector: profile.sector,
     size: profile.size,
     needs: profile.inferred_needs || [],
     description: profile.recent_news || `${profile.name} is a ${profile.size} ${profile.sector} company.`,
-    website: profile.website
+    website: profile.website,
+    inferred_needs: profile.inferred_needs || []
   }));
 }
 
