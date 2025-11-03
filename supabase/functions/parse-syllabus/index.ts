@@ -178,6 +178,27 @@ serve(async (req) => {
       throw insertError;
     }
 
+    // Automatically trigger company enrichment pipeline for the detected location
+    console.log(`Triggering enrichment pipeline for location: ${cityZip}`);
+    try {
+      const { data: enrichmentData, error: enrichmentError } = await serviceRoleClient.functions.invoke(
+        'data-enrichment-pipeline',
+        {
+          body: { cityZip }
+        }
+      );
+      
+      if (enrichmentError) {
+        console.error('Enrichment pipeline error:', enrichmentError);
+        // Don't fail the whole request if enrichment fails
+      } else {
+        console.log('Enrichment pipeline completed successfully:', enrichmentData);
+      }
+    } catch (enrichmentErr) {
+      console.error('Failed to invoke enrichment pipeline:', enrichmentErr);
+      // Continue even if enrichment fails
+    }
+
     return new Response(JSON.stringify({ course, parsed }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
