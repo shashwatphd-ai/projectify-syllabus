@@ -135,7 +135,7 @@ const ProjectDetail = () => {
           </TabsContent>
 
           <TabsContent value="timeline">
-            <TimelineTab forms={forms} />
+            <TimelineTab project={project} forms={forms} />
           </TabsContent>
 
           <TabsContent value="logistics">
@@ -450,7 +450,7 @@ const ProjectDetail = () => {
           </TabsContent>
 
           <TabsContent value="algorithm">
-            <AlgorithmTab />
+            <AlgorithmTab project={project} />
           </TabsContent>
 
           <TabsContent value="feedback">

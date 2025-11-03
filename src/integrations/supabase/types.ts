@@ -231,6 +231,62 @@ export type Database = {
           },
         ]
       }
+      project_metadata: {
+        Row: {
+          ai_model_version: string | null
+          ai_prompts_used: Json | null
+          algorithm_version: string | null
+          companies_considered: Json | null
+          created_at: string | null
+          generation_timestamp: string | null
+          id: string
+          lo_alignment_detail: Json | null
+          lo_mapping_deliverables: Json | null
+          lo_mapping_tasks: Json | null
+          project_id: string
+          scoring_rationale: Json | null
+          selection_criteria: Json | null
+        }
+        Insert: {
+          ai_model_version?: string | null
+          ai_prompts_used?: Json | null
+          algorithm_version?: string | null
+          companies_considered?: Json | null
+          created_at?: string | null
+          generation_timestamp?: string | null
+          id?: string
+          lo_alignment_detail?: Json | null
+          lo_mapping_deliverables?: Json | null
+          lo_mapping_tasks?: Json | null
+          project_id: string
+          scoring_rationale?: Json | null
+          selection_criteria?: Json | null
+        }
+        Update: {
+          ai_model_version?: string | null
+          ai_prompts_used?: Json | null
+          algorithm_version?: string | null
+          companies_considered?: Json | null
+          created_at?: string | null
+          generation_timestamp?: string | null
+          id?: string
+          lo_alignment_detail?: Json | null
+          lo_mapping_deliverables?: Json | null
+          lo_mapping_tasks?: Json | null
+          project_id?: string
+          scoring_rationale?: Json | null
+          selection_criteria?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_metadata_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           company_name: string

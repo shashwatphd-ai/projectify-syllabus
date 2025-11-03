@@ -363,6 +363,94 @@ function estimateBudget(weeks: number, hrsPerWeek: number, teamSize: number, tie
   return Math.round(budget / 10) * 10;
 }
 
+async function generateLOAlignmentDetail(
+  tasks: string[],
+  deliverables: string[],
+  outcomes: string[],
+  proposal_lo_summary: string
+): Promise<any> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+
+  const prompt = `You are analyzing how project activities align with course learning outcomes.
+
+LEARNING OUTCOMES:
+${outcomes.map((o, i) => `LO${i + 1}: ${o}`).join('\n')}
+
+PROJECT TASKS:
+${tasks.map((t, i) => `T${i + 1}: ${t}`).join('\n')}
+
+PROJECT DELIVERABLES:
+${deliverables.map((d, i) => `D${i + 1}: ${d}`).join('\n')}
+
+SUMMARY ALIGNMENT: ${proposal_lo_summary}
+
+Create a detailed mapping showing which tasks and deliverables address each learning outcome.
+
+Return ONLY valid JSON in this exact structure:
+{
+  "outcome_mappings": [
+    {
+      "outcome_id": "LO1",
+      "outcome_text": "Full text of learning outcome 1",
+      "coverage_percentage": 85,
+      "aligned_tasks": [0, 2, 3],
+      "aligned_deliverables": [0, 1],
+      "explanation": "Detailed 2-3 sentence explanation of how the tasks and deliverables develop this outcome"
+    }
+  ],
+  "task_mappings": [
+    {
+      "task_index": 0,
+      "task_text": "Full task text",
+      "outcome_ids": ["LO1", "LO3"]
+    }
+  ],
+  "deliverable_mappings": [
+    {
+      "deliverable_index": 0,
+      "deliverable_text": "Full deliverable text",
+      "outcome_ids": ["LO1", "LO2"]
+    }
+  ],
+  "overall_coverage": {
+    "LO1": 85,
+    "LO2": 90,
+    "LO3": 75
+  },
+  "gaps": [
+    "Any learning outcomes that are weakly covered (<60%) and recommendations to strengthen"
+  ]
+}`;
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: 'You are a learning outcomes assessment expert. Return only valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    console.error('LO alignment generation failed:', response.status);
+    return null;
+  }
+
+  const data = await response.json();
+  const content = data.choices[0].message.content;
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  
+  if (!jsonMatch) return null;
+  return JSON.parse(jsonMatch[0]);
+}
+
 function cleanAndValidate(proposal: ProjectProposal): { cleaned: ProjectProposal; issues: string[] } {
   const issues: string[] = [];
   
@@ -466,39 +554,68 @@ function generateMilestones(weeks: number, deliverables: string[]) {
 }
 
 function createForms(company: CompanyInfo, proposal: ProjectProposal, course: any) {
+  const budget = estimateBudget(course.weeks, course.hrs_per_week, 3, proposal.tier, company.size);
+  
   return {
+    // FORM 1: Project Details
     form1: {
-      company_name: company.name,
-      company_description: proposal.company_description,
-      website: proposal.website,
-      contact: proposal.contact,
-      sector: company.sector
-    },
-    form2: {
-      project_title: proposal.title,
+      title: proposal.title,
+      industry: company.sector,
       description: proposal.description,
-      learning_outcomes: proposal.lo_alignment
+      budget: budget
     },
+    
+    // FORM 2: Company & Contact Info
+    form2: {
+      company: company.name,
+      contact_name: proposal.contact?.name || 'TBD',
+      contact_email: proposal.contact?.email || '',
+      contact_title: proposal.contact?.title || '',
+      contact_phone: proposal.contact?.phone || '',
+      website: proposal.website || company.website || '',
+      description: proposal.company_description,
+      size: company.size,
+      sector: company.sector,
+      preferred_communication: 'Email'
+    },
+    
+    // FORM 3: Project Requirements
     form3: {
-      tasks: proposal.tasks,
-      deliverables: proposal.deliverables,
-      timeline: `${course.weeks} weeks, ${course.hrs_per_week} hours/week`
-    },
-    form4: {
-      required_skills: proposal.skills,
-      preferred_majors: proposal.majors,
+      skills: proposal.skills || [],
       team_size: 3,
-      faculty_expertise: proposal.faculty_expertise
+      learning_objectives: proposal.lo_alignment,
+      deliverables: proposal.deliverables || []
     },
+    
+    // FORM 4: Timeline & Schedule
+    form4: {
+      start: 'TBD',
+      end: 'TBD',
+      weeks: course.weeks
+    },
+    
+    // FORM 5: Project Logistics
     form5: {
-      equipment: proposal.equipment,
-      budget_estimate: estimateBudget(course.weeks, course.hrs_per_week, 3, proposal.tier, company.size),
-      publication_opportunity: proposal.publication_opportunity
+      type: 'Consulting',
+      scope: 'Improvement',
+      location: 'Hybrid',
+      equipment: proposal.equipment || 'Standard university computer lab equipment',
+      software: proposal.equipment || 'Standard software',
+      ip: 'Shared',
+      past_experience: 'None',
+      follow_up: 'Potential internship opportunities'
     },
+    
+    // FORM 6: Academic Information
     form6: {
-      company_needs: proposal.company_needs,
-      student_benefits: "Hands-on experience with real-world problems",
-      mutual_benefit: "Company receives professional analysis and recommendations"
+      category: 'Semester-long',
+      year: course.level,
+      hours_per_week: course.hrs_per_week,
+      difficulty: proposal.tier,
+      majors: proposal.majors || [],
+      faculty_expertise: proposal.faculty_expertise || '',
+      universities: 'UMKC, KU, Rockhurst',
+      publication: proposal.publication_opportunity || 'No'
     }
   };
 }
@@ -645,6 +762,14 @@ serve(async (req) => {
         proposal.lo_alignment
       );
 
+      console.log('Generating detailed LO alignment...');
+      const loAlignmentDetail = await generateLOAlignmentDetail(
+        proposal.tasks,
+        proposal.deliverables,
+        outcomes,
+        proposal.lo_alignment
+      );
+
       const teamSize = 3;
       const budget = estimateBudget(
         course.weeks,
@@ -703,6 +828,39 @@ serve(async (req) => {
       if (formsError) {
         console.error('Forms insert error:', formsError);
         throw new Error('Failed to insert project forms');
+      }
+
+      // Insert project metadata for algorithm transparency
+      if (loAlignmentDetail) {
+        const { error: metadataError } = await serviceRoleClient
+          .from('project_metadata')
+          .insert({
+            project_id: projectData.id,
+            algorithm_version: 'v1.0',
+            companies_considered: [{
+              name: company.name,
+              sector: company.sector,
+              reason: 'Selected based on industry match and location'
+            }],
+            selection_criteria: {
+              industries,
+              location: cityZip,
+              num_teams: numTeams
+            },
+            lo_alignment_detail: loAlignmentDetail,
+            lo_mapping_tasks: loAlignmentDetail.task_mappings,
+            lo_mapping_deliverables: loAlignmentDetail.deliverable_mappings,
+            scoring_rationale: {
+              lo_score: { value: scores.lo_score, method: 'AI analysis with task/deliverable mapping' },
+              feasibility_score: { value: scores.feasibility_score, method: 'Duration and complexity assessment' },
+              mutual_benefit_score: { value: scores.mutual_benefit_score, method: 'Company needs alignment' }
+            },
+            ai_model_version: 'google/gemini-2.5-flash'
+          });
+          
+        if (metadataError) {
+          console.error('Metadata insert error:', metadataError);
+        }
       }
 
       projectIds.push(projectData.id);

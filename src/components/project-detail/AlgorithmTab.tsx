@@ -1,297 +1,252 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Target, Search, FileText, Users } from "lucide-react";
+import { CheckCircle2, Search, Target, BarChart3 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
-export const AlgorithmTab = () => {
+interface AlgorithmTabProps {
+  project: any;
+}
+
+export const AlgorithmTab = ({ project }: AlgorithmTabProps) => {
+  const [metadata, setMetadata] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadMetadata();
+  }, [project.id]);
+
+  const loadMetadata = async () => {
+    const { data, error } = await supabase
+      .from('project_metadata')
+      .select('*')
+      .eq('project_id', project.id)
+      .single();
+
+    if (!error && data) {
+      setMetadata(data);
+    }
+    setLoading(false);
+  };
+
+  if (loading) {
+    return <div className="p-4">Loading algorithm details...</div>;
+  }
+
   return (
     <div className="space-y-6">
+      {/* Step 1: Company Discovery */}
       <Card>
         <CardHeader>
-          <CardTitle>Project Generation Algorithm</CardTitle>
-          <CardDescription>
-            The workflow and methodology used to identify, draft, and verify this project
-          </CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Search className="h-5 w-5" />
+            Step 1: Company Discovery & Selection
+          </CardTitle>
+          <CardDescription>How this company was identified and selected</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-8">
-          {/* Algorithm Overview */}
+        <CardContent className="space-y-4">
           <div>
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" />
-              Algorithm for Matching and Drafting Projects
-            </h3>
-            
-            <div className="space-y-6 pl-4 border-l-2 border-primary/20">
-              {/* Step 1 */}
-              <div className="space-y-2">
-                <div className="flex items-start gap-3">
-                  <Badge variant="secondary" className="mt-1">Step 1</Badge>
-                  <div>
-                    <h4 className="font-semibold mb-2">Establish Course Context</h4>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Extracted learning outcomes and course description from syllabus</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Emphasized understanding strategic-management concepts, analyzing external and internal environments</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Compared strategic alternatives and applied insights to decisions</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Noted 3-month project timeline for appropriate scoping</span>
-                      </li>
-                    </ul>
+            <h3 className="font-semibold mb-2">Search Parameters</h3>
+            {metadata?.selection_criteria ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Location</p>
+                  <p className="font-medium">{metadata.selection_criteria.location || 'Not specified'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Industries Targeted</p>
+                  <div className="flex gap-1 flex-wrap">
+                    {(metadata.selection_criteria.industries || []).map((ind: string, i: number) => (
+                      <Badge key={i} variant="secondary">{ind}</Badge>
+                    ))}
                   </div>
                 </div>
               </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Selection criteria not available</p>
+            )}
+          </div>
 
-              {/* Step 2 */}
+          <div>
+            <h3 className="font-semibold mb-2">Companies Considered</h3>
+            {metadata?.companies_considered ? (
               <div className="space-y-2">
-                <div className="flex items-start gap-3">
-                  <Badge variant="secondary" className="mt-1">Step 2</Badge>
-                  <div>
-                    <h4 className="font-semibold mb-2">Define Search Parameters</h4>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Identified geographical focus and target location</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Targeted diverse range of industries to mirror company sizes and challenges</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Used search tools to scan regional business news and market reports</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Identified growth sectors and strategic opportunities</span>
-                      </li>
-                    </ul>
+                {(metadata.companies_considered || []).map((comp: any, i: number) => (
+                  <div key={i} className="flex items-start gap-3 p-3 bg-muted rounded-lg">
+                    <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-medium">{comp.name}</p>
+                      <p className="text-sm text-muted-foreground">{comp.sector}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{comp.reason}</p>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Company selection details not available</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-              {/* Step 3 */}
-              <div className="space-y-2">
-                <div className="flex items-start gap-3">
-                  <Badge variant="secondary" className="mt-1">Step 3</Badge>
-                  <div>
-                    <h4 className="font-semibold mb-2">Select Potential Companies and Challenges</h4>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Compiled list of notable area companies based on local presence</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Considered economic significance and known strategic transitions</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Identified plausible strategic challenges (digital disruption, regulatory changes, competition)</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Evaluated diversification opportunities and international expansion potential</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* Step 4 */}
-              <div className="space-y-2">
-                <div className="flex items-start gap-3">
-                  <Badge variant="secondary" className="mt-1">Step 4</Badge>
-                  <div>
-                    <h4 className="font-semibold mb-2">Draft Project Descriptions</h4>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Framed each challenge as semester-long project requiring strategic analysis</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Involved external environment analysis (market trends, competitors, regulations)</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Required assessment of internal resources and capabilities</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Presented multiple strategic alternatives (business-level, corporate-level, international)</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Culminated in actionable recommendations for the company</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* Step 5 */}
-              <div className="space-y-2">
-                <div className="flex items-start gap-3">
-                  <Badge variant="secondary" className="mt-1">Step 5</Badge>
-                  <div>
-                    <h4 className="font-semibold mb-2">Populate Industry Project Creation Forms (Forms 1-6)</h4>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Entered all required fields across six standardized forms</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Chose recommended team sizes (typically 3–5 students)</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Set start and end dates spanning 12–13 weeks</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>Established reasonable time expectations (6-12 hours per week)</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
+      {/* Step 2: Project Proposal Generation */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            Step 2: Project Proposal Generation
+          </CardTitle>
+          <CardDescription>How the project scope and activities were designed</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-muted-foreground">AI Model Used</p>
+              <p className="font-medium">{metadata?.ai_model_version || 'google/gemini-2.5-flash'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Algorithm Version</p>
+              <p className="font-medium">{metadata?.algorithm_version || 'v1.0'}</p>
             </div>
           </div>
 
-          {/* Verification Workflow */}
-          <div className="border-t pt-8">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-primary" />
-              Workflow for Verifying Learning Outcome Alignment
-            </h3>
-            
-            <div className="space-y-6 pl-4 border-l-2 border-secondary/20">
-              {/* Verification Step 1 */}
-              <div className="space-y-2">
-                <div className="flex items-start gap-3">
-                  <Badge variant="outline" className="mt-1">Step 1</Badge>
-                  <div>
-                    <h4 className="font-semibold mb-2">Extract Learning Outcomes</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Extracted explicit learning outcomes from syllabus, including defining strategic-management concepts,
-                      analyzing external and internal environmental factors, comparing strategies, and applying knowledge
-                      to make strategic management decisions.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Verification Step 2 */}
-              <div className="space-y-2">
-                <div className="flex items-start gap-3">
-                  <Badge variant="outline" className="mt-1">Step 2</Badge>
-                  <div>
-                    <h4 className="font-semibold mb-2">Create an Alignment Rubric</h4>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Developed rubric mapping each learning outcome to project activities:
-                    </p>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      <li className="flex items-start gap-2">
-                        <span className="text-secondary mt-1">→</span>
-                        <span>External analysis ↔ market/industry research, regulatory/policy review</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-secondary mt-1">→</span>
-                        <span>Internal analysis ↔ capabilities audit, resource assessment</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-secondary mt-1">→</span>
-                        <span>Strategy comparison ↔ developing and evaluating alternative strategies</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-secondary mt-1">→</span>
-                        <span>Application ↔ producing final recommendations and strategic plans</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* Verification Step 3 */}
-              <div className="space-y-2">
-                <div className="flex items-start gap-3">
-                  <Badge variant="outline" className="mt-1">Step 3</Badge>
-                  <div>
-                    <h4 className="font-semibold mb-2">Evaluate Each Project</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Assessed whether project scope required students to perform both external and internal analyses,
-                      consider multiple strategic options, and produce actionable recommendations. Verified that at least
-                      one project element corresponded to each learning outcome.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Verification Step 4 */}
-              <div className="space-y-2">
-                <div className="flex items-start gap-3">
-                  <Badge variant="outline" className="mt-1">Step 4</Badge>
-                  <div>
-                    <h4 className="font-semibold mb-2">Ensure Feasibility and Educational Value</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Confirmed strategic questions were complex enough to challenge students but manageable within
-                      three months. Ensured required skills matched the level of junior/senior/graduate business students
-                      and that projects would allow practice of strategic frameworks taught in the course.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div>
+            <p className="text-sm text-muted-foreground mb-2">Generation Process</p>
+            <ol className="list-decimal list-inside space-y-2 text-sm">
+              <li>Analyzed company sector, size, and business needs</li>
+              <li>Mapped course learning outcomes to potential project activities</li>
+              <li>Generated {project.tasks?.length || 0} specific tasks and {project.deliverables?.length || 0} deliverables</li>
+              <li>Validated alignment with course requirements</li>
+              <li>Estimated resource requirements and timeline</li>
+            </ol>
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Value Proposition */}
-          <div className="border-t pt-8">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              Value Proposition
-            </h3>
-            <div className="bg-muted/30 rounded-lg p-6 space-y-4">
-              <p className="text-sm leading-relaxed">
-                This two-part process—<strong>first</strong> selecting realistic local companies and framing projects
-                through a strategic-management lens, <strong>then</strong> systematically verifying that each project
-                engaged all course learning outcomes—ensures each project is both <strong>academically rigorous</strong> and
-                <strong> practically valuable</strong> to the participating companies and students.
+      {/* Step 3: LO Alignment Verification */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5" />
+            Step 3: Learning Outcome Alignment Verification
+          </CardTitle>
+          <CardDescription>Systematic verification of course outcome coverage</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {metadata?.lo_alignment_detail ? (
+            <div className="space-y-3">
+              <p className="text-sm">
+                Each project activity was mapped to specific learning outcomes using AI-powered analysis.
+                The system verified that all outcomes are adequately covered.
               </p>
-              <div className="flex items-start gap-3 mt-4">
-                <Users className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
-                <div className="space-y-2">
-                  <h4 className="font-semibold">Stakeholder Benefits</h4>
-                  <ul className="space-y-1 text-sm text-muted-foreground">
-                    <li className="flex items-start gap-2">
-                      <span className="text-primary">✓</span>
-                      <span><strong>Students:</strong> Apply theoretical concepts to real business challenges</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-primary">✓</span>
-                      <span><strong>Faculty:</strong> Ready-to-use projects aligned with learning outcomes</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-primary">✓</span>
-                      <span><strong>Companies:</strong> Actionable strategic insights at modest investment</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-primary">✓</span>
-                      <span><strong>Community:</strong> Strengthened university-industry partnerships</span>
-                    </li>
-                  </ul>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Tasks Mapped</p>
+                  <p className="text-2xl font-bold">{metadata.lo_alignment_detail.task_mappings?.length || 0}</p>
+                </div>
+                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Deliverables Mapped</p>
+                  <p className="text-2xl font-bold">{metadata.lo_alignment_detail.deliverable_mappings?.length || 0}</p>
+                </div>
+                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Outcomes Covered</p>
+                  <p className="text-2xl font-bold">
+                    {Object.keys(metadata.lo_alignment_detail.overall_coverage || {}).length}
+                  </p>
                 </div>
               </div>
+
+              {metadata.lo_alignment_detail.gaps && metadata.lo_alignment_detail.gaps.length > 0 && (
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                  <p className="font-semibold mb-1">Coverage Gaps Identified</p>
+                  <p className="text-sm">{metadata.lo_alignment_detail.gaps.join('; ')}</p>
+                </div>
+              )}
             </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">LO alignment verification details not available for this project.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Step 4: Scoring & Validation */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Step 4: Project Scoring & Validation
+          </CardTitle>
+          <CardDescription>Multi-dimensional quality assessment</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {metadata?.scoring_rationale ? (
+              <>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">LO Coverage</p>
+                    <p className="text-2xl font-bold text-blue-600">{project.lo_score.toFixed(1)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {metadata.scoring_rationale.lo_score?.method || 'Based on task-outcome mapping'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Feasibility</p>
+                    <p className="text-2xl font-bold text-green-600">{project.feasibility_score.toFixed(1)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {metadata.scoring_rationale.feasibility_score?.method || 'Based on duration and complexity'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Mutual Benefit</p>
+                    <p className="text-2xl font-bold text-purple-600">{project.mutual_benefit_score.toFixed(1)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {metadata.scoring_rationale.mutual_benefit_score?.method || 'Based on company needs alignment'}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="pt-3 border-t">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold">Final Composite Score</span>
+                    <span className="text-3xl font-bold text-primary">{project.final_score.toFixed(1)}</span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">LO Coverage</p>
+                  <p className="text-2xl font-bold">{project.lo_score.toFixed(1)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Feasibility</p>
+                  <p className="text-2xl font-bold">{project.feasibility_score.toFixed(1)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Mutual Benefit</p>
+                  <p className="text-2xl font-bold">{project.mutual_benefit_score.toFixed(1)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Final Score</p>
+                  <p className="text-2xl font-bold text-primary">{project.final_score.toFixed(1)}</p>
+                </div>
+              </div>
+            )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Generation Timestamp */}
+      <Card>
+        <CardContent className="pt-6">
+          <p className="text-xs text-muted-foreground text-center">
+            Generated: {metadata?.generation_timestamp 
+              ? new Date(metadata.generation_timestamp).toLocaleString()
+              : new Date(project.created_at).toLocaleString()
+            }
+          </p>
         </CardContent>
       </Card>
     </div>

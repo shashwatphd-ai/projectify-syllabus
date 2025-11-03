@@ -3,10 +3,12 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock } from "lucide-react";
 
 interface TimelineTabProps {
+  project: any;
   forms: any;
 }
 
-export const TimelineTab = ({ forms }: TimelineTabProps) => {
+export const TimelineTab = ({ project, forms }: TimelineTabProps) => {
+  const milestones = forms.milestones || [];
   const form4 = forms.form4 || {};
   
   return (
@@ -17,52 +19,59 @@ export const TimelineTab = ({ forms }: TimelineTabProps) => {
             <Calendar className="h-5 w-5" />
             Project Timeline
           </CardTitle>
-          <CardDescription>Duration and key dates</CardDescription>
+          <CardDescription>Schedule and key milestones</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-muted-foreground">Start Date</h3>
-              <p className="text-2xl font-bold">{form4.start || 'TBD'}</p>
+        <CardContent className="space-y-4">
+          <div className="grid md:grid-cols-3 gap-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Start Date</p>
+              <p className="font-medium">{form4.start || 'TBD (set by instructor)'}</p>
             </div>
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-muted-foreground">End Date</h3>
-              <p className="text-2xl font-bold">{form4.end || 'TBD'}</p>
+            <div>
+              <p className="text-sm text-muted-foreground">End Date</p>
+              <p className="font-medium">{form4.end || 'TBD (set by instructor)'}</p>
             </div>
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-muted-foreground">Duration</h3>
+            <div>
+              <p className="text-sm text-muted-foreground">Duration</p>
               <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-primary" />
-                <p className="text-2xl font-bold text-primary">{form4.weeks || 12} weeks</p>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <p className="font-medium">{project.duration_weeks} weeks</p>
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          {forms.milestones && forms.milestones.length > 0 && (
-            <div className="border-t pt-6">
-              <h3 className="font-semibold mb-4">Project Milestones</h3>
-              <div className="relative">
-                <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-border" />
-                <div className="space-y-6">
-                  {forms.milestones.map((milestone: any, i: number) => (
-                    <div key={i} className="relative flex items-start gap-6">
-                      <div className="relative z-10 flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 border-2 border-primary shrink-0">
-                        <span className="text-sm font-bold text-primary">
-                          {milestone.week || `W${i + 1}`}
-                        </span>
-                      </div>
-                      <div className="flex-1 pt-3">
-                        <h4 className="font-semibold mb-1">{milestone.name || `Milestone ${i + 1}`}</h4>
-                        <p className="text-sm text-muted-foreground">{milestone.task || milestone.description || ''}</p>
-                        {milestone.duration && (
-                          <Badge variant="outline" className="mt-2">{milestone.duration}</Badge>
-                        )}
-                      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Project Milestones</CardTitle>
+          <CardDescription>Key deliverables and checkpoints throughout the project</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {milestones.length > 0 ? (
+            <div className="space-y-4">
+              {milestones.map((milestone: any, index: number) => (
+                <div key={index} className="flex gap-4 pb-4 border-b last:border-b-0 last:pb-0">
+                  <div className="flex flex-col items-center">
+                    <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold text-sm">
+                      {index + 1}
                     </div>
-                  ))}
+                    {index < milestones.length - 1 && (
+                      <div className="w-0.5 h-full bg-border mt-2"></div>
+                    )}
+                  </div>
+                  <div className="flex-1 pt-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="outline">Week {milestone.week}</Badge>
+                      <span className="font-semibold">{milestone.deliverable}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{milestone.description}</p>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
+          ) : (
+            <p className="text-muted-foreground">No milestones defined for this project.</p>
           )}
         </CardContent>
       </Card>
