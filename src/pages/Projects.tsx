@@ -21,17 +21,23 @@ const Projects = () => {
   }, [authLoading]);
 
   useEffect(() => {
-    if (user && courseId) {
+    if (user) {
       loadProjects();
     }
   }, [user, courseId]);
 
   const loadProjects = async () => {
     try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('course_id', courseId);
+      let query = supabase.from('projects').select('*, course_profiles!inner(owner_id)');
+      
+      if (courseId) {
+        query = query.eq('course_id', courseId);
+      } else {
+        // Load all projects for this user
+        query = query.eq('course_profiles.owner_id', user!.id);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
       setProjects(data || []);
