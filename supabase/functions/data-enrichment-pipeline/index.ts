@@ -22,37 +22,148 @@ interface CompanyProfile {
   last_enriched_at: string;
 }
 
-// Mock API caller - Replace with real Bing News API or Google Places API
-async function fetchCompaniesFromBing(cityZip: string): Promise<any[]> {
-  // TODO: Implement real API calls with BING_API_KEY
-  // const BING_API_KEY = Deno.env.get('BING_API_KEY');
-  // const url = `https://api.bing.microsoft.com/v7.0/news/search?q=companies+in+${cityZip}`;
-  // const response = await fetch(url, { headers: { 'Ocp-Apim-Subscription-Key': BING_API_KEY } });
-  
-  console.log(`Fetching companies for ${cityZip}...`);
-  return [
-    {
-      name: "Baldwin Manufacturing Co",
-      website: "baldwinmfg.com",
-      snippet: "Baldwin Manufacturing, based in 66006, specializes in custom metal fabrication and has been serving the region for 30 years.",
-      industry: "Manufacturing",
-      size: "Small",
-    },
-    {
-      name: "Baldwin City Medical Center",
-      website: "baldwinhealth.org",
-      snippet: "The primary healthcare provider for Baldwin City, KS 66006, serving over 5,000 patients annually.",
-      industry: "Healthcare",
-      size: "Medium",
-    },
-    {
-      name: "Prairie Tech Solutions",
-      website: "prairietech.com",
-      snippet: "IT consulting firm in Baldwin City providing digital transformation services to local businesses.",
-      industry: "Technology",
-      size: "Small",
+// Geocode city/zip to lat/lng using OpenStreetMap Nominatim
+async function geocodeLocation(cityZip: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    console.log(`Geocoding ${cityZip} using OpenStreetMap...`);
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityZip)}&limit=1`,
+      {
+        headers: {
+          'User-Agent': 'ProjectGeneratorApp/1.0'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Nominatim API error: ${response.status}`);
     }
-  ];
+    
+    const data = await response.json();
+    if (data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon)
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    return null;
+  }
+}
+
+// Fetch companies using Google Places API
+async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
+  const GOOGLE_API_KEY = Deno.env.get('GOOGLE_PLACES_API_KEY');
+  if (!GOOGLE_API_KEY) {
+    console.error('GOOGLE_PLACES_API_KEY not set');
+    return [];
+  }
+
+  // Step 1: Geocode the location
+  const location = await geocodeLocation(cityZip);
+  if (!location) {
+    console.error(`Could not geocode ${cityZip}`);
+    return [];
+  }
+
+  console.log(`Fetching companies near ${location.lat},${location.lng}...`);
+
+  try {
+    // Step 2: Search for businesses using Google Places Nearby Search
+    const searchResponse = await fetch(
+      `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.lat},${location.lng}&radius=5000&type=establishment&key=${GOOGLE_API_KEY}`
+    );
+
+    if (!searchResponse.ok) {
+      throw new Error(`Google Places API error: ${searchResponse.status}`);
+    }
+
+    const searchData = await searchResponse.json();
+    
+    if (searchData.status !== 'OK' && searchData.status !== 'ZERO_RESULTS') {
+      console.error('Google Places API error:', searchData.status, searchData.error_message);
+      return [];
+    }
+
+    if (!searchData.results || searchData.results.length === 0) {
+      console.log('No places found in this area');
+      return [];
+    }
+
+    // Step 3: Get details for each place (limit to first 10)
+    const companies = [];
+    for (const place of searchData.results.slice(0, 10)) {
+      try {
+        const detailsResponse = await fetch(
+          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,website,formatted_address,types,business_status,rating,user_ratings_total&key=${GOOGLE_API_KEY}`
+        );
+
+        if (!detailsResponse.ok) continue;
+
+        const detailsData = await detailsResponse.json();
+        
+        if (detailsData.status !== 'OK') continue;
+
+        const details = detailsData.result;
+
+        // Map Google place types to industries
+        const industryMap: { [key: string]: string } = {
+          'restaurant': 'Food & Beverage',
+          'store': 'Retail',
+          'hospital': 'Healthcare',
+          'school': 'Education',
+          'bank': 'Finance',
+          'accounting': 'Finance',
+          'lawyer': 'Legal Services',
+          'real_estate_agency': 'Real Estate',
+          'car_dealer': 'Automotive',
+          'gym': 'Health & Fitness',
+          'beauty_salon': 'Personal Services',
+          'lodging': 'Hospitality',
+          'electronics_store': 'Technology',
+          'clothing_store': 'Retail',
+          'furniture_store': 'Retail',
+          'home_goods_store': 'Retail',
+        };
+
+        let industry = 'General Business';
+        for (const type of details.types || []) {
+          if (industryMap[type]) {
+            industry = industryMap[type];
+            break;
+          }
+        }
+
+        // Estimate company size based on ratings count
+        let size = 'Small';
+        if (details.user_ratings_total > 100) size = 'Medium';
+        if (details.user_ratings_total > 500) size = 'Large';
+
+        companies.push({
+          name: details.name,
+          website: details.website || '',
+          snippet: `${details.name} is located at ${details.formatted_address}. Rating: ${details.rating || 'N/A'} (${details.user_ratings_total || 0} reviews)`,
+          industry: industry,
+          size: size,
+          address: details.formatted_address
+        });
+
+        // Rate limiting - wait 100ms between requests
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (detailError) {
+        console.error('Error fetching place details:', detailError);
+        continue;
+      }
+    }
+
+    console.log(`Found ${companies.length} companies from Google Places`);
+    return companies;
+  } catch (error) {
+    console.error('Error fetching from Google Places:', error);
+    return [];
+  }
 }
 
 async function enrichCompany(company: any): Promise<any> {
@@ -138,8 +249,8 @@ serve(async (req) => {
 
     console.log(`Starting enrichment pipeline for ${targetZip}...`);
 
-    // Step 1: Fetch companies from external API
-    const baseCompanies = await fetchCompaniesFromBing(targetZip);
+    // Step 1: Fetch companies from Google Places API
+    const baseCompanies = await fetchCompaniesFromGoogle(targetZip);
     
     let successCount = 0;
     let errorCount = 0;
@@ -153,12 +264,17 @@ serve(async (req) => {
         // Analyze business needs with AI
         const inferredNeeds = await analyzeNeeds(enrichedCompany);
 
+        // Extract city from address if available
+        const cityName = enrichedCompany.address 
+          ? enrichedCompany.address.split(',')[1]?.trim() || "Unknown"
+          : "Unknown";
+
         // Prepare company profile
         const profileToStore: Omit<CompanyProfile, 'id'> = {
           name: enrichedCompany.name,
-          source: 'bing_news',
-          website: enrichedCompany.website,
-          city: "Baldwin City",
+          source: 'google_places',
+          website: enrichedCompany.website || '',
+          city: cityName,
           zip: targetZip,
           sector: enrichedCompany.industry,
           size: enrichedCompany.size,
