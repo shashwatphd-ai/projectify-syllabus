@@ -63,18 +63,21 @@ async function getCompaniesFromDB(supabaseClient: any, cityZip: string, industri
     .select('*')
     .not('inferred_needs', 'is', null); // Only companies with analyzed needs
   
-  // Search by city name
+  // Search by city name (REQUIRED - only match location)
   if (cityName) {
     query = query.ilike('city', `%${cityName.split(',')[0].trim()}%`);
   } else if (zipCode) {
     query = query.eq('zip', zipCode);
   }
 
-  if (industries && industries.length > 0) {
-    query = query.in('sector', industries);
-  }
+  // NOTE: We do NOT filter by industry/sector from user input
+  // This is intentional - user input like "Small enterprises" is not a real sector
+  // The enriched companies have real sectors (Retail, Healthcare, Education, etc.)
+  // Intelligent matching happens via AI analyzing needs, not sector filtering
 
-  query = query.limit(count * 2);
+  query = query
+    .order('last_enriched_at', { ascending: false }) // Prioritize recently enriched
+    .limit(count * 2); // Get extra to filter later
 
   const { data, error } = await query;
 
@@ -84,11 +87,11 @@ async function getCompaniesFromDB(supabaseClient: any, cityZip: string, industri
   }
 
   if (!data || data.length === 0) {
-    console.log('⚠ No enriched companies found in DB, falling back to AI generation...');
+    console.log('⚠ No enriched companies found in DB for location:', cityZip);
     return [];
   }
 
-  console.log(`✓ Found ${data.length} enriched companies in database`);
+  console.log(`✓ Found ${data.length} enriched companies in database for ${cityName}`);
 
   // CRITICAL: Filter out companies with only generic needs
   const genericPatterns = ['general operations', 'sales growth', 'digital transformation'];
