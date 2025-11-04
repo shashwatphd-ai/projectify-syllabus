@@ -50,17 +50,29 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-[var(--shadow-card)]">
-        <CardHeader className="text-center">
-          <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <GraduationCap className="h-8 w-8 text-primary" />
+    <div className="min-h-screen bg-background flex flex-col">
+      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-4">
+          <div className="flex h-16 items-center justify-center">
+            <span className="text-2xl font-bold">
+              <span className="text-foreground">Edu</span>
+              <span className="text-primary">Three</span>
+            </span>
           </div>
-          <CardTitle className="text-2xl">{isSignUp ? "Create Account" : "Welcome Back"}</CardTitle>
-          <CardDescription>
-            {isSignUp ? "Sign up with your .edu email to get started" : "Sign in to continue"}
-          </CardDescription>
-        </CardHeader>
+        </div>
+      </nav>
+      
+      <div className="flex-1 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-[var(--shadow-card)]">
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <GraduationCap className="h-8 w-8 text-primary" />
+            </div>
+            <CardTitle className="text-2xl">{isSignUp ? "Create Account" : "Welcome Back"}</CardTitle>
+            <CardDescription>
+              {isSignUp ? "Sign up with your .edu email to get started" : "Sign in to continue"}
+            </CardDescription>
+          </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
@@ -120,6 +132,7 @@ const Auth = () => {
           </form>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Briefcase, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -25,10 +25,12 @@ export const Navigation = () => {
         <div className="flex h-16 items-center justify-between">
           <button 
             onClick={() => navigate("/")}
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            className="hover:opacity-80 transition-opacity"
           >
-            <Briefcase className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold">Project Generator</span>
+            <span className="text-2xl font-bold">
+              <span className="text-foreground">Edu</span>
+              <span className="text-primary">Three</span>
+            </span>
           </button>
           
           <div className="flex items-center gap-4">
