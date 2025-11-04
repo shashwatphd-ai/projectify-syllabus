@@ -82,7 +82,7 @@ const Configure = () => {
       if (error) throw error;
 
       toast.success(`${data.projectIds.length} projects generated successfully!`);
-      navigate("/projects", { state: { courseId } });
+      navigate(`/projects?courseId=${courseId}`);
     } catch (error: any) {
       console.error('Generation error:', error);
       toast.error(error.message || "Failed to generate projects");

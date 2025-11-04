@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,8 @@ const Projects = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const courseId = location.state?.courseId;
+  const [searchParams] = useSearchParams();
+  const courseId = searchParams.get('courseId') || location.state?.courseId;
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
