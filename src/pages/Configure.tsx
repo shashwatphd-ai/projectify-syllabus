@@ -67,6 +67,24 @@ const Configure = () => {
     setLoading(true);
 
     try {
+      // Step 1: Enrich company data if city_zip is available
+      if (courseData?.city_zip) {
+        toast.info("Fetching local companies...", { duration: 3000 });
+        
+        const { error: enrichError } = await supabase.functions.invoke('data-enrichment-pipeline', {
+          body: { cityZip: courseData.city_zip }
+        });
+
+        if (enrichError) {
+          console.warn('Company enrichment failed, will use AI generation:', enrichError);
+          toast.warning("Couldn't fetch local companies, will generate with AI", { duration: 3000 });
+        } else {
+          toast.success("Company data ready!", { duration: 2000 });
+        }
+      }
+
+      // Step 2: Generate projects
+      toast.info("Generating projects...", { duration: 3000 });
       const industriesArray = industries.split(',').map(i => i.trim()).filter(Boolean);
       const companiesArray = companies.split(',').map(c => c.trim()).filter(Boolean);
 
