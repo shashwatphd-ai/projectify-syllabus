@@ -500,22 +500,51 @@ Return ONLY raw JSON (no markdown, no code blocks, no backticks):
     const data = await response.json();
     let content = data.choices[0].message.content;
     
+    // Log raw response for debugging
+    console.log(`Raw AI response for ${enrichedCompany.name} (first 200 chars): ${content.substring(0, 200)}`);
+    
     // Strip markdown code blocks if present
     content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     
-    // Parse the JSON response
-    const parsed = JSON.parse(content);
+    // Try multiple JSON extraction methods
+    let parsed;
     let needs = [];
+    
+    try {
+      // Method 1: Direct parse
+      parsed = JSON.parse(content);
+    } catch (directParseError) {
+      // Method 2: Extract JSON array/object from text
+      const jsonMatch = content.match(/\{[^}]*"needs"[^}]*\}|\[[^\]]*\]/);
+      if (jsonMatch) {
+        console.log(`Extracted JSON via regex for ${enrichedCompany.name}`);
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error(`No valid JSON found in response: ${content.substring(0, 100)}`);
+      }
+    }
+    
+    // Extract needs array from parsed data
     if (Array.isArray(parsed)) {
       needs = parsed;
     } else if (parsed.needs && Array.isArray(parsed.needs)) {
       needs = parsed.needs;
+    } else {
+      console.error(`Unexpected JSON structure for ${enrichedCompany.name}:`, parsed);
+      throw new Error('Parsed JSON does not contain needs array');
     }
     
-    console.log(`Inferred needs for ${enrichedCompany.name}: ${needs.join(', ')}`);
+    // Validate needs are specific (not generic fallback)
+    if (needs.length > 0 && !needs.some((n: string) => n.toLowerCase().includes('general') || n.toLowerCase().includes('improve'))) {
+      console.log(`✓ Extracted ${needs.length} specific needs for ${enrichedCompany.name}`);
+    } else {
+      console.log(`⚠ Needs may be generic for ${enrichedCompany.name}: ${needs.join(', ')}`);
+    }
+    
     return needs;
   } catch (error) {
-    console.error(`AI analysis failed for ${enrichedCompany.name}:`, error instanceof Error ? error.message : String(error));
+    console.error(`❌ AI analysis failed for ${enrichedCompany.name}:`, error instanceof Error ? error.message : String(error));
+    console.error(`Falling back to generic needs for ${enrichedCompany.name}`);
     return ["general operations improvement", "sales growth", "digital transformation"];
   }
 }
@@ -597,6 +626,9 @@ serve(async (req) => {
           full_address: enrichedCompany.fullAddress
         };
 
+        // Log what we're storing
+        console.log(`📦 Storing for ${profileToStore.name}: needs=${JSON.stringify(inferredNeeds)}`);
+
         // Step 3: UPSERT to database
         const { data, error } = await supabase
           .from('company_profiles')
@@ -604,10 +636,18 @@ serve(async (req) => {
           .select();
 
         if (error) {
-          console.error(`Failed to upsert ${profileToStore.name}:`, error.message);
+          console.error(`❌ Failed to upsert ${profileToStore.name}:`, error.message);
           errorCount++;
         } else {
-          console.log(`Successfully upserted ${profileToStore.name}`);
+          // Verify what was actually stored
+          const storedNeeds = data?.[0]?.inferred_needs;
+          if (JSON.stringify(storedNeeds) === JSON.stringify(inferredNeeds)) {
+            console.log(`✓ Successfully stored ${profileToStore.name} with ${inferredNeeds.length} needs`);
+          } else {
+            console.error(`⚠ Mismatch in stored needs for ${profileToStore.name}!`);
+            console.error(`  Expected: ${JSON.stringify(inferredNeeds)}`);
+            console.error(`  Got: ${JSON.stringify(storedNeeds)}`);
+          }
           successCount++;
         }
       } catch (companyError) {
