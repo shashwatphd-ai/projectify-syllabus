@@ -131,10 +131,13 @@ async function intelligentCompanyFilter(
     });
   }
 
-  // AI-powered relevance scoring
-  const systemPrompt = 'You are an experiential learning expert. Evaluate company-course fit. Return only valid JSON array.';
+  // AI-powered relevance scoring with creative thinking
+  const systemPrompt = `You are an experiential learning expert who finds creative connections between companies and academic disciplines. 
+Think broadly - many industries use chemical engineering even if not obvious (manufacturing, healthcare, construction, retail supply chains, food service, etc.).
+Return only valid JSON array.`;
   
-  const prompt = `Evaluate which companies are relevant for this ${level} course:
+  const prompt = `Evaluate which companies could provide valuable projects for this ${level} course.
+Think creatively about interdisciplinary applications.
 
 COURSE LEARNING OUTCOMES:
 ${outcomes.map((o, i) => `${i + 1}. ${o}`).join('\n')}
@@ -146,15 +149,18 @@ ${i + 1}. ${c.name} (${c.sector})
    Business Needs: ${(c.inferred_needs || []).join('; ')}
 `).join('\n')}
 
-Rate each company's relevance (0-100) based on:
-1. Can students apply the learning outcomes to solve company needs?
-2. Is the sector appropriate for the course level and subject?
-3. Do the business needs align with course topics?
+Rate each company's relevance (0-100) considering:
+1. **Direct application**: Can students directly apply course concepts? (e.g., chemical processes, materials, optimization)
+2. **Indirect value**: Could the company benefit from quantitative analysis, process improvement, or data-driven solutions?
+3. **Learning opportunity**: Would students gain practical experience relevant to their field?
+
+BE GENEROUS - if there's ANY plausible connection where students could apply engineering thinking to solve real problems, rate it 40+.
+Only rate below 30 if there's truly NO connection to engineering/technical problem-solving.
 
 Return ONLY this JSON array:
 [
-  {"index": 0, "relevance": 85, "reason": "Brief fit explanation"},
-  {"index": 1, "relevance": 20, "reason": "Why poor fit"}
+  {"index": 0, "relevance": 85, "reason": "How students can help"},
+  {"index": 1, "relevance": 40, "reason": "Indirect but valuable connection"}
 ]`;
 
   try {
@@ -176,13 +182,13 @@ Return ONLY this JSON array:
     
     const ratings = JSON.parse(jsonMatch[0]);
     
-    // Sort by relevance and filter threshold
+    // Sort by relevance with more reasonable threshold
     const scored = companies
       .map((company, index) => {
         const rating = ratings.find((r: any) => r.index === index);
         return { ...company, relevance: rating?.relevance || 0, reason: rating?.reason || '' };
       })
-      .filter(c => c.relevance >= 60) // Only keep relevant matches (60%+)
+      .filter(c => c.relevance >= 35) // Keep companies with plausible connections (35%+)
       .sort((a, b) => b.relevance - a.relevance);
 
     scored.forEach(c => {
