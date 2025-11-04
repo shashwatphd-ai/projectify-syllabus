@@ -106,14 +106,14 @@ async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
             'hardware_store',
             'home_goods_store'
           ],
-          maxResultCount: 20,
+          maxResultCount: 15,
           locationRestriction: {
             circle: {
               center: {
                 latitude: location.lat,
                 longitude: location.lng
               },
-              radius: 50000.0  // ~31 miles in meters (Google API max)
+              radius: 40000.0  // ~25 miles in meters
             }
           }
         })
