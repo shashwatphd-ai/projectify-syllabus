@@ -43,10 +43,20 @@ async function geocodeLocation(cityZip: string): Promise<{ lat: number; lng: num
     );
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Google Geocoding API HTTP error: ${response.status} - ${errorText}`);
       throw new Error(`Google Geocoding API error: ${response.status}`);
     }
     
     const data = await response.json();
+    console.log(`Geocoding API response status: ${data.status}`);
+    
+    if (data.status === 'REQUEST_DENIED') {
+      console.error(`Geocoding API request denied. Error: ${data.error_message || 'No error message'}`);
+      console.error('Make sure Geocoding API is enabled in Google Cloud Console');
+      return null;
+    }
+    
     if (data.status === 'OK' && data.results.length > 0) {
       const location = data.results[0].geometry.location;
       console.log(`✓ Geocoded ${cityZip} to ${location.lat}, ${location.lng}`);
@@ -55,7 +65,7 @@ async function geocodeLocation(cityZip: string): Promise<{ lat: number; lng: num
         lng: location.lng
       };
     }
-    console.log(`Geocoding failed: ${data.status}`);
+    console.log(`Geocoding failed with status: ${data.status}, message: ${data.error_message || 'none'}`);
     return null;
   } catch (error) {
     console.error('Geocoding error:', error);
