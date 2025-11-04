@@ -106,7 +106,7 @@ async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
             'hardware_store',
             'home_goods_store'
           ],
-          maxResultCount: 50,
+          maxResultCount: 20,
           locationRestriction: {
             circle: {
               center: {
