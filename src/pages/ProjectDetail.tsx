@@ -16,6 +16,7 @@ import { AcademicTab } from "@/components/project-detail/AcademicTab";
 import { AlgorithmTab } from "@/components/project-detail/AlgorithmTab";
 import { LearningOutcomeAlignment } from "@/components/project-detail/LearningOutcomeAlignment";
 import { TimelineTab } from "@/components/project-detail/TimelineTab";
+import { VerificationTab } from "@/components/project-detail/VerificationTab";
 import { Navigation } from "@/components/Navigation";
 
 const ProjectDetail = () => {
@@ -25,6 +26,7 @@ const ProjectDetail = () => {
   const [project, setProject] = useState<any>(null);
   const [forms, setForms] = useState<any>(null);
   const [courseProfile, setCourseProfile] = useState<any>(null);
+  const [metadata, setMetadata] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -64,9 +66,19 @@ const ProjectDetail = () => {
 
       if (courseError) throw courseError;
 
+      // Load project metadata
+      const { data: metadataData, error: metadataError } = await supabase
+        .from('project_metadata')
+        .select('*')
+        .eq('project_id', id)
+        .maybeSingle();
+
+      // metadataError is ok - not all projects have metadata yet
+
       setProject(projectData);
       setForms(formsData);
       setCourseProfile(courseData);
+      setMetadata(metadataData);
     } catch (error: any) {
       console.error('Load error:', error);
     } finally {
@@ -120,6 +132,7 @@ const ProjectDetail = () => {
             <TabsTrigger value="logistics">Logistics</TabsTrigger>
             <TabsTrigger value="academic">Academic</TabsTrigger>
             <TabsTrigger value="lo-mapping">LO Alignment</TabsTrigger>
+            <TabsTrigger value="verification">Verification</TabsTrigger>
             <TabsTrigger value="scoring">Scoring</TabsTrigger>
             <TabsTrigger value="forms">All Forms</TabsTrigger>
             <TabsTrigger value="algorithm">Algorithm</TabsTrigger>
@@ -148,6 +161,10 @@ const ProjectDetail = () => {
 
           <TabsContent value="lo-mapping" className="space-y-6">
             <LearningOutcomeAlignment project={project} courseProfile={courseProfile} />
+          </TabsContent>
+
+          <TabsContent value="verification" className="space-y-6">
+            <VerificationTab metadata={metadata} project={project} course={courseProfile} />
           </TabsContent>
 
           <TabsContent value="forms" className="space-y-6">

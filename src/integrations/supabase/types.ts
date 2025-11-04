@@ -17,6 +17,10 @@ export type Database = {
       company_profiles: {
         Row: {
           city: string | null
+          contact_email: string | null
+          contact_person: string | null
+          contact_phone: string | null
+          full_address: string | null
           id: string
           inferred_needs: Json | null
           last_enriched_at: string
@@ -32,6 +36,10 @@ export type Database = {
         }
         Insert: {
           city?: string | null
+          contact_email?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
+          full_address?: string | null
           id?: string
           inferred_needs?: Json | null
           last_enriched_at?: string
@@ -47,6 +55,10 @@ export type Database = {
         }
         Update: {
           city?: string | null
+          contact_email?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
+          full_address?: string | null
           id?: string
           inferred_needs?: Json | null
           last_enriched_at?: string

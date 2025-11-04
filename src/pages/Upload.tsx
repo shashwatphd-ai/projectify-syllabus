@@ -155,12 +155,18 @@ const Upload = () => {
       console.log('Parse successful:', data);
 
       toast.success("Syllabus parsed successfully!");
-      navigate("/configure", { 
-        state: { 
-          courseId: data.course.id,
-          courseData: data.parsed 
-        } 
+      
+      // Navigate to review page with parsed data
+      const params = new URLSearchParams({
+        courseId: data.course.id,
+        parsed: encodeURIComponent(JSON.stringify(data.parsed))
       });
+      
+      if (data.rawText) {
+        params.append('rawText', encodeURIComponent(data.rawText));
+      }
+      
+      navigate(`/review-syllabus?${params.toString()}`);
     } catch (error: any) {
       console.error('Parse error:', error);
       toast.error(error.message || "Failed to parse syllabus");

@@ -23,8 +23,17 @@ function extractText(pdfText: string): ParsedCourse {
                      pdfText.match(/^([A-Z][^\n]{10,80})/m);
   const title = titleMatch ? titleMatch[1].trim() : "Course";
 
-  // Detect level
-  const level = /\b(MBA|graduate|master)\b/i.test(pdfText) ? "MBA" : "UG";
+  // Detect level with better logic
+  const mbaIndicators = /\b(MBA|M\.B\.A\.|graduate|master|masters|eligibility.*bachelor|prerequisite.*bachelor)\b/i;
+  const ugIndicators = /\b(undergraduate|UG|bachelor|B\.S\.|B\.A\.|freshman|sophomore|junior|senior|100-|200-|300-|400-level)\b/i;
+  
+  let level = "UG"; // Default to undergraduate
+  if (mbaIndicators.test(pdfText)) {
+    level = "MBA";
+  }
+  if (ugIndicators.test(pdfText)) {
+    level = "UG"; // UG indicators override MBA if both present
+  }
 
   // Extract weeks
   const weeksMatch = pdfText.match(/(\d{1,2})\s*weeks?/i);
@@ -199,7 +208,11 @@ serve(async (req) => {
       // Continue even if enrichment fails
     }
 
-    return new Response(JSON.stringify({ course, parsed }), {
+    return new Response(JSON.stringify({ 
+      course, 
+      parsed,
+      rawText: pdfText.substring(0, 10000) // Include first 10k chars for review
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

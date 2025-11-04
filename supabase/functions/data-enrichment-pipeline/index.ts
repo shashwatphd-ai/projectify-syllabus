@@ -106,14 +106,14 @@ async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
             'hardware_store',
             'home_goods_store'
           ],
-          maxResultCount: 20,
+          maxResultCount: 50,
           locationRestriction: {
             circle: {
               center: {
                 latitude: location.lat,
                 longitude: location.lng
               },
-              radius: 5000.0
+              radius: 160934.0  // 100 miles in meters
             }
           }
         })
@@ -218,12 +218,80 @@ async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
 }
 
 async function enrichCompany(company: any): Promise<any> {
-  // TODO: Call real enrichment APIs (Clearbit, job boards, etc.)
   console.log(`Enriching ${company.name}...`);
+  
+  // Extract real contact info and address
+  let contactEmail = '';
+  let contactPhone = '';
+  let contactPerson = '';
+  let fullAddress = company.address || '';
+  
+  // Try to get real data from website if available
+  if (company.website) {
+    try {
+      const websiteResponse = await fetch(company.website, {
+        headers: { 'User-Agent': 'ProjectGeneratorApp/1.0' },
+        signal: AbortSignal.timeout(5000) // 5 second timeout
+      });
+      
+      if (websiteResponse.ok) {
+        const html = await websiteResponse.text();
+        
+        // Extract email
+        const emailMatch = html.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
+        if (emailMatch) contactEmail = emailMatch[1];
+        
+        // Extract phone
+        const phoneMatch = html.match(/(?:tel:|phone:|call:?\s*)?([\(]?\d{3}[\)]?[\s.-]?\d{3}[\s.-]?\d{4})/i);
+        if (phoneMatch) contactPhone = phoneMatch[1];
+        
+        // Try to find contact person (look for "Contact", "Owner", "Manager" sections)
+        const contactMatch = html.match(/(?:contact|owner|manager)[:\s]+([A-Z][a-z]+\s+[A-Z][a-z]+)/i);
+        if (contactMatch) contactPerson = contactMatch[1];
+      }
+    } catch (err) {
+      console.log(`Could not fetch website for ${company.name}:`, err instanceof Error ? err.message : String(err));
+    }
+  }
+  
+  // Infer technologies based on industry
+  const techMap: { [key: string]: string[] } = {
+    'Healthcare': ['Epic', 'Cerner', 'MEDITECH', 'Salesforce Health Cloud'],
+    'Food & Beverage': ['Toast POS', 'Square', 'Aloha', 'OpenTable'],
+    'Education': ['Canvas LMS', 'Blackboard', 'Google Workspace', 'Zoom'],
+    'Finance': ['QuickBooks', 'SAP', 'Bloomberg Terminal', 'Salesforce'],
+    'Retail': ['Shopify', 'Square', 'Lightspeed', 'SAP Commerce'],
+    'Real Estate': ['MLS', 'Zillow Premier Agent', 'Dotloop', 'Matterport'],
+    'Legal Services': ['Clio', 'MyCase', 'LexisNexis', 'Westlaw'],
+    'Automotive': ['CDK Global', 'Reynolds and Reynolds', 'Dealertrack'],
+    'Construction': ['Procore', 'Buildertrend', 'CoConstruct', 'PlanGrid']
+  };
+  
+  const technologies = techMap[company.industry] || ['Microsoft 365', 'QuickBooks', 'Salesforce'];
+  
+  // Infer roles based on industry and size
+  const roleMap: { [key: string]: string[] } = {
+    'Healthcare': ['Medical Assistant', 'Health Data Analyst', 'Patient Care Coordinator'],
+    'Food & Beverage': ['Restaurant Manager', 'Marketing Coordinator', 'Operations Analyst'],
+    'Education': ['Instructional Designer', 'Student Services Coordinator', 'Data Analyst'],
+    'Finance': ['Financial Analyst', 'Compliance Officer', 'Client Relations Manager'],
+    'Retail': ['Store Manager', 'E-commerce Specialist', 'Inventory Analyst'],
+    'Real Estate': ['Real Estate Agent', 'Property Manager', 'Marketing Specialist'],
+    'Legal Services': ['Paralegal', 'Legal Assistant', 'Office Manager'],
+    'Automotive': ['Service Advisor', 'Sales Manager', 'Parts Manager'],
+    'Construction': ['Project Manager', 'Estimator', 'Safety Coordinator']
+  };
+  
+  const open_roles = roleMap[company.industry] || ['Operations Manager', 'Business Analyst', 'Marketing Coordinator'];
+  
   return {
     ...company,
-    technologies: ["Salesforce", "QuickBooks", "Microsoft 365"],
-    open_roles: ["Operations Manager", "Sales Associate", "Data Analyst"],
+    technologies,
+    open_roles,
+    contactEmail,
+    contactPhone,
+    contactPerson: contactPerson || 'General Manager',
+    fullAddress
   };
 }
 
@@ -319,8 +387,8 @@ serve(async (req) => {
         const cityName = enrichedCompany.city || "Unknown";
         const zipCode = enrichedCompany.zip || targetZip;
 
-        // Prepare company profile
-        const profileToStore: Omit<CompanyProfile, 'id'> = {
+        // Prepare company profile with contact info
+        const profileToStore: any = {
           name: enrichedCompany.name,
           source: 'google_places',
           website: enrichedCompany.website || '',
@@ -333,6 +401,10 @@ serve(async (req) => {
           recent_news: enrichedCompany.snippet,
           inferred_needs: inferredNeeds,
           last_enriched_at: new Date().toISOString(),
+          contact_email: enrichedCompany.contactEmail || '',
+          contact_phone: enrichedCompany.contactPhone || '',
+          contact_person: enrichedCompany.contactPerson || '',
+          full_address: enrichedCompany.fullAddress || enrichedCompany.address || ''
         };
 
         // Step 3: UPSERT to database

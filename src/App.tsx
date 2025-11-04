@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Upload from "./pages/Upload";
+import ReviewSyllabus from "./pages/ReviewSyllabus";
 import Configure from "./pages/Configure";
 import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/landing" element={<Landing />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/upload" element={<Upload />} />
+          <Route path="/review-syllabus" element={<ReviewSyllabus />} />
           <Route path="/configure" element={<Configure />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
