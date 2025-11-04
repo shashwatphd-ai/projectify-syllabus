@@ -860,27 +860,81 @@ serve(async (req) => {
     console.log('Industries:', industries);
     console.log('Teams requested:', numTeams);
     
-    // MODIFIED: Try to get companies from DB first
-    let companiesFound = await getCompaniesFromDB(
-      supabaseClient,
-      cityZip,
-      industries.length > 0 ? industries : ["Technology", "Healthcare", "Finance", "Manufacturing"],
-      numTeams,
-      outcomes,
-      level
-    );
+    // MODIFIED: Try intelligent discovery first, then DB, then AI fallback
+    let companiesFound: CompanyInfo[] = [];
+    
+    // Step 1: Try intelligent discovery using Google Search
+    console.log('🔍 Step 1: Intelligent company discovery via Google Search...');
+    try {
+      const discoveryResponse = await fetch(
+        `${Deno.env.get('SUPABASE_URL')}/functions/v1/discover-companies`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            courseId,
+            location: cityZip,
+            count: numTeams
+          })
+        }
+      );
 
-    // Fallback to AI generation if DB is empty
+      if (discoveryResponse.ok) {
+        const discoveryData = await discoveryResponse.json();
+        if (discoveryData.success && discoveryData.companies.length > 0) {
+          console.log(`✓ Discovered ${discoveryData.companies.length} companies via Google Search`);
+          
+          // Convert discoveries to CompanyInfo format
+          companiesFound = discoveryData.companies.map((d: any) => ({
+            name: d.name,
+            sector: d.sector,
+            size: d.estimatedSize,
+            needs: d.currentChallenges || d.skillsNeeded || [],
+            description: d.whyRelevant,
+            website: d.website,
+            address: d.address,
+            phone: d.phone,
+            // Store relevance data for linking
+            _discoveryData: {
+              relevanceScore: d.relevanceScore,
+              skillsNeeded: d.skillsNeeded,
+              whyRelevant: d.whyRelevant
+            }
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('⚠ Discovery function failed:', error);
+    }
+
+    // Step 2: Fallback to DB if discovery didn't find enough
+    if (companiesFound.length < numTeams) {
+      console.log(`🗄️ Step 2: Querying enriched database (need ${numTeams - companiesFound.length} more)...`);
+      const dbCompanies = await getCompaniesFromDB(
+        supabaseClient,
+        cityZip,
+        industries.length > 0 ? industries : ["Technology", "Healthcare", "Finance", "Manufacturing"],
+        numTeams - companiesFound.length,
+        outcomes,
+        level
+      );
+      companiesFound = [...companiesFound, ...dbCompanies];
+    }
+
+    // Step 3: Last resort - AI generation
     if (companiesFound.length === 0) {
-      console.log('DB empty, using AI generation fallback...');
+      console.log('⚠️ Step 3: Using AI generation fallback (no real companies found)...');
       companiesFound = await searchCompanies(
         cityZip,
         industries.length > 0 ? industries : ["Technology", "Healthcare", "Finance", "Manufacturing"],
         numTeams
       );
-    } else {
-      console.log(`Found ${companiesFound.length} real companies from database`);
     }
+
+    console.log(`✅ Final company set: ${companiesFound.length} companies ready for project generation`);
 
     const projectIds: string[] = [];
 

@@ -413,12 +413,12 @@ async function enrichCompany(company: any): Promise<any> {
   };
 }
 
-// Enrich company with Google AI Studio web search for missing critical data + contact person
+// NEW: Use Google Search grounding to find company's current needs and contact info
 async function enrichWithGeminiWebSearch(
   companyName: string, 
   address: string,
   needs: { needsPhone?: boolean; needsWebsite?: boolean; needsContact?: boolean }
-): Promise<{ phone?: string; website?: string; contactPerson?: string; contactEmail?: string; linkedinProfile?: string } | null> {
+): Promise<{ phone?: string; website?: string; contactPerson?: string; contactEmail?: string; linkedinProfile?: string; currentChallenges?: string[] } | null> {
   const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
   if (!GEMINI_API_KEY) {
     console.log('GEMINI_API_KEY not set, skipping web search enrichment');
@@ -426,36 +426,43 @@ async function enrichWithGeminiWebSearch(
   }
 
   try {
-    const missingFields = [];
-    if (needs.needsPhone) missingFields.push('phone number');
-    if (needs.needsWebsite) missingFields.push('website');
-    if (needs.needsContact) missingFields.push('key contact person with email and LinkedIn');
-    
-    const prompt = `Find the official contact information for the business "${companyName}" located at "${address}".
+    const prompt = `Search the web for "${companyName}" located at "${address}". Find:
 
-Search the web and provide:
-${needs.needsPhone ? '- Official business phone number\n' : ''}
-${needs.needsWebsite ? '- Official website URL\n' : ''}
-${needs.needsContact ? '- Key contact person (Owner, Manager, Director, or decision-maker)\n- Their professional email address\n- Their LinkedIn profile URL\n' : ''}
+1. CONTACT INFORMATION:
+   - Official website URL
+   - Business phone number  
+   - Key decision-maker for partnerships (Owner/CEO/Director/Manager with hiring authority)
+   - Their professional email (name@company.com format, not info@)
+   - Their LinkedIn profile URL
 
-Focus on finding someone appropriate for educational partnership discussions (not generic info@ emails).
+2. CURRENT BUSINESS CHALLENGES (from recent news, press releases, job postings, company reports):
+   - What problems are they actively trying to solve?
+   - What skills are they hiring for?
+   - What projects or initiatives are they working on?
+   - What industry trends are affecting them?
 
-Return ONLY valid JSON in this exact format:
+Focus on verifiable, recent information. For contacts, prioritize people who would discuss educational partnerships or hiring.
+
+Return ONLY valid JSON:
 {
-  ${needs.needsPhone ? '"phone": "phone number or null",' : ''}
-  ${needs.needsWebsite ? '"website": "website URL or null",' : ''}
-  ${needs.needsContact ? '"contactPerson": "Full Name or null",\n  "contactEmail": "professional email or null",\n  "linkedinProfile": "LinkedIn URL or null"' : ''}
+  "phone": "phone or null",
+  "website": "website or null",
+  "contactPerson": "Full Name or null",
+  "contactEmail": "professional email or null",
+  "linkedinProfile": "LinkedIn URL or null",
+  "currentChallenges": ["specific challenge 1", "specific challenge 2", "specific challenge 3"]
 }
 
 CRITICAL RULES:
-- Only return information you can verify from official sources (company website, LinkedIn, business directories)
+- Only return information you can verify from official sources (company website, LinkedIn, business directories, recent news)
 - For contact person, prefer: Owner > General Manager > Director > Department Head
 - Email should be a direct professional email (firstname@company.com), not generic (info@, contact@)
 - LinkedIn must be the person's actual profile URL
+- For challenges, prioritize recent information (last 6 months) from news, job postings, press releases
 - Return null for any field you cannot reliably find
 - No fabrication or guessing`;
 
-    console.log(`  🔍 Google AI Studio search: ${missingFields.join(', ')} for ${companyName}`);
+    console.log(`  🔍 Google AI Studio search: enriching ${companyName} with web search (contact info + market intelligence)`);
 
     // Use Google AI Studio API with web search grounding
     const response = await fetch(
@@ -508,27 +515,32 @@ CRITICAL RULES:
     // Build result object with clean data
     const result: any = {};
     
-    if (needs.needsPhone && extractedData.phone && extractedData.phone !== 'null') {
+    if (extractedData.phone && extractedData.phone !== 'null') {
       result.phone = extractedData.phone;
     }
     
-    if (needs.needsWebsite && extractedData.website && extractedData.website !== 'null') {
+    if (extractedData.website && extractedData.website !== 'null') {
       result.website = extractedData.website;
     }
     
-    if (needs.needsContact) {
-      if (extractedData.contactPerson && extractedData.contactPerson !== 'null') {
-        result.contactPerson = extractedData.contactPerson;
-        console.log(`  ✓ Found contact person: ${result.contactPerson}`);
-      }
-      if (extractedData.contactEmail && extractedData.contactEmail !== 'null') {
-        result.contactEmail = extractedData.contactEmail;
-        console.log(`  ✓ Found contact email: ${result.contactEmail}`);
-      }
-      if (extractedData.linkedinProfile && extractedData.linkedinProfile !== 'null') {
-        result.linkedinProfile = extractedData.linkedinProfile;
-        console.log(`  ✓ Found LinkedIn: ${result.linkedinProfile}`);
-      }
+    if (extractedData.contactPerson && extractedData.contactPerson !== 'null') {
+      result.contactPerson = extractedData.contactPerson;
+      console.log(`  ✓ Found contact person: ${result.contactPerson}`);
+    }
+    
+    if (extractedData.contactEmail && extractedData.contactEmail !== 'null') {
+      result.contactEmail = extractedData.contactEmail;
+      console.log(`  ✓ Found contact email: ${result.contactEmail}`);
+    }
+    
+    if (extractedData.linkedinProfile && extractedData.linkedinProfile !== 'null') {
+      result.linkedinProfile = extractedData.linkedinProfile;
+      console.log(`  ✓ Found LinkedIn: ${result.linkedinProfile}`);
+    }
+    
+    if (extractedData.currentChallenges && Array.isArray(extractedData.currentChallenges) && extractedData.currentChallenges.length > 0) {
+      result.currentChallenges = extractedData.currentChallenges;
+      console.log(`  ✓ Found ${result.currentChallenges.length} current challenges`);
     }
 
     return Object.keys(result).length > 0 ? result : null;
