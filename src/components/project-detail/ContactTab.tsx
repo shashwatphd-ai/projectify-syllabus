@@ -108,7 +108,7 @@ export const ContactTab = ({ forms, companyProfile, projectId, projectTitle }: C
                 Contact Information
               </h3>
               <div className="space-y-3">
-                {displayData.contact_name && displayData.contact_name !== 'TBD' ? (
+                {displayData.contact_name && displayData.contact_name !== 'TBD' && displayData.contact_name !== 'General Manager' ? (
                   <div>
                     <p className="text-sm text-muted-foreground">Contact Person</p>
                     <p className="font-medium">{displayData.contact_name}</p>
@@ -121,12 +121,11 @@ export const ContactTab = ({ forms, companyProfile, projectId, projectTitle }: C
                     <p className="text-sm text-muted-foreground">Contact Person</p>
                     <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm space-y-1">
                       <p className="font-semibold">ℹ️ Contact Information Unavailable</p>
-                      <p>Real company contact details require a location (city & zip code) in your syllabus. This enables our system to find companies near you with verified addresses and contacts.</p>
-                      <p className="text-xs">You can reach out via the company website above or request contact information directly from the company.</p>
+                      <p>Specific contact details are not publicly available. Use the "Propose Partnership" button above to reach out, or visit the company website for contact options.</p>
                     </div>
                   </div>
                 )}
-                {displayData.contact_email && displayData.contact_email !== '' && (
+                {displayData.contact_email && displayData.contact_email !== '' ? (
                   <div>
                     <p className="text-sm text-muted-foreground">Email</p>
                     <a 
@@ -137,8 +136,8 @@ export const ContactTab = ({ forms, companyProfile, projectId, projectTitle }: C
                       {displayData.contact_email}
                     </a>
                   </div>
-                )}
-                {displayData.contact_phone && displayData.contact_phone !== '' && (
+                ) : null}
+                {displayData.contact_phone && displayData.contact_phone !== '' ? (
                   <div>
                     <p className="text-sm text-muted-foreground">Phone</p>
                     <a 
@@ -149,7 +148,7 @@ export const ContactTab = ({ forms, companyProfile, projectId, projectTitle }: C
                       {displayData.contact_phone}
                     </a>
                   </div>
-                )}
+                ) : null}
                 {displayData.preferred_communication && (
                   <div>
                     <p className="text-sm text-muted-foreground">Preferred Communication</p>

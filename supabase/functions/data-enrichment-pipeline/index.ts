@@ -79,7 +79,7 @@ async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': GOOGLE_API_KEY,
-          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.types,places.websiteUri,places.rating,places.userRatingCount,places.businessStatus'
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.types,places.websiteUri,places.rating,places.userRatingCount,places.businessStatus,places.nationalPhoneNumber,places.internationalPhoneNumber'
         },
         body: JSON.stringify({
           includedTypes: [
@@ -194,13 +194,14 @@ async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
 
         companies.push({
           name: name,
-          website: place.websiteUri || '',
+          website: place.websiteUri || null,
           snippet: `${name} is located at ${address}. Rating: ${place.rating || 'N/A'} (${ratingCount} reviews)`,
           industry: industry,
           size: size,
           address: address,
           city: city,
-          zip: zip
+          zip: zip,
+          phone: place.nationalPhoneNumber || place.internationalPhoneNumber || null
         });
 
       } catch (placeError) {
@@ -220,39 +221,12 @@ async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
 async function enrichCompany(company: any): Promise<any> {
   console.log(`Enriching ${company.name}...`);
   
-  // Extract real contact info and address
-  let contactEmail = '';
-  let contactPhone = '';
-  let contactPerson = '';
-  let fullAddress = company.address || '';
+  // Use phone from Google Places API (no scraping needed)
+  const contactPhone = company.phone || null;
+  const fullAddress = company.address || null;
   
-  // Try to get real data from website if available
-  if (company.website) {
-    try {
-      const websiteResponse = await fetch(company.website, {
-        headers: { 'User-Agent': 'ProjectGeneratorApp/1.0' },
-        signal: AbortSignal.timeout(5000) // 5 second timeout
-      });
-      
-      if (websiteResponse.ok) {
-        const html = await websiteResponse.text();
-        
-        // Extract email
-        const emailMatch = html.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
-        if (emailMatch) contactEmail = emailMatch[1];
-        
-        // Extract phone
-        const phoneMatch = html.match(/(?:tel:|phone:|call:?\s*)?([\(]?\d{3}[\)]?[\s.-]?\d{3}[\s.-]?\d{4})/i);
-        if (phoneMatch) contactPhone = phoneMatch[1];
-        
-        // Try to find contact person (look for "Contact", "Owner", "Manager" sections)
-        const contactMatch = html.match(/(?:contact|owner|manager)[:\s]+([A-Z][a-z]+\s+[A-Z][a-z]+)/i);
-        if (contactMatch) contactPerson = contactMatch[1];
-      }
-    } catch (err) {
-      console.log(`Could not fetch website for ${company.name}:`, err instanceof Error ? err.message : String(err));
-    }
-  }
+  // DO NOT scrape websites or use fake fallback data
+  // Contact info must come from verified sources only
   
   // Infer technologies based on industry
   const techMap: { [key: string]: string[] } = {
@@ -288,9 +262,9 @@ async function enrichCompany(company: any): Promise<any> {
     ...company,
     technologies,
     open_roles,
-    contactEmail,
+    contactEmail: null, // Email not available from Google Places API
     contactPhone,
-    contactPerson: contactPerson || 'General Manager',
+    contactPerson: null, // Contact person not available from public APIs
     fullAddress
   };
 }
@@ -391,7 +365,7 @@ serve(async (req) => {
         const profileToStore: any = {
           name: enrichedCompany.name,
           source: 'google_places',
-          website: enrichedCompany.website || '',
+          website: enrichedCompany.website,
           city: cityName,
           zip: zipCode,
           sector: enrichedCompany.industry,
@@ -401,10 +375,10 @@ serve(async (req) => {
           recent_news: enrichedCompany.snippet,
           inferred_needs: inferredNeeds,
           last_enriched_at: new Date().toISOString(),
-          contact_email: enrichedCompany.contactEmail || '',
-          contact_phone: enrichedCompany.contactPhone || '',
-          contact_person: enrichedCompany.contactPerson || '',
-          full_address: enrichedCompany.fullAddress || enrichedCompany.address || ''
+          contact_email: enrichedCompany.contactEmail,
+          contact_phone: enrichedCompany.contactPhone,
+          contact_person: enrichedCompany.contactPerson,
+          full_address: enrichedCompany.fullAddress
         };
 
         // Step 3: UPSERT to database

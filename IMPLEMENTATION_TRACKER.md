@@ -2,6 +2,74 @@
 
 ## Date: 2025-11-04
 
+## 🔧 CRITICAL FIX: Google Places API Data Quality (2025-11-04)
+
+### Problem Identified
+- **Issue**: Contact information (email, phone, contact person) was displaying fake/incorrect data
+- **Root Cause**: Website scraping (lines 230-255 in data-enrichment-pipeline) was failing due to:
+  - CORS restrictions
+  - JavaScript-rendered content not accessible via fetch
+  - 5-second timeouts
+- **Impact**: Fallback values like "General Manager" were being stored when real data was unavailable
+- **Data Integrity**: Empty strings instead of null values prevented proper "unavailable" handling in UI
+
+### Solution Implemented
+
+#### 1. Google Places API Enhancement ✅
+- **File**: `supabase/functions/data-enrichment-pipeline/index.ts`
+- **Changes**:
+  - Line 82: Added `places.nationalPhoneNumber` and `places.internationalPhoneNumber` to API field mask
+  - Line 203: Modified company structure to include `phone` from API response
+- **Result**: Phone numbers now sourced from verified Google Places data (not scraping)
+
+#### 2. Removed Fake Data Generation ✅
+- **File**: `supabase/functions/data-enrichment-pipeline/index.ts`
+- **Changes**:
+  - Lines 220-228: Deleted entire website scraping logic (fetch + regex parsing)
+  - Line 293: Changed `contactPerson: 'General Manager'` → `contactPerson: null`
+  - Lines 391-408: All empty string fallbacks (`''`) → `null` values
+- **Result**: System stores `null` when data unavailable instead of fake placeholders
+
+#### 3. UI Transparency Updates ✅
+- **File**: `src/components/project-detail/ContactTab.tsx`
+- **Changes**:
+  - Line 111: Added filter `displayData.contact_name !== 'General Manager'`
+  - Line 124: Updated unavailable message to direct users to "Propose Partnership" button
+  - Lines 128-151: Email/phone conditionals use `? : null` pattern for cleaner rendering
+- **Result**: Clear indication when contact data unavailable + alternative actions suggested
+
+### Fixed Data Flow
+```
+Google Places API (verified sources only)
+  ↓
+fetchCompaniesFromGoogle() → phone, address, website
+  ↓
+enrichCompany() → NO scraping, NO fake data
+  ↓
+Database → null when unavailable
+  ↓
+ContactTab UI → clear "unavailable" messaging
+```
+
+### Data Availability Matrix
+| Field | Source | Status |
+|-------|--------|--------|
+| Phone | Google Places API | ✅ Available (when listed) |
+| Address | Google Places API | ✅ Available |
+| Website | Google Places API | ✅ Available (when listed) |
+| Email | N/A | ❌ Not available from public APIs |
+| Contact Person | N/A | ❌ Not available from public APIs |
+
+### Testing Checklist
+- [ ] Re-run enrichment pipeline for test location (Denton, TX 76203)
+- [ ] Query database: `SELECT name, contact_phone, contact_person FROM company_profiles LIMIT 5`
+- [ ] Verify phone numbers display correctly (not null)
+- [ ] Verify "unavailable" message shows for email/contact person (null values)
+- [ ] Verify no "General Manager" or empty string placeholders exist
+- [ ] Confirm "Propose Partnership" button is visible and functional
+
+---
+
 ## Overview
 This document tracks the implementation of Phase 1 (Claim Business/Partnership Proposal) and Phase 2 (Feedback Flow Restructuring) features.
 
