@@ -272,6 +272,64 @@ async function enrichCompany(company: any): Promise<any> {
   };
 }
 
+// Enrich company with Google Knowledge Graph API
+async function enrichWithKnowledgeGraph(companyName: string): Promise<{
+  description?: string;
+  website?: string;
+  detailedDescription?: string;
+} | null> {
+  const GOOGLE_API_KEY = Deno.env.get('GOOGLE_PLACES_API_KEY');
+  if (!GOOGLE_API_KEY) return null;
+
+  try {
+    console.log(`Fetching Knowledge Graph data for ${companyName}...`);
+    const response = await fetch(
+      `https://kgsearch.googleapis.com/v1/entities:search?query=${encodeURIComponent(companyName)}&key=${GOOGLE_API_KEY}&limit=1&indent=True`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      console.log(`Knowledge Graph API returned ${response.status} for ${companyName}`);
+      return null;
+    }
+
+    const data = await response.json();
+    
+    if (!data.itemListElement || data.itemListElement.length === 0) {
+      console.log(`No Knowledge Graph entry found for ${companyName}`);
+      return null;
+    }
+
+    const entity = data.itemListElement[0].result;
+    
+    // Extract available data
+    const kgData: any = {};
+    
+    if (entity.description) {
+      kgData.description = entity.description;
+    }
+    
+    if (entity.detailedDescription?.articleBody) {
+      kgData.detailedDescription = entity.detailedDescription.articleBody;
+    }
+    
+    if (entity.url) {
+      kgData.website = entity.url;
+    }
+    
+    console.log(`✓ Knowledge Graph enrichment successful for ${companyName}`);
+    return kgData;
+  } catch (error) {
+    console.error(`Knowledge Graph API error for ${companyName}:`, error);
+    return null;
+  }
+}
+
 // Fetch Google reviews for a place
 async function fetchGoogleReviews(placeId: string): Promise<string[]> {
   const GOOGLE_API_KEY = Deno.env.get('GOOGLE_PLACES_API_KEY');
@@ -400,6 +458,18 @@ serve(async (req) => {
       try {
         // Enrich with additional data
         const enrichedCompany = await enrichCompany(company);
+        
+        // Enrich with Knowledge Graph data (verified official info)
+        const kgData = await enrichWithKnowledgeGraph(enrichedCompany.name);
+        if (kgData) {
+          // Prefer Knowledge Graph data over Places API data
+          if (kgData.website) enrichedCompany.website = kgData.website;
+          if (kgData.detailedDescription) {
+            enrichedCompany.snippet = kgData.detailedDescription;
+          } else if (kgData.description) {
+            enrichedCompany.snippet = `${kgData.description}. ${enrichedCompany.snippet}`;
+          }
+        }
         
         // Fetch Google reviews if placeId is available
         let reviews: string[] = [];
