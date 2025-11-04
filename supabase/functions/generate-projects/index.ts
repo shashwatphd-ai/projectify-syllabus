@@ -15,6 +15,10 @@ interface CompanyInfo {
   description: string;
   website?: string;
   inferred_needs?: string[];
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  contact_person?: string | null;
+  full_address?: string | null;
 }
 
 interface ProjectProposal {
@@ -95,7 +99,12 @@ async function getCompaniesFromDB(supabaseClient: any, cityZip: string, industri
     needs: profile.inferred_needs || [],
     description: profile.recent_news || `${profile.name} is a ${profile.size} ${profile.sector} company.`,
     website: profile.website,
-    inferred_needs: profile.inferred_needs || []
+    inferred_needs: profile.inferred_needs || [],
+    // Include REAL contact data from company profile
+    contact_email: profile.contact_email,
+    contact_phone: profile.contact_phone,
+    contact_person: profile.contact_person,
+    full_address: profile.full_address
   }));
 }
 
@@ -610,14 +619,14 @@ function createForms(company: CompanyInfo, proposal: ProjectProposal, course: an
       budget: budget
     },
     
-    // FORM 2: Company & Contact Info
+    // FORM 2: Company & Contact Info (ONLY REAL DATA, NO AI-GENERATED INFO)
     form2: {
       company: company.name,
-      contact_name: proposal.contact?.name || 'TBD',
-      contact_email: proposal.contact?.email || '',
-      contact_title: proposal.contact?.title || '',
-      contact_phone: proposal.contact?.phone || '',
-      website: proposal.website || company.website || '',
+      contact_name: company.contact_person || 'TBD',
+      contact_email: company.contact_email || '',
+      contact_title: '',
+      contact_phone: company.contact_phone || '',
+      website: company.website || '',
       description: proposal.company_description,
       size: company.size,
       sector: company.sector,
