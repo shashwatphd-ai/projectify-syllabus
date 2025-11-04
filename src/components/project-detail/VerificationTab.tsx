@@ -10,14 +10,14 @@ interface VerificationTabProps {
 }
 
 export function VerificationTab({ metadata, project, course }: VerificationTabProps) {
-  // Calculate verification scores
-  const loAlignment = metadata?.lo_alignment_detail || [];
-  const avgLoScore = loAlignment.length > 0 
-    ? loAlignment.reduce((sum: number, item: any) => sum + (item.score || 0), 0) / loAlignment.length 
-    : 0;
+  // Calculate verification scores from the actual data structure
+  const outcomeMappings = metadata?.lo_alignment_detail?.outcome_mappings || [];
+  const avgLoScore = outcomeMappings.length > 0 
+    ? outcomeMappings.reduce((sum: number, item: any) => sum + (item.coverage_percentage || 0), 0) / outcomeMappings.length 
+    : project.lo_score * 100 || 0;
   
-  const feasibilityScore = project.feasibility_score || 0;
-  const mutualBenefitScore = project.mutual_benefit_score || 0;
+  const feasibilityScore = (project.feasibility_score || 0) * 100;
+  const mutualBenefitScore = (project.mutual_benefit_score || 0) * 100;
   
   const overallScore = (avgLoScore + feasibilityScore + mutualBenefitScore) / 3;
   
@@ -27,7 +27,7 @@ export function VerificationTab({ metadata, project, course }: VerificationTabPr
       name: "Learning Outcomes Alignment",
       score: avgLoScore,
       status: avgLoScore >= 70 ? "pass" : avgLoScore >= 50 ? "warning" : "fail",
-      details: `${loAlignment.length} outcomes mapped with ${avgLoScore.toFixed(0)}% average alignment`
+      details: `${outcomeMappings.length} outcomes mapped with ${avgLoScore.toFixed(0)}% average alignment`
     },
     {
       name: "Project Feasibility",
@@ -129,7 +129,7 @@ export function VerificationTab({ metadata, project, course }: VerificationTabPr
       </Card>
 
       {/* Learning Outcome Mapping Details */}
-      {loAlignment.length > 0 && (
+      {outcomeMappings.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -141,18 +141,18 @@ export function VerificationTab({ metadata, project, course }: VerificationTabPr
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {loAlignment.map((item: any, idx: number) => (
+            {outcomeMappings.map((item: any, idx: number) => (
               <div key={idx} className="space-y-2">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <p className="text-sm font-medium">LO {idx + 1}: {item.outcome}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{item.justification}</p>
+                    <p className="text-sm font-medium">{item.outcome_id}: {item.outcome_text}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{item.explanation}</p>
                   </div>
-                  <Badge variant={item.score >= 70 ? "default" : "outline"}>
-                    {item.score}%
+                  <Badge variant={item.coverage_percentage >= 70 ? "default" : "outline"}>
+                    {item.coverage_percentage}%
                   </Badge>
                 </div>
-                <Progress value={item.score} className="h-1.5" />
+                <Progress value={item.coverage_percentage} className="h-1.5" />
               </div>
             ))}
           </CardContent>
