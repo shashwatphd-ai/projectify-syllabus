@@ -56,14 +56,14 @@ async function getCompaniesFromDB(supabaseClient: any, cityZip: string, industri
   
   console.log(`Parsed - City: ${cityName}, Zip: ${zipCode}`);
 
-  // Build flexible query
+  // Build flexible query - search by city name instead of exact zip
   let query = supabaseClient.from('company_profiles').select('*');
   
-  // Try to match by zip first, then city
-  if (zipCode) {
+  // Search by city name (more flexible than exact zip match)
+  if (cityName) {
+    query = query.ilike('city', `%${cityName.split(',')[0].trim()}%`);
+  } else if (zipCode) {
     query = query.eq('zip', zipCode);
-  } else if (cityName) {
-    query = query.ilike('city', `%${cityName}%`);
   }
 
   if (industries && industries.length > 0) {
