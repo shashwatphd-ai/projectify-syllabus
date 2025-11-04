@@ -168,7 +168,7 @@ serve(async (req) => {
       count
     );
 
-    // For each discovery, try to get more details from Google Places
+    // For each discovery, get Places data AND enrich with Gemini web search for contact person
     const GOOGLE_API_KEY = Deno.env.get('GOOGLE_PLACES_API_KEY');
     const enrichedDiscoveries = [];
 
@@ -178,7 +178,6 @@ serve(async (req) => {
       let placeDetails = null;
       if (GOOGLE_API_KEY) {
         try {
-          // Search for the company using Text Search
           const searchResponse = await fetch(
             'https://places.googleapis.com/v1/places:searchText',
             {
@@ -213,9 +212,108 @@ serve(async (req) => {
         }
       }
 
+      // Now enrich with Gemini web search for contact person details
+      let contactDetails = null;
+      const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+      if (GEMINI_API_KEY && placeDetails?.address) {
+        try {
+          console.log(`  🔍 Finding contact person for ${discovery.name}...`);
+          
+          const contactPrompt = `Find the key decision-maker at "${discovery.name}" located at "${placeDetails.address}".
+
+Search for:
+- CEO, President, Owner, General Manager, or Director
+- Their professional email (firstname@company.com format, not info@)
+- Their LinkedIn profile URL
+
+Focus on someone who would handle educational partnerships or hiring.
+
+Return ONLY valid JSON:
+{
+  "contactPerson": "Full Name or null",
+  "contactEmail": "professional email or null", 
+  "linkedinProfile": "LinkedIn URL or null"
+}`;
+
+          const contactResponse = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: contactPrompt }] }],
+                tools: [{ googleSearch: {} }],
+                generationConfig: { temperature: 0.1 }
+              }),
+            }
+          );
+
+          if (contactResponse.ok) {
+            const contactData = await contactResponse.json();
+            const contactText = contactData.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (contactText) {
+              const jsonMatch = contactText.match(/\{[\s\S]*?\}/);
+              if (jsonMatch) {
+                contactDetails = JSON.parse(jsonMatch[0]);
+                if (contactDetails?.contactPerson && contactDetails.contactPerson !== 'null') {
+                  console.log(`  ✓ Found contact: ${contactDetails.contactPerson}`);
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`  ⚠ Could not find contact for ${discovery.name}:`, error);
+        }
+      }
+
+      // Store in company_profiles table
+      const companyData = {
+        name: discovery.name,
+        sector: discovery.sector,
+        size: discovery.estimatedSize,
+        website: placeDetails?.website || discovery.website,
+        full_address: placeDetails?.address || discovery.location,
+        contact_phone: placeDetails?.phone,
+        contact_person: contactDetails?.contactPerson && contactDetails.contactPerson !== 'null' ? contactDetails.contactPerson : null,
+        contact_email: contactDetails?.contactEmail && contactDetails.contactEmail !== 'null' ? contactDetails.contactEmail : null,
+        linkedin_profile: contactDetails?.linkedinProfile && contactDetails.linkedinProfile !== 'null' ? contactDetails.linkedinProfile : null,
+        inferred_needs: discovery.currentChallenges,
+        source: 'google_discovery',
+        last_enriched_at: new Date().toISOString(),
+      };
+
+      // Try to insert, or update if exists
+      const { data: existingCompany } = await supabase
+        .from('company_profiles')
+        .select('id')
+        .eq('name', discovery.name)
+        .maybeSingle();
+
+      let companyProfileId;
+      if (existingCompany) {
+        const { data: updated } = await supabase
+          .from('company_profiles')
+          .update(companyData)
+          .eq('id', existingCompany.id)
+          .select('id')
+          .single();
+        companyProfileId = updated?.id;
+        console.log(`  💾 Updated company profile: ${discovery.name}`);
+      } else {
+        const { data: inserted } = await supabase
+          .from('company_profiles')
+          .insert(companyData)
+          .select('id')
+          .single();
+        companyProfileId = inserted?.id;
+        console.log(`  💾 Stored new company profile: ${discovery.name}`);
+      }
+
       enrichedDiscoveries.push({
         ...discovery,
-        ...placeDetails
+        ...placeDetails,
+        ...contactDetails,
+        companyProfileId
       });
     }
 

@@ -887,8 +887,9 @@ serve(async (req) => {
         if (discoveryData.success && discoveryData.companies.length > 0) {
           console.log(`✓ Discovered ${discoveryData.companies.length} companies via Google Search`);
           
-          // Convert discoveries to CompanyInfo format
+          // Convert discoveries to CompanyInfo format with company_profile_id
           companiesFound = discoveryData.companies.map((d: any) => ({
+            id: d.companyProfileId, // Link to company_profiles table
             name: d.name,
             sector: d.sector,
             size: d.estimatedSize,
@@ -897,6 +898,9 @@ serve(async (req) => {
             website: d.website,
             address: d.address,
             phone: d.phone,
+            contactPerson: d.contactPerson,
+            contactEmail: d.contactEmail,
+            linkedinProfile: d.linkedinProfile,
             // Store relevance data for linking
             _discoveryData: {
               relevanceScore: d.relevanceScore,
