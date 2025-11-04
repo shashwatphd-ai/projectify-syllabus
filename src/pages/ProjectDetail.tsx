@@ -27,6 +27,7 @@ const ProjectDetail = () => {
   const [forms, setForms] = useState<any>(null);
   const [courseProfile, setCourseProfile] = useState<any>(null);
   const [metadata, setMetadata] = useState<any>(null);
+  const [companyProfile, setCompanyProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -73,12 +74,22 @@ const ProjectDetail = () => {
         .eq('project_id', id)
         .maybeSingle();
 
-      // metadataError is ok - not all projects have metadata yet
+      // Load company profile if available
+      let companyData = null;
+      if (projectData.company_profile_id) {
+        const { data: companyProfileData } = await supabase
+          .from('company_profiles')
+          .select('*')
+          .eq('id', projectData.company_profile_id)
+          .single();
+        companyData = companyProfileData;
+      }
 
       setProject(projectData);
       setForms(formsData);
       setCourseProfile(courseData);
       setMetadata(metadataData);
+      setCompanyProfile(companyData);
     } catch (error: any) {
       console.error('Load error:', error);
     } finally {
@@ -113,15 +124,6 @@ const ProjectDetail = () => {
     <div className="min-h-screen bg-background">
       <Navigation />
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/projects")}
-          className="mb-6"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Projects
-        </Button>
-
         <ProjectHeader project={project} />
 
         <Tabs defaultValue="overview" className="space-y-6">
@@ -144,7 +146,7 @@ const ProjectDetail = () => {
           </TabsContent>
 
           <TabsContent value="contact">
-            <ContactTab forms={forms} />
+            <ContactTab forms={forms} companyProfile={companyProfile} />
           </TabsContent>
 
           <TabsContent value="timeline">
