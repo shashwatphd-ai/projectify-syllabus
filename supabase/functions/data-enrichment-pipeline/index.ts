@@ -22,33 +22,103 @@ interface CompanyProfile {
   last_enriched_at: string;
 }
 
-// Geocode city/zip to lat/lng using OpenStreetMap Nominatim
+// Geocode city/zip to lat/lng using Google Geocoding API
 async function geocodeLocation(cityZip: string): Promise<{ lat: number; lng: number } | null> {
+  const GOOGLE_API_KEY = Deno.env.get('GOOGLE_PLACES_API_KEY');
+  if (!GOOGLE_API_KEY) {
+    console.error('GOOGLE_PLACES_API_KEY not set');
+    return null;
+  }
+
   try {
-    console.log(`Geocoding ${cityZip} using OpenStreetMap...`);
+    console.log(`Geocoding ${cityZip} using Google Geocoding API...`);
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityZip)}&limit=1`,
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(cityZip)}&key=${GOOGLE_API_KEY}`,
       {
+        method: 'GET',
         headers: {
-          'User-Agent': 'ProjectGeneratorApp/1.0'
+          'Content-Type': 'application/json'
         }
       }
     );
     
     if (!response.ok) {
-      throw new Error(`Nominatim API error: ${response.status}`);
+      throw new Error(`Google Geocoding API error: ${response.status}`);
     }
     
     const data = await response.json();
-    if (data.length > 0) {
+    if (data.status === 'OK' && data.results.length > 0) {
+      const location = data.results[0].geometry.location;
+      console.log(`✓ Geocoded ${cityZip} to ${location.lat}, ${location.lng}`);
       return {
-        lat: parseFloat(data[0].lat),
-        lng: parseFloat(data[0].lon)
+        lat: location.lat,
+        lng: location.lng
       };
     }
+    console.log(`Geocoding failed: ${data.status}`);
     return null;
   } catch (error) {
     console.error('Geocoding error:', error);
+    return null;
+  }
+}
+
+// Validate and normalize address using Google Address Validation API
+async function validateAddress(address: string): Promise<{
+  formattedAddress: string;
+  city: string;
+  zip: string;
+} | null> {
+  const GOOGLE_API_KEY = Deno.env.get('GOOGLE_PLACES_API_KEY');
+  if (!GOOGLE_API_KEY || !address) return null;
+
+  try {
+    console.log(`Validating address: ${address}`);
+    const response = await fetch(
+      `https://addressvalidation.googleapis.com/v1:validateAddress?key=${GOOGLE_API_KEY}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          address: {
+            addressLines: [address]
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      console.log(`Address Validation API returned ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    
+    if (!data.result?.address) {
+      console.log('No validated address returned');
+      return null;
+    }
+
+    const validatedAddr = data.result.address;
+    const postalAddress = validatedAddr.postalAddress;
+    
+    // Extract formatted address
+    const formattedAddress = validatedAddr.formattedAddress || address;
+    
+    // Extract city and zip from postal address
+    const city = postalAddress?.locality || '';
+    const zip = postalAddress?.postalCode || '';
+    
+    console.log(`✓ Address validated: ${formattedAddress}`);
+    return {
+      formattedAddress,
+      city,
+      zip
+    };
+  } catch (error) {
+    console.error(`Address validation error:`, error);
     return null;
   }
 }
@@ -165,17 +235,28 @@ async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
     for (const place of searchData.places) {
       try {
         const name = place.displayName?.text || 'Unknown';
-        const address = place.formattedAddress || '';
+        const rawAddress = place.formattedAddress || '';
         
-        // Extract zip from address
-        const zipMatch = address.match(/\b\d{5}\b/);
-        const zip = zipMatch ? zipMatch[0] : '';
+        // Validate and normalize address with Google Address Validation API
+        const validatedAddr = await validateAddress(rawAddress);
         
-        // Extract city from address
-        // Address format: "123 Main St, Kansas City, MO 64105, USA"
-        // Split gives: ["123 Main St", "Kansas City", "MO 64105", "USA"]
-        const addressParts = address.split(',').map((p: string) => p.trim());
-        const city = addressParts.length > 1 ? addressParts[1] : ''; // Take second element (index 1)
+        let address = rawAddress;
+        let city = '';
+        let zip = '';
+        
+        if (validatedAddr) {
+          // Use validated data
+          address = validatedAddr.formattedAddress;
+          city = validatedAddr.city;
+          zip = validatedAddr.zip;
+        } else {
+          // Fallback to manual extraction
+          const zipMatch = rawAddress.match(/\b\d{5}\b/);
+          zip = zipMatch ? zipMatch[0] : '';
+          
+          const addressParts = rawAddress.split(',').map((p: string) => p.trim());
+          city = addressParts.length > 1 ? addressParts[1] : '';
+        }
 
         // Determine industry from types
         let industry = 'General Business';
