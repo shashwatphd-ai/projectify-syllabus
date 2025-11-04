@@ -113,7 +113,7 @@ async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
                 latitude: location.lat,
                 longitude: location.lng
               },
-              radius: 160934.0  // 100 miles in meters
+              radius: 50000.0  // ~31 miles in meters (Google API max)
             }
           }
         })
