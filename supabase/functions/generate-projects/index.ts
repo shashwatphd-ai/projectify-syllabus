@@ -48,22 +48,22 @@ interface ProjectProposal {
 
 // NEW: Query real companies from database instead of AI generation
 async function getCompaniesFromDB(supabaseClient: any, cityZip: string, industries: string[], count: number): Promise<CompanyInfo[]> {
-  console.log(`Querying DB for ${count} companies in ${cityZip}...`);
+  console.log(`📊 Querying DB for ${count} companies in ${cityZip}...`);
 
   // Parse city_zip to extract zip code and city name
-  // Examples: "66006", "Lawrence, KS 66006", "Kansas City, Missouri 64131"
   const zipMatch = cityZip.match(/\b\d{5}\b/);
   const zipCode = zipMatch ? zipMatch[0] : null;
-  
-  // Extract city name (everything before state abbreviation or last comma)
   let cityName = cityZip.split(',')[0].trim();
   
   console.log(`Parsed - City: ${cityName}, Zip: ${zipCode}`);
 
-  // Build flexible query - search by city name instead of exact zip
-  let query = supabaseClient.from('company_profiles').select('*');
+  // Build flexible query - prioritize companies with rich inferred_needs
+  let query = supabaseClient
+    .from('company_profiles')
+    .select('*')
+    .not('inferred_needs', 'is', null); // Only companies with analyzed needs
   
-  // Search by city name (more flexible than exact zip match)
+  // Search by city name
   if (cityName) {
     query = query.ilike('city', `%${cityName.split(',')[0].trim()}%`);
   } else if (zipCode) {
@@ -74,38 +74,61 @@ async function getCompaniesFromDB(supabaseClient: any, cityZip: string, industri
     query = query.in('sector', industries);
   }
 
-  query = query.limit(count * 2); // Get more than needed for filtering
+  query = query.limit(count * 2);
 
   const { data, error } = await query;
 
   if (error) {
-    console.error('Error fetching companies from DB:', error.message);
+    console.error('❌ Error fetching companies from DB:', error.message);
     return [];
   }
 
   if (!data || data.length === 0) {
-    console.log('No companies found in DB, falling back to AI generation...');
+    console.log('⚠ No enriched companies found in DB, falling back to AI generation...');
     return [];
   }
 
-  console.log(`Found ${data.length} companies in database`);
+  console.log(`✓ Found ${data.length} enriched companies in database`);
 
-  // Map DB company profiles to CompanyInfo format and limit to requested count
-  return data.slice(0, count).map((profile: any) => ({
-    id: profile.id,
-    name: profile.name,
-    sector: profile.sector,
-    size: profile.size,
-    needs: profile.inferred_needs || [],
-    description: profile.recent_news || `${profile.name} is a ${profile.size} ${profile.sector} company.`,
-    website: profile.website,
-    inferred_needs: profile.inferred_needs || [],
-    // Include REAL contact data from company profile
-    contact_email: profile.contact_email,
-    contact_phone: profile.contact_phone,
-    contact_person: profile.contact_person,
-    full_address: profile.full_address
-  }));
+  // CRITICAL: Filter out companies with only generic needs
+  const genericPatterns = ['general operations', 'sales growth', 'digital transformation'];
+  const companiesWithRichData = data.filter((profile: any) => {
+    const needs = profile.inferred_needs || [];
+    const isGeneric = needs.every((need: string) => 
+      genericPatterns.some(pattern => need.toLowerCase().includes(pattern))
+    );
+    return !isGeneric && needs.length > 0;
+  });
+
+  if (companiesWithRichData.length === 0) {
+    console.log(`⚠ All ${data.length} companies have generic needs - data quality issue detected`);
+    console.log('Sample needs from first company:', data[0]?.inferred_needs);
+  } else {
+    console.log(`✓ ${companiesWithRichData.length}/${data.length} companies have specific analyzed needs`);
+  }
+
+  // Map to CompanyInfo format with intelligent need extraction
+  return companiesWithRichData.slice(0, count).map((profile: any) => {
+    const inferredNeeds = profile.inferred_needs || [];
+    
+    // Log what we're using for transparency
+    console.log(`  → ${profile.name}: ${inferredNeeds.length} specific needs`);
+    
+    return {
+      id: profile.id,
+      name: profile.name,
+      sector: profile.sector,
+      size: profile.size,
+      needs: inferredNeeds, // Use AI-analyzed needs, not generic fallback
+      description: profile.recent_news || `${profile.name} is a ${profile.size} ${profile.sector} company.`,
+      website: profile.website,
+      inferred_needs: inferredNeeds,
+      contact_email: profile.contact_email,
+      contact_phone: profile.contact_phone,
+      contact_person: profile.contact_person,
+      full_address: profile.full_address
+    };
+  });
 }
 
 // FALLBACK: AI company search (only used if DB is empty)
@@ -186,29 +209,49 @@ async function generateProjectProposal(
   const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
 
-  const systemPrompt = 'You are an experiential learning designer. Return only valid JSON, no markdown.';
+  const systemPrompt = 'You are an experiential learning designer specializing in creating authentic industry partnerships. Return only valid JSON, no markdown.';
+  
+  // CRITICAL: Verify we have intelligent company data
+  const hasSpecificNeeds = company.needs && company.needs.length > 0 && 
+    !company.needs.every((n: string) => ['general', 'sales', 'digital'].some(g => n.toLowerCase().includes(g)));
+  
+  if (!hasSpecificNeeds) {
+    console.warn(`⚠ WARNING: ${company.name} has generic/missing needs. Project may lack specificity.`);
+  }
+  
   const prompt = `Design an experiential learning project for ${level} students working with ${company.name}.
 
-Company Context:
+🎯 CRITICAL CONTEXT - USE THIS REAL DATA:
+
+Company Profile:
+- Name: ${company.name}
 - Sector: ${company.sector}
-- Description: ${company.description}
 - Size: ${company.size}
-- Current Needs: ${company.needs.join('; ')}
+- Description: ${company.description}
 ${company.website ? `- Website: ${company.website}` : ''}
 
-Course Learning Outcomes:
-${outcomes.map((o, i) => `${i + 1}. ${o}`).join('\n')}
+REAL Business Challenges (from customer reviews & market analysis):
+${company.needs.map((need, i) => `${i + 1}. ${need}`).join('\n')}
 
-Course Details:
+📚 Course Learning Outcomes (students MUST develop these):
+${outcomes.map((o, i) => `LO${i + 1}. ${o}`).join('\n')}
+
+⏱ Course Constraints:
 - Duration: ${weeks} weeks
-- Time commitment: ${hrsPerWeek} hours/week
+- Student time: ${hrsPerWeek} hours/week
 - Required artifacts: ${artifacts.join(', ')}
 
+🎯 YOUR MISSION:
+Create a project where students solve ONE specific business challenge while authentically developing the learning outcomes. The project MUST:
+1. Address a REAL need from the list above (pick the best fit for learning outcomes)
+2. Have tasks that naturally develop the required learning outcomes
+3. Create deliverables the company can actually use
+
 REQUIREMENTS:
-1. Create a professional, client-ready project proposal
-2. Use industry-standard language (NO "AI-generated" or "TBD" placeholders)
-3. All text must be plain text (NO markdown formatting like **, *, -)
-4. Be specific and actionable
+1. Professional language suitable for company review
+2. NO placeholders like "TBD", "example", "AI-generated"
+3. Plain text only (NO markdown: **, *, -)
+4. Specific, measurable, actionable
 
 Return ONLY valid JSON:
 {
@@ -761,7 +804,14 @@ serve(async (req) => {
 
     for (let i = 0; i < companiesFound.length; i++) {
       const company = companiesFound[i];
-      console.log(`\nGenerating project ${i + 1}/${companiesFound.length} for ${company.name}...`);
+      console.log(`\n🔨 Generating project ${i + 1}/${companiesFound.length} for ${company.name}...`);
+      
+      // CHECKPOINT 1: Verify company has intelligent data
+      const needsQuality = company.needs && company.needs.length > 0 ? 'specific' : 'generic/missing';
+      console.log(`  Data Quality Check: ${needsQuality} needs (${company.needs?.length || 0} items)`);
+      if (needsQuality === 'generic/missing') {
+        console.warn(`  ⚠ WARNING: May produce low-quality project due to generic company data`);
+      }
       
       let proposal: ProjectProposal | null = null;
       let attempts = 0;
@@ -818,6 +868,10 @@ serve(async (req) => {
         throw new Error('Failed to generate valid proposal');
       }
 
+      // CHECKPOINT 2: Verify proposal quality
+      console.log(`  ✓ Proposal generated: ${proposal.tasks.length} tasks, ${proposal.deliverables.length} deliverables`);
+      console.log(`  Addressing company needs: ${proposal.company_needs?.join(', ') || 'Not specified'}`);
+
       const scores = await calculateScores(
         proposal.tasks,
         proposal.deliverables,
@@ -826,13 +880,22 @@ serve(async (req) => {
         proposal.lo_alignment
       );
 
-      console.log('Generating detailed LO alignment...');
+      console.log(`  Scores: LO=${(scores.lo_score * 100).toFixed(0)}%, Feasibility=${(scores.feasibility_score * 100).toFixed(0)}%, Benefit=${(scores.mutual_benefit_score * 100).toFixed(0)}%`);
+
+      console.log('  Generating detailed LO alignment...');
       const loAlignmentDetail = await generateLOAlignmentDetail(
         proposal.tasks,
         proposal.deliverables,
         outcomes,
         proposal.lo_alignment
       );
+      
+      // CHECKPOINT 3: Verify alignment detail was generated
+      if (loAlignmentDetail) {
+        console.log(`  ✓ LO alignment mapped: ${loAlignmentDetail.outcome_mappings?.length || 0} outcomes covered`);
+      } else {
+        console.warn(`  ⚠ Failed to generate detailed LO alignment`);
+      }
 
       const teamSize = 3;
       const budget = estimateBudget(
@@ -897,21 +960,36 @@ serve(async (req) => {
       // Insert project metadata for algorithm transparency
       const metadataInsert: any = {
         project_id: projectData.id,
-        algorithm_version: 'v1.0',
+        algorithm_version: 'v2.0-intelligent',
         companies_considered: [{
           name: company.name,
           sector: company.sector,
-          reason: 'Selected based on industry match and location'
+          size: company.size,
+          data_quality: company.needs?.length > 0 ? 'enriched' : 'basic',
+          needs_addressed: company.needs || [],
+          reason: 'Selected based on enriched company data with AI-analyzed business needs'
         }],
         selection_criteria: {
           industries,
           location: cityZip,
-          num_teams: numTeams
+          num_teams: numTeams,
+          data_requirements: 'Companies with AI-analyzed needs from reviews'
         },
         scoring_rationale: {
-          lo_score: { value: scores.lo_score, method: 'AI analysis with task/deliverable mapping' },
-          feasibility_score: { value: scores.feasibility_score, method: 'Duration and complexity assessment' },
-          mutual_benefit_score: { value: scores.mutual_benefit_score, method: 'Company needs alignment' }
+          lo_score: { 
+            value: scores.lo_score, 
+            method: 'AI analysis mapping specific company needs to learning outcomes through tasks/deliverables',
+            coverage: loAlignmentDetail?.outcome_mappings?.length || 0
+          },
+          feasibility_score: { 
+            value: scores.feasibility_score, 
+            method: 'Duration and complexity assessment based on company size and project scope' 
+          },
+          mutual_benefit_score: { 
+            value: scores.mutual_benefit_score, 
+            method: 'Alignment between company needs and project deliverables',
+            needs_addressed: proposal.company_needs || []
+          }
         },
         ai_model_version: 'gemini-2.0-flash-exp'
       };
