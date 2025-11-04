@@ -181,6 +181,63 @@ export type Database = {
           },
         ]
       }
+      partnership_proposals: {
+        Row: {
+          company_profile_id: string | null
+          created_at: string
+          id: string
+          message: string | null
+          pitch_type: string | null
+          project_id: string
+          proposer_email: string
+          proposer_id: string
+          proposer_name: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_profile_id?: string | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          pitch_type?: string | null
+          project_id: string
+          proposer_email: string
+          proposer_id: string
+          proposer_name?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_profile_id?: string | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          pitch_type?: string | null
+          project_id?: string
+          proposer_email?: string
+          proposer_id?: string
+          proposer_name?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partnership_proposals_company_profile_id_fkey"
+            columns: ["company_profile_id"]
+            isOneToOne: false
+            referencedRelation: "company_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partnership_proposals_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string

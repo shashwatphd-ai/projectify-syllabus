@@ -206,6 +206,16 @@ const ProjectFeedback = ({ projectId, onSubmitted }: ProjectFeedbackProps) => {
               <Send className="mr-2 h-4 w-4" />
               {submitting ? "Submitting..." : "Submit Feedback"}
             </Button>
+            
+            <Button 
+              variant="outline"
+              onClick={() => {
+                if (onSubmitted) onSubmitted();
+              }}
+              className="w-full"
+            >
+              Skip for Now
+            </Button>
           </>
         )}
       </CardContent>

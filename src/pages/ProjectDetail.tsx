@@ -132,11 +132,11 @@ const ProjectDetail = () => {
             <TabsTrigger value="logistics">Logistics</TabsTrigger>
             <TabsTrigger value="academic">Academic</TabsTrigger>
             <TabsTrigger value="lo-mapping">LO Alignment</TabsTrigger>
+            <TabsTrigger value="feedback">Review & Feedback</TabsTrigger>
             <TabsTrigger value="verification">Verification</TabsTrigger>
             <TabsTrigger value="scoring">Scoring</TabsTrigger>
             <TabsTrigger value="forms">All Forms</TabsTrigger>
             <TabsTrigger value="algorithm">Algorithm</TabsTrigger>
-            <TabsTrigger value="feedback">Feedback</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -144,7 +144,12 @@ const ProjectDetail = () => {
           </TabsContent>
 
           <TabsContent value="contact">
-            <ContactTab forms={forms} companyProfile={companyProfile} />
+            <ContactTab 
+              forms={forms} 
+              companyProfile={companyProfile}
+              projectId={id!}
+              projectTitle={project.title}
+            />
           </TabsContent>
 
           <TabsContent value="timeline">
@@ -161,6 +166,18 @@ const ProjectDetail = () => {
 
           <TabsContent value="lo-mapping" className="space-y-6">
             <LearningOutcomeAlignment project={project} courseProfile={courseProfile} />
+          </TabsContent>
+
+          <TabsContent value="feedback">
+            <div className="space-y-4">
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <span className="text-primary">📝 Step 7 of 9:</span>
+                  Review and provide feedback on this project proposal
+                </p>
+              </div>
+              <ProjectFeedback projectId={id!} onSubmitted={loadProjectData} />
+            </div>
           </TabsContent>
 
           <TabsContent value="verification" className="space-y-6">
@@ -468,10 +485,6 @@ const ProjectDetail = () => {
 
           <TabsContent value="algorithm">
             <AlgorithmTab project={project} />
-          </TabsContent>
-
-          <TabsContent value="feedback">
-            <ProjectFeedback projectId={id!} onSubmitted={loadProjectData} />
           </TabsContent>
         </Tabs>
       </div>

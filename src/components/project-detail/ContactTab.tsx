@@ -1,13 +1,16 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Mail, Phone, Globe, MessageSquare, Building2, Users as UsersIcon } from "lucide-react";
+import { ProposePartnershipDialog } from "@/components/ProposePartnershipDialog";
 
 interface ContactTabProps {
   forms: any;
   companyProfile?: any;
+  projectId: string;
+  projectTitle: string;
 }
 
-export const ContactTab = ({ forms, companyProfile }: ContactTabProps) => {
+export const ContactTab = ({ forms, companyProfile, projectId, projectTitle }: ContactTabProps) => {
   const form2 = forms.form2 || {};
   
   // Prioritize real company profile data over AI-generated form data
@@ -31,8 +34,18 @@ export const ContactTab = ({ forms, companyProfile }: ContactTabProps) => {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Company Information</CardTitle>
-          <CardDescription>Partner organization details and contact</CardDescription>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle>Company Information</CardTitle>
+              <CardDescription>Partner organization details and contact</CardDescription>
+            </div>
+            <ProposePartnershipDialog
+              projectId={projectId}
+              companyName={displayData.company}
+              companyProfileId={companyProfile?.id}
+              projectTitle={projectTitle}
+            />
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid md:grid-cols-2 gap-6">
