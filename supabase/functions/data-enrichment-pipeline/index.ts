@@ -194,6 +194,7 @@ async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
 
         companies.push({
           name: name,
+          placeId: place.id,
           website: place.websiteUri || null,
           snippet: `${name} is located at ${address}. Rating: ${place.rating || 'N/A'} (${ratingCount} reviews)`,
           industry: industry,
@@ -269,19 +270,60 @@ async function enrichCompany(company: any): Promise<any> {
   };
 }
 
-// AI Analysis Step using Lovable AI Gateway
-async function analyzeNeeds(enrichedCompany: any): Promise<string[]> {
+// Fetch Google reviews for a place
+async function fetchGoogleReviews(placeId: string): Promise<string[]> {
+  const GOOGLE_API_KEY = Deno.env.get('GOOGLE_PLACES_API_KEY');
+  if (!GOOGLE_API_KEY) return [];
+  
+  try {
+    const response = await fetch(
+      `https://places.googleapis.com/v1/places/${placeId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': GOOGLE_API_KEY,
+          'X-Goog-FieldMask': 'reviews'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      console.error(`Failed to fetch reviews for ${placeId}: ${response.status}`);
+      return [];
+    }
+    
+    const data = await response.json();
+    const reviews = data.reviews || [];
+    
+    // Extract review texts, limit to most recent 10
+    return reviews.slice(0, 10).map((review: any) => review.text?.text || '').filter((text: string) => text.length > 0);
+  } catch (error) {
+    console.error(`Error fetching reviews: ${error}`);
+    return [];
+  }
+}
+
+// AI Analysis Step using Lovable AI Gateway with Google Reviews
+async function analyzeNeeds(enrichedCompany: any, reviews: string[] = []): Promise<string[]> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   
-  const prompt = `Analyze the following company data and return a JSON array of their top 3-5 business needs.
+  const reviewsText = reviews.length > 0 
+    ? `\n\nCustomer Reviews (analyze for pain points):\n${reviews.slice(0, 5).map((r, i) => `${i + 1}. "${r}"`).join('\n')}`
+    : '';
+  
+  const prompt = `Analyze the following company data${reviews.length > 0 ? ' and customer reviews' : ''} to identify their top 3-5 specific business needs or challenges that students could help solve through educational projects.
 
-Data:
+Company Data:
+- Name: ${enrichedCompany.name}
 - Industry: ${enrichedCompany.industry}
+- Size: ${enrichedCompany.size}
 - Snippet: ${enrichedCompany.snippet}
 - Technologies: ${enrichedCompany.technologies.join(', ')}
-- Open Jobs: ${enrichedCompany.open_roles.join(', ')}
+- Open Roles: ${enrichedCompany.open_roles.join(', ')}${reviewsText}
 
-Return ONLY a JSON object with a "needs" array of strings. Example: {"needs": ["e-commerce expansion", "supply chain optimization"]}`;
+Return ONLY raw JSON (no markdown, no code blocks, no backticks):
+{"needs": ["specific need 1", "specific need 2", "specific need 3"]}`;
 
   try {
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -293,7 +335,7 @@ Return ONLY a JSON object with a "needs" array of strings. Example: {"needs": ["
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: 'You are a business analyst. Return only valid JSON.' },
+          { role: 'system', content: 'You are a business analyst. Return ONLY valid JSON with no markdown formatting.' },
           { role: 'user', content: prompt }
         ],
       }),
@@ -304,7 +346,10 @@ Return ONLY a JSON object with a "needs" array of strings. Example: {"needs": ["
     }
 
     const data = await response.json();
-    const content = data.choices[0].message.content;
+    let content = data.choices[0].message.content;
+    
+    // Strip markdown code blocks if present
+    content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     
     // Parse the JSON response
     const parsed = JSON.parse(content);
@@ -354,8 +399,15 @@ serve(async (req) => {
         // Enrich with additional data
         const enrichedCompany = await enrichCompany(company);
         
-        // Analyze business needs with AI
-        const inferredNeeds = await analyzeNeeds(enrichedCompany);
+        // Fetch Google reviews if placeId is available
+        let reviews: string[] = [];
+        if (company.placeId) {
+          reviews = await fetchGoogleReviews(company.placeId);
+          console.log(`Fetched ${reviews.length} reviews for ${enrichedCompany.name}`);
+        }
+        
+        // Analyze business needs with AI (including reviews)
+        const inferredNeeds = await analyzeNeeds(enrichedCompany, reviews);
 
         // Use city and zip from company data
         const cityName = enrichedCompany.city || "Unknown";
