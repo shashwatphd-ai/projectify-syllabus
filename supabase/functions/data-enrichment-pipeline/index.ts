@@ -100,7 +100,8 @@ async function validateAddress(address: string): Promise<{
     );
 
     if (!response.ok) {
-      console.log(`Address Validation API returned ${response.status}`);
+      const errorText = await response.text();
+      console.log(`Address Validation API HTTP error: ${response.status} - ${errorText}`);
       return null;
     }
 
@@ -121,7 +122,7 @@ async function validateAddress(address: string): Promise<{
     const city = postalAddress?.locality || '';
     const zip = postalAddress?.postalCode || '';
     
-    console.log(`✓ Address validated: ${formattedAddress}`);
+    console.log(`✓ Address validated: ${formattedAddress}, City: ${city}, Zip: ${zip}`);
     return {
       formattedAddress,
       city,
