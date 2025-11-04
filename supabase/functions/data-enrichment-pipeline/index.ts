@@ -172,8 +172,10 @@ async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
         const zip = zipMatch ? zipMatch[0] : '';
         
         // Extract city from address
-        const addressParts = address.split(',');
-        const city = addressParts.length > 1 ? addressParts[addressParts.length - 2].trim() : '';
+        // Address format: "123 Main St, Kansas City, MO 64105, USA"
+        // Split gives: ["123 Main St", "Kansas City", "MO 64105", "USA"]
+        const addressParts = address.split(',').map((p: string) => p.trim());
+        const city = addressParts.length > 1 ? addressParts[1] : ''; // Take second element (index 1)
 
         // Determine industry from types
         let industry = 'General Business';
