@@ -221,10 +221,10 @@ serve(async (req) => {
         }
       }
 
-      // Now enrich with Gemini web search for contact person details
+      // Now enrich with Lovable AI for contact person details
       let contactDetails = null;
-      const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-      if (GEMINI_API_KEY && placeDetails?.address) {
+      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+      if (LOVABLE_API_KEY && placeDetails?.address) {
         try {
           console.log(`  🔍 Finding contact person for ${discovery.name}...`);
           
@@ -237,7 +237,7 @@ Search for:
 
 Focus on someone who would handle educational partnerships or hiring.
 
-Return ONLY valid JSON:
+Return ONLY valid JSON (no markdown):
 {
   "contactPerson": "Full Name or null",
   "contactEmail": "professional email or null", 
@@ -245,23 +245,36 @@ Return ONLY valid JSON:
 }`;
 
           const contactResponse = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+            'https://ai.gateway.lovable.dev/v1/chat/completions',
             {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                'Content-Type': 'application/json'
+              },
               body: JSON.stringify({
-                contents: [{ parts: [{ text: contactPrompt }] }],
-                tools: [{ googleSearch: {} }],
-                generationConfig: { temperature: 0.1 }
+                model: 'google/gemini-2.5-flash',
+                messages: [
+                  { role: 'system', content: 'You are a research assistant. Return only valid JSON.' },
+                  { role: 'user', content: contactPrompt }
+                ],
+                temperature: 0.1,
               }),
             }
           );
 
           if (contactResponse.ok) {
             const contactData = await contactResponse.json();
-            const contactText = contactData.candidates?.[0]?.content?.parts?.[0]?.text;
+            const contactText = contactData.choices?.[0]?.message?.content;
             if (contactText) {
-              const jsonMatch = contactText.match(/\{[\s\S]*?\}/);
+              // Remove markdown code blocks if present
+              let jsonText = contactText;
+              const codeBlockMatch = contactText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+              if (codeBlockMatch) {
+                jsonText = codeBlockMatch[1];
+              }
+              
+              const jsonMatch = jsonText.match(/\{[\s\S]*?\}/);
               if (jsonMatch) {
                 contactDetails = JSON.parse(jsonMatch[0]);
                 if (contactDetails?.contactPerson && contactDetails.contactPerson !== 'null') {
