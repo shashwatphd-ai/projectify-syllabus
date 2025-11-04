@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,23 +12,53 @@ import { Navigation } from "@/components/Navigation";
 
 const Configure = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
-  const location = useLocation();
-  const courseId = location.state?.courseId;
-  const courseData = location.state?.courseData;
+  const [searchParams] = useSearchParams();
+  const courseId = searchParams.get('courseId');
+  const [courseData, setCourseData] = useState<any>(null);
   const [industries, setIndustries] = useState("");
   const [companies, setCompanies] = useState("");
   const [numTeams, setNumTeams] = useState("4");
   const [loading, setLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     requireAuth();
   }, [authLoading]);
 
+  useEffect(() => {
+    if (!courseId) {
+      toast.error("Course data not found. Please upload a syllabus first.");
+      navigate("/upload");
+      return;
+    }
+
+    const loadCourse = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('course_profiles')
+          .select('*')
+          .eq('id', courseId)
+          .single();
+
+        if (error) throw error;
+        setCourseData(data);
+      } catch (error) {
+        console.error('Error loading course:', error);
+        toast.error('Failed to load course data');
+        navigate('/upload');
+      } finally {
+        setDataLoading(false);
+      }
+    };
+
+    loadCourse();
+  }, [courseId, navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!courseId || !user) {
+    if (!courseId) {
       toast.error("Course data not found. Please upload a syllabus first.");
       navigate("/upload");
       return;
@@ -61,7 +91,7 @@ const Configure = () => {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || dataLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
