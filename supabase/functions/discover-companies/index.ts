@@ -30,10 +30,9 @@ async function discoverCompaniesForCourse(
   location: string,
   count: number
 ): Promise<CompanyDiscovery[]> {
-  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
 
-  // Build search query based on what companies would need these skills
   const skillKeywords = courseOutcomes
     .join(' ')
     .toLowerCase()
@@ -41,93 +40,103 @@ async function discoverCompaniesForCourse(
   
   const uniqueSkills = [...new Set(skillKeywords)].slice(0, 5);
 
-  const prompt = `You are a market research expert. Use Google Search to find real companies in ${location} that currently need the skills taught in this ${courseLevel} course.
+  const systemPrompt = `You are a market research expert. Use web search to find real companies that currently need the skills from this course. Return ONLY valid JSON array with no markdown formatting.`;
+
+  const userPrompt = `Find ${count} companies in ${location} that currently need these skills:
 
 COURSE LEARNING OUTCOMES:
 ${courseOutcomes.map((o, i) => `${i + 1}. ${o}`).join('\n')}
 
-KEY TOPICS COVERED:
-${courseTopics.join(', ')}
+KEY TOPICS: ${courseTopics.join(', ')}
 
-YOUR TASK:
-Search the web for companies in ${location} that:
-1. Have recent job postings for roles requiring these skills
-2. Are working on projects that align with course topics  
-3. Have announced initiatives/challenges that students could help with
-4. Are in industries that naturally need these technical skills
-5. Have a track record of university partnerships or hiring recent graduates
+Search for companies that:
+1. Have recent job postings for these skills
+2. Are working on projects aligned with course topics
+3. Have announced initiatives students could help with
+4. Are in industries naturally needing these technical skills
+5. Have track record of university partnerships
 
-Look for evidence in:
-- Job postings (Indeed, LinkedIn, company careers pages)
-- Recent news articles about company projects/challenges
-- Press releases about new initiatives
-- Industry reports about companies in this region
-- Company websites describing current work
+Look for evidence in: job postings, news articles, press releases, industry reports, company websites.
 
-Return ${count} companies with the STRONGEST need for these skills right now.
-
-Return ONLY valid JSON array:
+Return ONLY this JSON array (no markdown, no explanation):
 [
   {
     "name": "Company Name",
     "sector": "Industry",
     "location": "City, State",
     "relevanceScore": 95,
-    "skillsNeeded": ["specific skill 1", "specific skill 2", "specific skill 3"],
-    "currentChallenges": ["challenge they're facing that students could help with"],
-    "whyRelevant": "Specific evidence of why they need these skills (cite job postings, news, initiatives)",
+    "skillsNeeded": ["skill 1", "skill 2"],
+    "currentChallenges": ["specific challenge"],
+    "whyRelevant": "Evidence of need with sources",
     "website": "https://example.com",
     "estimatedSize": "Small/Medium/Large/Enterprise"
   }
 ]
 
-CRITICAL: Only return companies where you found REAL EVIDENCE of current need (job posting, news article, initiative).
-DO NOT make up generic needs. Cite your sources in whyRelevant.`;
+CRITICAL: Only include companies with REAL EVIDENCE of current need. Cite sources in whyRelevant.`;
 
   console.log(`🔍 Discovering companies that need: ${uniqueSkills.join(', ')}`);
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+    'https://ai.gateway.lovable.dev/v1/chat/completions',
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt }]
-        }],
-        tools: [{
-          googleSearch: {}  // Enable web search grounding
-        }],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 4096,
-        }
+        model: 'google/gemini-2.5-pro',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.2,
       }),
     }
   );
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+    throw new Error(`Lovable AI error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
-  const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  const content = data.choices?.[0]?.message?.content;
   
-  if (!content) throw new Error('No content from Gemini');
+  if (!content) throw new Error('No content from Lovable AI');
 
   console.log(`📄 Raw discovery response (first 300 chars): ${content.substring(0, 300)}...`);
 
-  const jsonMatch = content.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) throw new Error('Could not extract JSON from response');
+  try {
+    // Remove markdown code blocks if present
+    let jsonText = content;
+    const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1];
+    }
 
-  const discoveries: CompanyDiscovery[] = JSON.parse(jsonMatch[0]);
-  
-  discoveries.forEach(d => {
-    console.log(`  ✓ ${d.name} (${d.relevanceScore}%) - ${d.whyRelevant.substring(0, 80)}...`);
-  });
+    // Extract JSON array
+    const jsonMatch = jsonText.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      console.error('⚠ No JSON array found in response');
+      throw new Error('Could not extract JSON array from response');
+    }
 
-  return discoveries;
+    const discoveries: CompanyDiscovery[] = JSON.parse(jsonMatch[0]);
+    
+    console.log(`✓ Discovered ${discoveries.length} companies`);
+    discoveries.forEach(d => {
+      console.log(`  ✓ ${d.name} (${d.relevanceScore}%) - ${d.whyRelevant.substring(0, 80)}...`);
+    });
+
+    return discoveries;
+
+  } catch (error) {
+    console.error('❌ Failed to parse discovery JSON:', error);
+    console.error('Response content:', content.substring(0, 500));
+    throw new Error('Failed to parse company discovery response');
+  }
 }
 
 serve(async (req) => {
