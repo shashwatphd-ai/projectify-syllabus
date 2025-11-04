@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, BookOpen, Briefcase, Target, Menu } from "lucide-react";
+import { ArrowRight, BookOpen, Briefcase, Target, Menu, Link2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -15,8 +15,10 @@ const Landing = () => {
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-2">
-              <Briefcase className="h-6 w-6 text-primary" />
-              <span className="text-xl font-bold">Project Generator</span>
+              <span className="text-2xl font-bold">
+                <span className="text-foreground">Edu</span>
+                <span className="text-primary">Three</span>
+              </span>
             </div>
             
             {/* Desktop Navigation */}
@@ -61,74 +63,153 @@ const Landing = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[var(--gradient-hero)] opacity-5" />
-        <div className="container mx-auto px-4 py-20 md:py-32 relative">
-          <div className="max-w-4xl mx-auto text-center space-y-8">
-            <h1 className="text-4xl md:text-6xl font-bold text-foreground leading-tight">
-              Transform Your <span className="text-primary">Syllabus</span> Into
-              <br />
-              Real-World <span className="text-secondary">Projects</span>
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Upload your course syllabus and instantly generate personalized, industry-aligned consulting projects
-              with complete briefs, pricing, and learning outcome coverage.
+      <section className="relative overflow-hidden bg-muted/20">
+        <div className="container mx-auto px-4 py-24 md:py-40 relative">
+          <div className="max-w-5xl mx-auto text-center space-y-6">
+            <p className="text-2xl md:text-3xl font-medium text-muted-foreground">
+              Learning. Applied.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+            <h1 className="text-5xl md:text-8xl font-bold text-foreground leading-tight">
+              <span className="text-foreground">Edu</span>
+              <span className="text-primary">Three</span>
+              <span className="text-foreground">.</span>
+            </h1>
+            <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto pt-4">
+              Stay tuned for the revolution in applied learning!
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
               <Button
                 size="lg"
                 onClick={() => navigate("/auth")}
-                className="text-lg px-8"
+                className="text-lg px-10"
               >
-                Get Started <ArrowRight className="ml-2 h-5 w-5" />
+                SIGN UP
               </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => {
-                  document.querySelector('#how-it-works')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="text-lg px-8"
-              >
-                Learn More
-              </Button>
+            </div>
+            <div className="flex flex-wrap gap-6 justify-center pt-6 text-sm md:text-base text-muted-foreground uppercase tracking-wider">
+              <span>STUDENT</span>
+              <span>FACULTY</span>
+              <span>INDUSTRY</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features */}
-      <section className="py-20 bg-muted/30">
+      {/* Education & Industry Connection */}
+      <section className="py-24 bg-background">
         <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            <div className="bg-card rounded-xl p-8 shadow-[var(--shadow-card)] space-y-4">
-              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                <BookOpen className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="text-xl font-semibold">Syllabus Analysis</h3>
-              <p className="text-muted-foreground">
-                Upload your PDF syllabus and our AI extracts learning outcomes, course structure, and key artifacts automatically.
+          <div className="max-w-4xl mx-auto text-center space-y-12">
+            <div className="space-y-4">
+              <h2 className="text-3xl md:text-5xl font-bold leading-tight">
+                Education and Industry aren't separate worlds.
+                <br />
+                They're parts of the same equation.
+              </h2>
+              <p className="text-lg md:text-xl text-muted-foreground font-medium">
+                EduThree: Turning student potential into industry progress.
               </p>
             </div>
-
-            <div className="bg-card rounded-xl p-8 shadow-[var(--shadow-card)] space-y-4">
-              <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center">
-                <Target className="h-6 w-6 text-secondary" />
+            
+            <div className="flex flex-col items-center gap-8 py-8">
+              <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16">
+                <div className="text-center">
+                  <p className="text-lg font-semibold text-muted-foreground mb-4">Students</p>
+                  <div className="w-32 h-16 md:w-40 md:h-20 rounded-full border-4 border-primary/40 bg-primary/5" />
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-semibold text-muted-foreground mb-4">Industry</p>
+                  <div className="w-32 h-16 md:w-40 md:h-20 rounded-full border-4 border-primary/40 bg-primary/5" />
+                </div>
               </div>
-              <h3 className="text-xl font-semibold">Smart Matching</h3>
-              <p className="text-muted-foreground">
-                Projects are generated to align with your learning outcomes, ensuring students practice what they're meant to learn.
-              </p>
+              <div className="relative">
+                <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-px h-24 bg-primary/30" />
+                <div className="text-center">
+                  <div className="w-32 h-16 md:w-40 md:h-20 rounded-full border-4 border-primary bg-primary/10 flex items-center justify-center">
+                    <Link2 className="h-8 w-8 text-primary" />
+                  </div>
+                  <p className="text-lg font-semibold text-muted-foreground mt-4">Faculty</p>
+                </div>
+              </div>
             </div>
 
-            <div className="bg-card rounded-xl p-8 shadow-[var(--shadow-card)] space-y-4">
-              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Briefcase className="h-6 w-6 text-primary" />
+            <div className="pt-8">
+              <h3 className="text-4xl md:text-6xl font-bold">
+                <span className="text-foreground">Edu</span>
+                <span className="text-primary">Three</span>
+              </h3>
+              <p className="text-2xl md:text-3xl text-primary font-semibold mt-6">Coming Soon!</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Proof of Performance */}
+      <section className="py-24 bg-muted/20">
+        <div className="container mx-auto px-4">
+          <div className="max-w-5xl mx-auto text-center space-y-8">
+            <h2 className="text-3xl md:text-5xl font-bold leading-tight">
+              You don't need more resumes.<br />
+              You need proof of performance.
+            </h2>
+            <p className="text-xl md:text-2xl text-primary font-medium">
+              Real projects. Real skills. Real impact. That's what defines industry-ready talent.
+            </p>
+            <div className="pt-8">
+              <h3 className="text-4xl md:text-7xl font-bold">
+                <span className="text-foreground">Edu</span>
+                <span className="text-primary">Three</span>
+              </h3>
+              <p className="text-2xl md:text-4xl font-bold text-foreground mt-8 uppercase tracking-wider">COMING SOON!</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Capability vs GPA */}
+      <section className="py-24 bg-background">
+        <div className="container mx-auto px-4">
+          <div className="max-w-5xl mx-auto text-center space-y-8">
+            <h2 className="text-3xl md:text-5xl font-bold leading-tight">
+              You know their GPA.<br />
+              But do you know their capability?
+            </h2>
+            <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">
+              Tomorrow's learners are defined by capability, not grades. True learning applies classroom knowledge to real-world challenges.
+            </p>
+            <p className="text-xl md:text-2xl text-primary font-medium italic max-w-3xl mx-auto">
+              Unlock true potential: Discover how to turn learning into undeniable proof of capability.
+            </p>
+            <div className="pt-8">
+              <h3 className="text-4xl md:text-6xl font-bold">
+                <span className="text-foreground">Edu</span>
+                <span className="text-primary">Three</span>
+              </h3>
+              <p className="text-2xl md:text-3xl font-bold text-foreground mt-8 uppercase tracking-wider">COMING SOON!</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Industry Ready */}
+      <section className="py-24 bg-muted/20">
+        <div className="container mx-auto px-4">
+          <div className="max-w-5xl mx-auto text-center space-y-8">
+            <h2 className="text-3xl md:text-5xl font-bold leading-tight">
+              Is your student industry-ready?<br />
+              Or just course-complete?
+            </h2>
+            <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">
+              Grades measure learning. Industry measures readiness. Somewhere between the two lies the future of education.
+            </p>
+            <div className="pt-8 flex justify-center items-center gap-8">
+              <div className="text-3xl md:text-5xl font-bold">
+                <span className="text-foreground">Edu</span>
+                <span className="text-primary">Three</span>
               </div>
-              <h3 className="text-xl font-semibold">Complete Briefs</h3>
-              <p className="text-muted-foreground">
-                Get detailed project scopes, milestones, pricing, and all six standardized forms ready for industry partners.
-              </p>
+              <div className="text-right">
+                <p className="text-2xl md:text-4xl font-bold text-foreground uppercase tracking-wider">COMING</p>
+                <p className="text-2xl md:text-4xl font-bold text-foreground uppercase tracking-wider">SOON!</p>
+              </div>
             </div>
           </div>
         </div>
@@ -167,19 +248,19 @@ const Landing = () => {
       </section>
 
       {/* CTA */}
-      <section className="py-20 bg-[var(--gradient-hero)] text-primary-foreground">
+      <section className="py-20 bg-primary text-primary-foreground">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Transform Your Course?</h2>
-          <p className="text-xl mb-8 opacity-90">
-            Join faculty creating real-world learning experiences
+          <h2 className="text-3xl md:text-5xl font-bold mb-6">Ready to Transform Learning?</h2>
+          <p className="text-xl md:text-2xl mb-8 opacity-90 max-w-2xl mx-auto">
+            Join the revolution in applied learning
           </p>
           <Button
             size="lg"
             variant="secondary"
             onClick={() => navigate("/auth")}
-            className="text-lg px-8"
+            className="text-lg px-10"
           >
-            Get Started Free
+            Get Started
           </Button>
         </div>
       </section>
