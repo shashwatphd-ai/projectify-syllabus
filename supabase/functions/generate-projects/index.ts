@@ -544,57 +544,60 @@ async function generateLOAlignmentDetail(
   const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
 
-  const systemPrompt = 'You are a learning outcomes assessment expert. Return only valid JSON.';
-  const prompt = `You are analyzing how project activities align with course learning outcomes.
+  const systemPrompt = 'You are a learning outcomes assessment expert. Return only valid JSON with proper syntax.';
+  const prompt = `Analyze how project activities align with course learning outcomes.
 
 LEARNING OUTCOMES:
-${outcomes.map((o, i) => `LO${i + 1}: ${o}`).join('\n')}
+${outcomes.map((o, i) => `${i}: ${o}`).join('\n')}
 
-PROJECT TASKS:
-${tasks.map((t, i) => `T${i + 1}: ${t}`).join('\n')}
+PROJECT TASKS (total: ${tasks.length}):
+${tasks.map((t, i) => `${i}: ${t}`).join('\n')}
 
-PROJECT DELIVERABLES:
-${deliverables.map((d, i) => `D${i + 1}: ${d}`).join('\n')}
+PROJECT DELIVERABLES (total: ${deliverables.length}):
+${deliverables.map((d, i) => `${i}: ${d}`).join('\n')}
 
-SUMMARY ALIGNMENT: ${proposal_lo_summary}
+SUMMARY: ${proposal_lo_summary}
 
-Create a detailed mapping showing which tasks and deliverables address each learning outcome.
+Create a detailed mapping. CRITICAL: Use ONLY numeric indices (0, 1, 2, etc.) for aligned_tasks and aligned_deliverables arrays.
 
-Return ONLY valid JSON in this exact structure:
+Return ONLY valid JSON (no markdown, no explanation):
 {
   "outcome_mappings": [
     {
       "outcome_id": "LO1",
-      "outcome_text": "Full text of learning outcome 1",
+      "outcome_text": "text of learning outcome",
       "coverage_percentage": 85,
-      "aligned_tasks": [0, 2, 3],
-      "aligned_deliverables": [0, 1],
-      "explanation": "Detailed 2-3 sentence explanation of how the tasks and deliverables develop this outcome"
+      "aligned_tasks": [0, 2],
+      "aligned_deliverables": [0],
+      "explanation": "2-3 sentence explanation"
     }
   ],
   "task_mappings": [
     {
       "task_index": 0,
-      "task_text": "Full task text",
-      "outcome_ids": ["LO1", "LO3"]
+      "task_text": "task text",
+      "outcome_ids": ["LO1"]
     }
   ],
   "deliverable_mappings": [
     {
       "deliverable_index": 0,
-      "deliverable_text": "Full deliverable text",
-      "outcome_ids": ["LO1", "LO2"]
+      "deliverable_text": "deliverable text",
+      "outcome_ids": ["LO1"]
     }
   ],
   "overall_coverage": {
-    "LO1": 85,
-    "LO2": 90,
-    "LO3": 75
+    "LO1": 85
   },
-  "gaps": [
-    "Any learning outcomes that are weakly covered (<60%) and recommendations to strengthen"
-  ]
-}`;
+  "gaps": ["weakly covered outcomes"]
+}
+
+IMPORTANT: 
+- Use numeric indices ONLY (e.g., [0, 1, 2] not ["T1", "T2"])
+- Task indices range from 0 to ${tasks.length - 1}
+- Deliverable indices range from 0 to ${deliverables.length - 1}
+- All strings must be properly quoted
+- No trailing commas`;
 
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
     method: 'POST',
@@ -608,8 +611,9 @@ Return ONLY valid JSON in this exact structure:
         }]
       }],
       generationConfig: {
-        temperature: 0.3,
+        temperature: 0.2,
         maxOutputTokens: 4096,
+        responseMimeType: 'application/json'
       }
     }),
   });
@@ -620,11 +624,38 @@ Return ONLY valid JSON in this exact structure:
   }
 
   const data = await response.json();
-  const content = data.candidates[0].content.parts[0].text;
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
   
-  if (!jsonMatch) return null;
-  return JSON.parse(jsonMatch[0]);
+  try {
+    const content = data.candidates[0].content.parts[0].text;
+    
+    // Log first 300 chars for debugging
+    console.log('📄 Raw LO alignment response (first 300 chars):', content.substring(0, 300));
+    
+    // Try to extract JSON from markdown code blocks or plain text
+    let jsonText = content;
+    
+    // Remove markdown code blocks if present
+    const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1];
+    }
+    
+    // Find JSON object
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error('⚠ No JSON object found in response');
+      return null;
+    }
+    
+    const parsed = JSON.parse(jsonMatch[0]);
+    console.log('✓ Successfully parsed LO alignment');
+    return parsed;
+    
+  } catch (error) {
+    console.error('❌ Failed to parse LO alignment JSON:', error);
+    console.error('Response content:', data?.candidates?.[0]?.content?.parts?.[0]?.text?.substring(0, 500));
+    return null;
+  }
 }
 
 function cleanAndValidate(proposal: ProjectProposal): { cleaned: ProjectProposal; issues: string[] } {
