@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Link2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
+import logo from "@/assets/logo-eduthree.jpg";
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -17,11 +18,9 @@ const Landing = () => {
             <p className="text-2xl md:text-3xl font-medium text-muted-foreground">
               Learning. Applied.
             </p>
-            <h1 className="text-5xl md:text-8xl font-bold text-foreground leading-tight">
-              <span className="text-foreground">Edu</span>
-              <span className="text-primary">Three</span>
-              <span className="text-foreground">.</span>
-            </h1>
+            <div className="flex justify-center">
+              <img src={logo} alt="EduThree" className="h-20 md:h-32 max-w-full" />
+            </div>
             <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto pt-4">
               Stay tuned for the revolution in applied learning!
             </p>
@@ -81,10 +80,7 @@ const Landing = () => {
             </div>
 
             <div className="pt-8">
-              <h3 className="text-4xl md:text-6xl font-bold">
-                <span className="text-foreground">Edu</span>
-                <span className="text-primary">Three</span>
-              </h3>
+              <img src={logo} alt="EduThree" className="h-16 md:h-24 mx-auto" />
               <p className="text-2xl md:text-3xl text-primary font-semibold mt-6">Coming Soon!</p>
             </div>
           </div>
@@ -103,10 +99,7 @@ const Landing = () => {
               Real projects. Real skills. Real impact. That's what defines industry-ready talent.
             </p>
             <div className="pt-8">
-              <h3 className="text-4xl md:text-7xl font-bold">
-                <span className="text-foreground">Edu</span>
-                <span className="text-primary">Three</span>
-              </h3>
+              <img src={logo} alt="EduThree" className="h-16 md:h-24 mx-auto" />
               <p className="text-2xl md:text-4xl font-bold text-foreground mt-8 uppercase tracking-wider">COMING SOON!</p>
             </div>
           </div>
@@ -128,10 +121,7 @@ const Landing = () => {
               Unlock true potential: Discover how to turn learning into undeniable proof of capability.
             </p>
             <div className="pt-8">
-              <h3 className="text-4xl md:text-6xl font-bold">
-                <span className="text-foreground">Edu</span>
-                <span className="text-primary">Three</span>
-              </h3>
+              <img src={logo} alt="EduThree" className="h-16 md:h-24 mx-auto" />
               <p className="text-2xl md:text-3xl font-bold text-foreground mt-8 uppercase tracking-wider">COMING SOON!</p>
             </div>
           </div>
@@ -150,10 +140,7 @@ const Landing = () => {
               Grades measure learning. Industry measures readiness. Somewhere between the two lies the future of education.
             </p>
             <div className="pt-8 flex justify-center items-center gap-8">
-              <div className="text-3xl md:text-5xl font-bold">
-                <span className="text-foreground">Edu</span>
-                <span className="text-primary">Three</span>
-              </div>
+              <img src={logo} alt="EduThree" className="h-12 md:h-20" />
               <div className="text-right">
                 <p className="text-2xl md:text-4xl font-bold text-foreground uppercase tracking-wider">COMING</p>
                 <p className="text-2xl md:text-4xl font-bold text-foreground uppercase tracking-wider">SOON!</p>

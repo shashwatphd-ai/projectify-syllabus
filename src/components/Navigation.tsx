@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { authService } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import logo from "@/assets/logo-eduthree.jpg";
 
 export const Navigation = () => {
   const navigate = useNavigate();
@@ -27,10 +28,7 @@ export const Navigation = () => {
             onClick={() => navigate("/")}
             className="hover:opacity-80 transition-opacity"
           >
-            <span className="text-2xl font-bold">
-              <span className="text-foreground">Edu</span>
-              <span className="text-primary">Three</span>
-            </span>
+            <img src={logo} alt="EduThree" className="h-8 md:h-10" />
           </button>
           
           <div className="flex items-center gap-4">
