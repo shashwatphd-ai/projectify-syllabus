@@ -886,36 +886,40 @@ serve(async (req) => {
       }
 
       // Insert project metadata for algorithm transparency
+      const metadataInsert: any = {
+        project_id: projectData.id,
+        algorithm_version: 'v1.0',
+        companies_considered: [{
+          name: company.name,
+          sector: company.sector,
+          reason: 'Selected based on industry match and location'
+        }],
+        selection_criteria: {
+          industries,
+          location: cityZip,
+          num_teams: numTeams
+        },
+        scoring_rationale: {
+          lo_score: { value: scores.lo_score, method: 'AI analysis with task/deliverable mapping' },
+          feasibility_score: { value: scores.feasibility_score, method: 'Duration and complexity assessment' },
+          mutual_benefit_score: { value: scores.mutual_benefit_score, method: 'Company needs alignment' }
+        },
+        ai_model_version: 'gemini-2.0-flash-exp'
+      };
+
+      // Add LO alignment details if available
       if (loAlignmentDetail) {
-        const { error: metadataError } = await serviceRoleClient
-          .from('project_metadata')
-          .insert({
-            project_id: projectData.id,
-            algorithm_version: 'v1.0',
-            companies_considered: [{
-              name: company.name,
-              sector: company.sector,
-              reason: 'Selected based on industry match and location'
-            }],
-            selection_criteria: {
-              industries,
-              location: cityZip,
-              num_teams: numTeams
-            },
-            lo_alignment_detail: loAlignmentDetail,
-            lo_mapping_tasks: loAlignmentDetail.task_mappings,
-            lo_mapping_deliverables: loAlignmentDetail.deliverable_mappings,
-            scoring_rationale: {
-              lo_score: { value: scores.lo_score, method: 'AI analysis with task/deliverable mapping' },
-              feasibility_score: { value: scores.feasibility_score, method: 'Duration and complexity assessment' },
-              mutual_benefit_score: { value: scores.mutual_benefit_score, method: 'Company needs alignment' }
-            },
-            ai_model_version: 'gemini-2.0-flash-exp'
-          });
-          
-        if (metadataError) {
-          console.error('Metadata insert error:', metadataError);
-        }
+        metadataInsert.lo_alignment_detail = loAlignmentDetail;
+        metadataInsert.lo_mapping_tasks = loAlignmentDetail.task_mappings;
+        metadataInsert.lo_mapping_deliverables = loAlignmentDetail.deliverable_mappings;
+      }
+
+      const { error: metadataError } = await serviceRoleClient
+        .from('project_metadata')
+        .insert(metadataInsert);
+        
+      if (metadataError) {
+        console.error('Metadata insert error:', metadataError);
       }
 
       projectIds.push(projectData.id);
