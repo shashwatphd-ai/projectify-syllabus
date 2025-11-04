@@ -3,10 +3,12 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Briefcase, TrendingUp, Loader2, AlertTriangle } from "lucide-react";
+import { Briefcase, TrendingUp, Loader2, AlertTriangle, Download } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Navigation } from "@/components/Navigation";
+import { downloadCoursePdf } from "@/lib/downloadPdf";
+import { toast } from "sonner";
 
 const Projects = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
@@ -16,6 +18,7 @@ const Projects = () => {
   const courseId = searchParams.get('courseId') || location.state?.courseId;
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloadingCourseId, setDownloadingCourseId] = useState<string | null>(null);
 
   useEffect(() => {
     requireAuth();
@@ -29,7 +32,7 @@ const Projects = () => {
 
   const loadProjects = async () => {
     try {
-      let query = supabase.from('projects').select('*, course_profiles!inner(owner_id)');
+      let query = supabase.from('projects').select('*, course_profiles!inner(owner_id, title)');
       
       if (courseId) {
         query = query.eq('course_id', courseId);
@@ -46,6 +49,18 @@ const Projects = () => {
       console.error('Load projects error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadSyllabus = async (courseId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click navigation
+    setDownloadingCourseId(courseId);
+    try {
+      await downloadCoursePdf(courseId);
+    } catch (error) {
+      // Error is already toasted in downloadCoursePdf
+    } finally {
+      setDownloadingCourseId(null);
     }
   };
 
@@ -81,11 +96,23 @@ const Projects = () => {
     <div className="min-h-screen bg-background">
       <Navigation />
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Generated Projects</h1>
-          <p className="text-muted-foreground">
-            {projects.length} project{projects.length !== 1 ? "s" : ""} generated based on your course outcomes
-          </p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Generated Projects</h1>
+            <p className="text-muted-foreground">
+              {projects.length} project{projects.length !== 1 ? "s" : ""} generated based on your course outcomes
+            </p>
+          </div>
+          {courseId && (
+            <Button
+              variant="outline"
+              onClick={(e) => handleDownloadSyllabus(courseId, e)}
+              disabled={downloadingCourseId === courseId}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {downloadingCourseId === courseId ? "Downloading..." : "Download Syllabus"}
+            </Button>
+          )}
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">

@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { BookOpen, Clock, GraduationCap, Target, FileText, Calendar } from "lucide-react";
+import { BookOpen, Clock, GraduationCap, Target, FileText, Calendar, Download } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { downloadCoursePdf } from "@/lib/downloadPdf";
 
 interface SyllabusReviewProps {
   courseId: string;
@@ -26,6 +27,7 @@ interface SyllabusReviewProps {
 export function SyllabusReview({ courseId, parsedData, rawText }: SyllabusReviewProps) {
   const [level, setLevel] = useState(parsedData.level);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const handleLevelChange = async (newLevel: string) => {
     setLevel(newLevel);
@@ -47,17 +49,41 @@ export function SyllabusReview({ courseId, parsedData, rawText }: SyllabusReview
     }
   };
 
+  const handleDownloadPdf = async () => {
+    setIsDownloading(true);
+    try {
+      await downloadCoursePdf(courseId);
+    } catch (error) {
+      // Error is already toasted in downloadCoursePdf
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5" />
-            Parsed Syllabus Information
-          </CardTitle>
-          <CardDescription>
-            Review and verify the extracted course information
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Parsed Syllabus Information
+              </CardTitle>
+              <CardDescription>
+                Review and verify the extracted course information
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadPdf}
+              disabled={isDownloading}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {isDownloading ? "Downloading..." : "Download PDF"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Course Basics */}
