@@ -20,6 +20,11 @@ interface CompanyProfile {
   recent_news: string;
   inferred_needs: string[];
   last_enriched_at: string;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  contact_person?: string | null;
+  full_address?: string | null;
+  linkedin_profile?: string | null;
 }
 
 // Geocode city/zip to lat/lng using Google Geocoding API
@@ -329,25 +334,38 @@ async function enrichCompany(company: any): Promise<any> {
   let contactPhone = company.phone || null;
   let fullAddress = company.address || null;
   let website = company.website || null;
+  let contactPerson = null;
+  let contactEmail = null;
+  let linkedinProfile = null;
   
-  const hasCriticalDataGaps = !contactPhone || !website;
+  const hasCriticalDataGaps = !contactPhone || !website || !contactPerson;
   
-  // If critical data is missing, use Gemini web search as fallback
+  // If critical data is missing, use Google AI Studio web search as fallback
   if (hasCriticalDataGaps) {
-    console.log(`  ⚠️ Critical data missing for ${company.name}, using Gemini fallback...`);
-    const geminiData = await enrichWithGeminiWebSearch(company.name, company.address, {
+    console.log(`  ⚠️ Critical data missing for ${company.name}, using Google AI Studio web search...`);
+    const webSearchData = await enrichWithGeminiWebSearch(company.name, company.address, {
       needsPhone: !contactPhone,
-      needsWebsite: !website
+      needsWebsite: !website,
+      needsContact: true  // Always search for contact person
     });
     
-    if (geminiData) {
-      if (geminiData.phone && !contactPhone) {
-        contactPhone = geminiData.phone;
-        console.log(`  ✓ Gemini found phone: ${contactPhone}`);
+    if (webSearchData) {
+      if (webSearchData.phone && !contactPhone) {
+        contactPhone = webSearchData.phone;
+        console.log(`  ✓ Found phone: ${contactPhone}`);
       }
-      if (geminiData.website && !website) {
-        website = geminiData.website;
-        console.log(`  ✓ Gemini found website: ${website}`);
+      if (webSearchData.website && !website) {
+        website = webSearchData.website;
+        console.log(`  ✓ Found website: ${website}`);
+      }
+      if (webSearchData.contactPerson) {
+        contactPerson = webSearchData.contactPerson;
+      }
+      if (webSearchData.contactEmail) {
+        contactEmail = webSearchData.contactEmail;
+      }
+      if (webSearchData.linkedinProfile) {
+        linkedinProfile = webSearchData.linkedinProfile;
       }
     }
   }
@@ -386,23 +404,24 @@ async function enrichCompany(company: any): Promise<any> {
     ...company,
     technologies,
     open_roles,
-    contactEmail: null, // Email not available from Google Places API
+    contactEmail,
     contactPhone,
-    contactPerson: null, // Contact person not available from public APIs
+    contactPerson,
     fullAddress,
-    website
+    website,
+    linkedinProfile  // Add LinkedIn profile to returned data
   };
 }
 
-// Enrich company with Gemini web search for missing critical data
+// Enrich company with Google AI Studio web search for missing critical data + contact person
 async function enrichWithGeminiWebSearch(
   companyName: string, 
   address: string,
-  needs: { needsPhone?: boolean; needsWebsite?: boolean }
-): Promise<{ phone?: string; website?: string } | null> {
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  if (!LOVABLE_API_KEY) {
-    console.log('LOVABLE_API_KEY not set, skipping Gemini fallback');
+  needs: { needsPhone?: boolean; needsWebsite?: boolean; needsContact?: boolean }
+): Promise<{ phone?: string; website?: string; contactPerson?: string; contactEmail?: string; linkedinProfile?: string } | null> {
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  if (!GEMINI_API_KEY) {
+    console.log('GEMINI_API_KEY not set, skipping web search enrichment');
     return null;
   }
 
@@ -410,80 +429,111 @@ async function enrichWithGeminiWebSearch(
     const missingFields = [];
     if (needs.needsPhone) missingFields.push('phone number');
     if (needs.needsWebsite) missingFields.push('website');
+    if (needs.needsContact) missingFields.push('key contact person with email and LinkedIn');
     
     const prompt = `Find the official contact information for the business "${companyName}" located at "${address}".
 
-Please search the web and provide ONLY the following missing information: ${missingFields.join(' and ')}.
+Search the web and provide:
+${needs.needsPhone ? '- Official business phone number\n' : ''}
+${needs.needsWebsite ? '- Official website URL\n' : ''}
+${needs.needsContact ? '- Key contact person (Owner, Manager, Director, or decision-maker)\n- Their professional email address\n- Their LinkedIn profile URL\n' : ''}
 
-Return your response in this exact JSON format:
+Focus on finding someone appropriate for educational partnership discussions (not generic info@ emails).
+
+Return ONLY valid JSON in this exact format:
 {
-  ${needs.needsPhone ? '"phone": "phone number or null if not found",' : ''}
-  ${needs.needsWebsite ? '"website": "website URL or null if not found"' : ''}
+  ${needs.needsPhone ? '"phone": "phone number or null",' : ''}
+  ${needs.needsWebsite ? '"website": "website URL or null",' : ''}
+  ${needs.needsContact ? '"contactPerson": "Full Name or null",\n  "contactEmail": "professional email or null",\n  "linkedinProfile": "LinkedIn URL or null"' : ''}
 }
 
-IMPORTANT: 
-- Only return information you can verify from official sources
-- Return null for any field you cannot find reliably
-- Do not fabricate or guess information
-- Provide just the JSON, no additional text`;
+CRITICAL RULES:
+- Only return information you can verify from official sources (company website, LinkedIn, business directories)
+- For contact person, prefer: Owner > General Manager > Director > Department Head
+- Email should be a direct professional email (firstname@company.com), not generic (info@, contact@)
+- LinkedIn must be the person's actual profile URL
+- Return null for any field you cannot reliably find
+- No fabrication or guessing`;
 
-    console.log(`  🔍 Gemini search query: ${missingFields.join(', ')} for ${companyName}`);
+    console.log(`  🔍 Google AI Studio search: ${missingFields.join(', ')} for ${companyName}`);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are a business information research assistant. Search the web to find accurate, verified contact information for businesses. Always return valid JSON.' 
-          },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.1,
-        max_tokens: 500
-      }),
-    });
+    // Use Google AI Studio API with web search grounding
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{ text: prompt }]
+          }],
+          tools: [{
+            googleSearch: {}  // Enable web search grounding
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 1024,
+          }
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Gemini API error: ${response.status} - ${errorText}`);
+      console.error(`Google AI Studio error: ${response.status} - ${errorText}`);
       return null;
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
     
     if (!content) {
-      console.log('No content returned from Gemini');
+      console.log('No content returned from Google AI Studio');
       return null;
     }
 
-    // Extract JSON from response (handle cases where model adds markdown formatting)
+    console.log(`  📄 Raw response snippet: ${content.substring(0, 200)}...`);
+
+    // Extract JSON from response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.log('Could not extract JSON from Gemini response');
+      console.log('Could not extract JSON from response');
       return null;
     }
 
     const extractedData = JSON.parse(jsonMatch[0]);
     
-    // Clean up null strings to actual null
+    // Build result object with clean data
     const result: any = {};
+    
     if (needs.needsPhone && extractedData.phone && extractedData.phone !== 'null') {
       result.phone = extractedData.phone;
     }
+    
     if (needs.needsWebsite && extractedData.website && extractedData.website !== 'null') {
       result.website = extractedData.website;
+    }
+    
+    if (needs.needsContact) {
+      if (extractedData.contactPerson && extractedData.contactPerson !== 'null') {
+        result.contactPerson = extractedData.contactPerson;
+        console.log(`  ✓ Found contact person: ${result.contactPerson}`);
+      }
+      if (extractedData.contactEmail && extractedData.contactEmail !== 'null') {
+        result.contactEmail = extractedData.contactEmail;
+        console.log(`  ✓ Found contact email: ${result.contactEmail}`);
+      }
+      if (extractedData.linkedinProfile && extractedData.linkedinProfile !== 'null') {
+        result.linkedinProfile = extractedData.linkedinProfile;
+        console.log(`  ✓ Found LinkedIn: ${result.linkedinProfile}`);
+      }
     }
 
     return Object.keys(result).length > 0 ? result : null;
   } catch (error) {
-    console.error(`Gemini web search error for ${companyName}:`, error);
+    console.error(`Google AI Studio web search error for ${companyName}:`, error);
     return null;
   }
 }
@@ -747,13 +797,17 @@ serve(async (req) => {
           contact_email: enrichedCompany.contactEmail,
           contact_phone: enrichedCompany.contactPhone,
           contact_person: enrichedCompany.contactPerson,
-          full_address: enrichedCompany.fullAddress
+          full_address: enrichedCompany.fullAddress,
+          linkedin_profile: enrichedCompany.linkedinProfile
         };
 
         // Log what we're storing including contact info
         console.log(`📦 Storing ${profileToStore.name}:`);
         console.log(`   Phone: ${profileToStore.contact_phone || 'NULL'}`);
         console.log(`   Address: ${profileToStore.full_address || 'NULL'}`);
+        console.log(`   Contact: ${profileToStore.contact_person || 'NULL'}`);
+        console.log(`   Email: ${profileToStore.contact_email || 'NULL'}`);
+        console.log(`   LinkedIn: ${profileToStore.linkedin_profile || 'NULL'}`);
         console.log(`   Needs: ${JSON.stringify(inferredNeeds)}`);
 
         // Step 3: UPSERT to database

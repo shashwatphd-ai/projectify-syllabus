@@ -19,6 +19,7 @@ interface CompanyInfo {
   contact_phone?: string | null;
   contact_person?: string | null;
   full_address?: string | null;
+  linkedin_profile?: string | null;
 }
 
 interface ProjectProposal {

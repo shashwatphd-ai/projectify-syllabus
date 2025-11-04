@@ -24,6 +24,7 @@ export type Database = {
           id: string
           inferred_needs: Json | null
           last_enriched_at: string
+          linkedin_profile: string | null
           name: string
           open_roles: Json | null
           recent_news: string | null
@@ -43,6 +44,7 @@ export type Database = {
           id?: string
           inferred_needs?: Json | null
           last_enriched_at?: string
+          linkedin_profile?: string | null
           name: string
           open_roles?: Json | null
           recent_news?: string | null
@@ -62,6 +64,7 @@ export type Database = {
           id?: string
           inferred_needs?: Json | null
           last_enriched_at?: string
+          linkedin_profile?: string | null
           name?: string
           open_roles?: Json | null
           recent_news?: string | null
