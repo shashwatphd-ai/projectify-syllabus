@@ -100,7 +100,14 @@ async function getCompaniesFromDB(
   
   console.log(`✓ Intelligent filter: ${filteredCompanies.length}/${data.length} companies relevant to course outcomes`);
   
-  return filteredCompanies.slice(0, count);
+  // Map database fields to expected CompanyInfo interface
+  const mappedCompanies = filteredCompanies.slice(0, count).map(company => ({
+    ...company,
+    needs: company.inferred_needs || [], // Map inferred_needs to needs
+    description: company.recent_news || company.description || 'No description available'
+  }));
+  
+  return mappedCompanies;
 }
 
 // NEW: Intelligent company filtering based on course-company relevance
