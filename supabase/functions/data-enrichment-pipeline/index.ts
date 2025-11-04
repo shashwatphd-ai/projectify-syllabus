@@ -286,6 +286,10 @@ async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
         if (ratingCount > 100) size = 'Medium';
         if (ratingCount > 500) size = 'Large';
 
+        // Debug logging for contact data
+        const phoneNumber = place.nationalPhoneNumber || place.internationalPhoneNumber || null;
+        console.log(`  ${name}: Phone=${phoneNumber || 'NOT AVAILABLE'}, Address=${address.substring(0, 50)}...`);
+        
         companies.push({
           name: name,
           placeId: place.id,
@@ -296,7 +300,7 @@ async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
           address: address,
           city: city,
           zip: zip,
-          phone: place.nationalPhoneNumber || place.internationalPhoneNumber || null
+          phone: phoneNumber
         });
 
       } catch (placeError) {
@@ -315,6 +319,10 @@ async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
 
 async function enrichCompany(company: any): Promise<any> {
   console.log(`Enriching ${company.name}...`);
+  
+  // Debug: Log what we received from Google Places
+  console.log(`  Phone from API: ${company.phone || 'NOT PROVIDED'}`);
+  console.log(`  Address from API: ${company.address || 'NOT PROVIDED'}`);
   
   // Use phone from Google Places API (no scraping needed)
   const contactPhone = company.phone || null;
@@ -626,8 +634,11 @@ serve(async (req) => {
           full_address: enrichedCompany.fullAddress
         };
 
-        // Log what we're storing
-        console.log(`📦 Storing for ${profileToStore.name}: needs=${JSON.stringify(inferredNeeds)}`);
+        // Log what we're storing including contact info
+        console.log(`📦 Storing ${profileToStore.name}:`);
+        console.log(`   Phone: ${profileToStore.contact_phone || 'NULL'}`);
+        console.log(`   Address: ${profileToStore.full_address || 'NULL'}`);
+        console.log(`   Needs: ${JSON.stringify(inferredNeeds)}`);
 
         // Step 3: UPSERT to database
         const { data, error } = await supabase
