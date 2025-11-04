@@ -148,7 +148,12 @@ Return ONLY valid JSON array format:
   if (!response.ok) {
     const error = await response.text();
     console.error('AI search error:', response.status, error);
-    throw new Error('Failed to search companies');
+    
+    if (response.status === 403) {
+      throw new Error('Gemini API key is blocked. Please enable the Generative Language API in your Google Cloud Console: https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com');
+    }
+    
+    throw new Error(`Gemini API error: ${response.status} - ${error}`);
   }
 
   const data = await response.json();
@@ -271,7 +276,12 @@ Return ONLY valid JSON:
   if (!response.ok) {
     const error = await response.text();
     console.error('AI proposal error:', response.status, error);
-    throw new Error('Failed to generate proposal');
+    
+    if (response.status === 403) {
+      throw new Error('Gemini API key is blocked. Please enable the Generative Language API in your Google Cloud Console: https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com');
+    }
+    
+    throw new Error(`Gemini API error: ${response.status} - ${error}`);
   }
 
   const data = await response.json();
