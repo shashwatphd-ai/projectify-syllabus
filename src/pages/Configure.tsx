@@ -79,13 +79,34 @@ const Configure = () => {
         }
       });
 
-      if (error) throw error;
-
-      toast.success(`${data.projectIds.length} projects generated successfully!`);
-      navigate(`/projects?courseId=${courseId}`);
+      if (error) {
+        // Check if any projects were created despite the error
+        const { data: existingProjects } = await supabase
+          .from('projects')
+          .select('id')
+          .eq('course_id', courseId);
+        
+        if (existingProjects && existingProjects.length > 0) {
+          toast.error(
+            `Created ${existingProjects.length} of ${numTeams} projects. Rate limit reached - wait 2-3 minutes and retry for remaining projects.`,
+            { duration: 8000 }
+          );
+          navigate(`/projects?courseId=${courseId}`);
+        } else {
+          throw error;
+        }
+      } else {
+        toast.success(`${data.projectIds.length} projects generated successfully!`);
+        navigate(`/projects?courseId=${courseId}`);
+      }
     } catch (error: any) {
       console.error('Generation error:', error);
-      toast.error(error.message || "Failed to generate projects");
+      const errorMsg = error.message || "Failed to generate projects";
+      if (errorMsg.includes('rate') || errorMsg.includes('429')) {
+        toast.error("AI rate limit reached. Please wait 2-3 minutes and try again.", { duration: 6000 });
+      } else {
+        toast.error(errorMsg);
+      }
     } finally {
       setLoading(false);
     }
