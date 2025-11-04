@@ -47,7 +47,14 @@ interface ProjectProposal {
 }
 
 // NEW: Query real companies from database instead of AI generation
-async function getCompaniesFromDB(supabaseClient: any, cityZip: string, industries: string[], count: number): Promise<CompanyInfo[]> {
+async function getCompaniesFromDB(
+  supabaseClient: any, 
+  cityZip: string, 
+  industries: string[], 
+  count: number,
+  outcomes: string[],
+  level: string
+): Promise<CompanyInfo[]> {
   console.log(`📊 Querying DB for ${count} companies in ${cityZip}...`);
 
   // Parse city_zip to extract zip code and city name
@@ -63,21 +70,16 @@ async function getCompaniesFromDB(supabaseClient: any, cityZip: string, industri
     .select('*')
     .not('inferred_needs', 'is', null); // Only companies with analyzed needs
   
-  // Search by city name (REQUIRED - only match location)
+  // Search by city name
   if (cityName) {
     query = query.ilike('city', `%${cityName.split(',')[0].trim()}%`);
   } else if (zipCode) {
     query = query.eq('zip', zipCode);
   }
 
-  // NOTE: We do NOT filter by industry/sector from user input
-  // This is intentional - user input like "Small enterprises" is not a real sector
-  // The enriched companies have real sectors (Retail, Healthcare, Education, etc.)
-  // Intelligent matching happens via AI analyzing needs, not sector filtering
-
   query = query
-    .order('last_enriched_at', { ascending: false }) // Prioritize recently enriched
-    .limit(count * 2); // Get extra to filter later
+    .order('last_enriched_at', { ascending: false })
+    .limit(count * 3); // Get extra for intelligent filtering
 
   const { data, error } = await query;
 
@@ -93,45 +95,105 @@ async function getCompaniesFromDB(supabaseClient: any, cityZip: string, industri
 
   console.log(`✓ Found ${data.length} enriched companies in database for ${cityName}`);
 
-  // CRITICAL: Filter out companies with only generic needs
-  const genericPatterns = ['general operations', 'sales growth', 'digital transformation'];
-  const companiesWithRichData = data.filter((profile: any) => {
-    const needs = profile.inferred_needs || [];
-    const isGeneric = needs.every((need: string) => 
-      genericPatterns.some(pattern => need.toLowerCase().includes(pattern))
-    );
-    return !isGeneric && needs.length > 0;
-  });
+  // CRITICAL: Intelligent pre-filtering before AI generation
+  const filteredCompanies = await intelligentCompanyFilter(data, outcomes, level);
+  
+  console.log(`✓ Intelligent filter: ${filteredCompanies.length}/${data.length} companies relevant to course outcomes`);
+  
+  return filteredCompanies.slice(0, count);
+}
 
-  if (companiesWithRichData.length === 0) {
-    console.log(`⚠ All ${data.length} companies have generic needs - data quality issue detected`);
-    console.log('Sample needs from first company:', data[0]?.inferred_needs);
-  } else {
-    console.log(`✓ ${companiesWithRichData.length}/${data.length} companies have specific analyzed needs`);
+// NEW: Intelligent company filtering based on course-company relevance
+async function intelligentCompanyFilter(
+  companies: any[],
+  outcomes: string[],
+  level: string
+): Promise<any[]> {
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  if (!GEMINI_API_KEY) {
+    console.warn('⚠ No Gemini API key, skipping intelligent filtering');
+    // Filter out generic needs only
+    const genericPatterns = ['general operations', 'sales growth', 'digital transformation'];
+    return companies.filter(company => {
+      const needs = company.inferred_needs || [];
+      const hasGenericOnly = needs.length > 0 && needs.every((need: string) => 
+        genericPatterns.some(pattern => need.toLowerCase().includes(pattern))
+      );
+      return !hasGenericOnly;
+    });
   }
 
-  // Map to CompanyInfo format with intelligent need extraction
-  return companiesWithRichData.slice(0, count).map((profile: any) => {
-    const inferredNeeds = profile.inferred_needs || [];
+  // AI-powered relevance scoring
+  const systemPrompt = 'You are an experiential learning expert. Evaluate company-course fit. Return only valid JSON array.';
+  
+  const prompt = `Evaluate which companies are relevant for this ${level} course:
+
+COURSE LEARNING OUTCOMES:
+${outcomes.map((o, i) => `${i + 1}. ${o}`).join('\n')}
+
+AVAILABLE COMPANIES:
+${companies.map((c, i) => `
+${i + 1}. ${c.name} (${c.sector})
+   Description: ${c.description || 'N/A'}
+   Business Needs: ${(c.inferred_needs || []).join('; ')}
+`).join('\n')}
+
+Rate each company's relevance (0-100) based on:
+1. Can students apply the learning outcomes to solve company needs?
+2. Is the sector appropriate for the course level and subject?
+3. Do the business needs align with course topics?
+
+Return ONLY this JSON array:
+[
+  {"index": 0, "relevance": 85, "reason": "Brief fit explanation"},
+  {"index": 1, "relevance": 20, "reason": "Why poor fit"}
+]`;
+
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `${systemPrompt}\n\n${prompt}` }] }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: 2048 }
+      }),
+    });
+
+    if (!response.ok) throw new Error('AI filtering failed');
+
+    const data = await response.json();
+    const content = data.candidates[0].content.parts[0].text;
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) throw new Error('No valid JSON in AI response');
     
-    // Log what we're using for transparency
-    console.log(`  → ${profile.name}: ${inferredNeeds.length} specific needs`);
+    const ratings = JSON.parse(jsonMatch[0]);
     
-    return {
-      id: profile.id,
-      name: profile.name,
-      sector: profile.sector,
-      size: profile.size,
-      needs: inferredNeeds, // Use AI-analyzed needs, not generic fallback
-      description: profile.recent_news || `${profile.name} is a ${profile.size} ${profile.sector} company.`,
-      website: profile.website,
-      inferred_needs: inferredNeeds,
-      contact_email: profile.contact_email,
-      contact_phone: profile.contact_phone,
-      contact_person: profile.contact_person,
-      full_address: profile.full_address
-    };
-  });
+    // Sort by relevance and filter threshold
+    const scored = companies
+      .map((company, index) => {
+        const rating = ratings.find((r: any) => r.index === index);
+        return { ...company, relevance: rating?.relevance || 0, reason: rating?.reason || '' };
+      })
+      .filter(c => c.relevance >= 60) // Only keep relevant matches (60%+)
+      .sort((a, b) => b.relevance - a.relevance);
+
+    scored.forEach(c => {
+      console.log(`  ✓ ${c.name}: ${c.relevance}% relevant - ${c.reason}`);
+    });
+
+    return scored;
+  } catch (error) {
+    console.error('⚠ AI filtering error:', error);
+    // Fallback: filter generic needs only
+    const genericPatterns = ['general operations', 'sales growth', 'digital transformation'];
+    return companies.filter(company => {
+      const needs = company.inferred_needs || [];
+      const hasGenericOnly = needs.length > 0 && needs.every((need: string) => 
+        genericPatterns.some(pattern => need.toLowerCase().includes(pattern))
+      );
+      return !hasGenericOnly;
+    });
+  }
 }
 
 // FALLBACK: AI company search (only used if DB is empty)
@@ -777,6 +839,7 @@ serve(async (req) => {
     const outcomes = course.outcomes as string[];
     const artifacts = course.artifacts as string[];
     const cityZip = course.city_zip;
+    const level = course.level;
     
     console.log('Starting intelligent project generation...');
     console.log('Location:', cityZip);
@@ -788,7 +851,9 @@ serve(async (req) => {
       supabaseClient,
       cityZip,
       industries.length > 0 ? industries : ["Technology", "Healthcare", "Finance", "Manufacturing"],
-      numTeams
+      numTeams,
+      outcomes,
+      level
     );
 
     // Fallback to AI generation if DB is empty

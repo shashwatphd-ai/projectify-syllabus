@@ -67,7 +67,13 @@ export default function ReviewSyllabus() {
   }, [courseId, parsedDataParam, rawTextParam, navigate]);
 
   const handleContinue = () => {
+    // Auto-navigate to configure with minimal friction
     navigate(`/configure?courseId=${courseId}`);
+  };
+
+  const handleSkipToGenerate = () => {
+    // Quick path: Skip to generation with defaults
+    navigate(`/configure?courseId=${courseId}&autoGenerate=true`);
   };
 
   if (loading) {
@@ -101,11 +107,19 @@ export default function ReviewSyllabus() {
             />
           )}
 
-          <div className="flex justify-end">
-            <Button onClick={handleContinue} size="lg">
-              Continue to Configuration
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-muted-foreground">
+              Review looks good? Generate projects with smart defaults, or customize settings first.
+            </p>
+            <div className="flex gap-2">
+              <Button onClick={handleContinue} variant="outline" size="lg">
+                Customize Settings
+              </Button>
+              <Button onClick={handleSkipToGenerate} size="lg">
+                Generate Projects Now
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </main>

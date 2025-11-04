@@ -14,6 +14,7 @@ const Configure = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
   const [searchParams] = useSearchParams();
   const courseId = searchParams.get('courseId');
+  const autoGenerate = searchParams.get('autoGenerate') === 'true';
   const [courseData, setCourseData] = useState<any>(null);
   const [industries, setIndustries] = useState("");
   const [companies, setCompanies] = useState("");
@@ -54,6 +55,20 @@ const Configure = () => {
 
     loadCourse();
   }, [courseId, navigate]);
+
+  // Auto-generate if autoGenerate param is present
+  useEffect(() => {
+    if (autoGenerate && courseData && !dataLoading && !loading) {
+      console.log('Auto-generating projects with smart defaults...');
+      // Trigger form submission after a brief moment to show the UI
+      setTimeout(() => {
+        const form = document.querySelector('form');
+        if (form) {
+          form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        }
+      }, 500);
+    }
+  }, [autoGenerate, courseData, dataLoading, loading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,7 +148,30 @@ const Configure = () => {
   if (authLoading || dataLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          {autoGenerate && <p className="text-muted-foreground">Preparing smart project generation...</p>}
+        </div>
+      </div>
+    );
+  }
+
+  if (loading && autoGenerate) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="flex items-center justify-center h-[80vh]">
+          <div className="text-center space-y-4 max-w-md">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+            <h2 className="text-2xl font-semibold">Generating Intelligent Matches</h2>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p>✓ Analyzing course learning outcomes</p>
+              <p>✓ Finding relevant companies in {courseData?.city_zip}</p>
+              <p>✓ Matching companies to course objectives</p>
+              <p className="text-xs mt-4">This may take 30-60 seconds...</p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
