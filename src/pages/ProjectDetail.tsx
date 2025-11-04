@@ -111,10 +111,8 @@ const ProjectDetail = () => {
         <Card>
           <CardHeader>
             <CardTitle>Project Not Found</CardTitle>
+            <CardDescription>The project you're looking for doesn't exist or you don't have access to it.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button onClick={() => navigate("/projects")}>Back to Projects</Button>
-          </CardContent>
         </Card>
       </div>
     );

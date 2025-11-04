@@ -106,7 +106,11 @@ export const ContactTab = ({ forms, companyProfile }: ContactTabProps) => {
                 ) : (
                   <div>
                     <p className="text-sm text-muted-foreground">Contact Person</p>
-                    <p className="text-sm text-amber-600">Contact information not yet available. Please use company website to reach out.</p>
+                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm space-y-1">
+                      <p className="font-semibold">ℹ️ Contact Information Unavailable</p>
+                      <p>Real company contact details require a location (city & zip code) in your syllabus. This enables our system to find companies near you with verified addresses and contacts.</p>
+                      <p className="text-xs">You can reach out via the company website above or request contact information directly from the company.</p>
+                    </div>
                   </div>
                 )}
                 {displayData.contact_email && displayData.contact_email !== '' && (

@@ -48,19 +48,31 @@ export const AlgorithmTab = ({ project }: AlgorithmTabProps) => {
           <div>
             <h3 className="font-semibold mb-2">Search Parameters</h3>
             {metadata?.selection_criteria ? (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Location</p>
-                  <p className="font-medium">{metadata.selection_criteria.location || 'Not specified'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Industries Targeted</p>
-                  <div className="flex gap-1 flex-wrap">
-                    {(metadata.selection_criteria.industries || []).map((ind: string, i: number) => (
-                      <Badge key={i} variant="secondary">{ind}</Badge>
-                    ))}
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Location</p>
+                    {metadata.selection_criteria.location ? (
+                      <p className="font-medium">{metadata.selection_criteria.location}</p>
+                    ) : (
+                      <p className="text-sm text-amber-600">Location not specified in syllabus - using general search</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Industries Targeted</p>
+                    <div className="flex gap-1 flex-wrap">
+                      {(metadata.selection_criteria.industries || []).map((ind: string, i: number) => (
+                        <Badge key={i} variant="secondary">{ind}</Badge>
+                      ))}
+                    </div>
                   </div>
                 </div>
+                {!metadata.selection_criteria.location && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm">
+                    <p className="font-semibold mb-1">ℹ️ Location Requirement</p>
+                    <p>To match projects with companies near you, include city and zip code in your syllabus (e.g., "Kansas City, MO 64131"). This enables finding real companies with verified contact information within 100 miles of your location.</p>
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Selection criteria not available</p>
