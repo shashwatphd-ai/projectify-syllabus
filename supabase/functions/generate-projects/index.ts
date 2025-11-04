@@ -101,9 +101,10 @@ async function getCompaniesFromDB(supabaseClient: any, cityZip: string, industri
 
 // FALLBACK: AI company search (only used if DB is empty)
 async function searchCompanies(cityZip: string, industries: string[], count: number): Promise<CompanyInfo[]> {
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
 
+  const systemPrompt = 'You are a business research assistant. Return only valid JSON arrays, no markdown formatting.';
   const prompt = `Find ${count} real companies or organizations in the ${cityZip} area that work in these industries: ${industries.join(', ')}. 
   
 For each company, provide:
@@ -126,18 +127,21 @@ Return ONLY valid JSON array format:
   }
 ]`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: 'You are a business research assistant. Return only valid JSON arrays, no markdown formatting.' },
-        { role: 'user', content: prompt }
-      ],
+      contents: [{
+        parts: [{
+          text: `${systemPrompt}\n\n${prompt}`
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 2048,
+      }
     }),
   });
 
@@ -148,7 +152,7 @@ Return ONLY valid JSON array format:
   }
 
   const data = await response.json();
-  const content = data.choices[0].message.content;
+  const content = data.candidates[0].content.parts[0].text;
   
   const jsonMatch = content.match(/\[[\s\S]*\]/);
   if (!jsonMatch) throw new Error('No valid JSON in response');
@@ -165,9 +169,10 @@ async function generateProjectProposal(
   weeks: number,
   hrsPerWeek: number
 ): Promise<ProjectProposal> {
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
 
+  const systemPrompt = 'You are an experiential learning designer. Return only valid JSON, no markdown.';
   const prompt = `Design an experiential learning project for ${level} students working with ${company.name}.
 
 Company Context:
@@ -245,18 +250,21 @@ Return ONLY valid JSON:
   "publication_opportunity": "Yes or No - realistic assessment of whether this work could lead to academic publication"
 }`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: 'You are an experiential learning designer. Return only valid JSON, no markdown.' },
-        { role: 'user', content: prompt }
-      ],
+      contents: [{
+        parts: [{
+          text: `${systemPrompt}\n\n${prompt}`
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 4096,
+      }
     }),
   });
 
@@ -267,7 +275,7 @@ Return ONLY valid JSON:
   }
 
   const data = await response.json();
-  const content = data.choices[0].message.content;
+  const content = data.candidates[0].content.parts[0].text;
   
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error('No valid JSON in response');
@@ -287,9 +295,10 @@ async function calculateLOAlignment(
   outcomes: string[],
   loAlignment: string
 ): Promise<number> {
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
 
+  const systemPrompt = 'You are a learning outcomes assessment expert. Return only valid JSON.';
   const prompt = `Analyze how well this project aligns with the course learning outcomes.
 
 Course Learning Outcomes:
@@ -313,18 +322,21 @@ Return ONLY a JSON object with:
   "gaps": ["Brief explanation of any gaps"]
 }`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: 'You are a learning outcomes assessment expert. Return only valid JSON.' },
-        { role: 'user', content: prompt }
-      ],
+      contents: [{
+        parts: [{
+          text: `${systemPrompt}\n\n${prompt}`
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 1024,
+      }
     }),
   });
 
@@ -334,7 +346,7 @@ Return ONLY a JSON object with:
   }
 
   const data = await response.json();
-  const content = data.choices[0].message.content;
+  const content = data.candidates[0].content.parts[0].text;
   
   try {
     const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -388,9 +400,10 @@ async function generateLOAlignmentDetail(
   outcomes: string[],
   proposal_lo_summary: string
 ): Promise<any> {
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
 
+  const systemPrompt = 'You are a learning outcomes assessment expert. Return only valid JSON.';
   const prompt = `You are analyzing how project activities align with course learning outcomes.
 
 LEARNING OUTCOMES:
@@ -442,18 +455,21 @@ Return ONLY valid JSON in this exact structure:
   ]
 }`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: 'You are a learning outcomes assessment expert. Return only valid JSON.' },
-        { role: 'user', content: prompt }
-      ],
+      contents: [{
+        parts: [{
+          text: `${systemPrompt}\n\n${prompt}`
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 4096,
+      }
     }),
   });
 
@@ -463,7 +479,7 @@ Return ONLY valid JSON in this exact structure:
   }
 
   const data = await response.json();
-  const content = data.choices[0].message.content;
+  const content = data.candidates[0].content.parts[0].text;
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   
   if (!jsonMatch) return null;
@@ -884,7 +900,7 @@ serve(async (req) => {
               feasibility_score: { value: scores.feasibility_score, method: 'Duration and complexity assessment' },
               mutual_benefit_score: { value: scores.mutual_benefit_score, method: 'Company needs alignment' }
             },
-            ai_model_version: 'google/gemini-2.5-flash'
+            ai_model_version: 'gemini-2.0-flash-exp'
           });
           
         if (metadataError) {
