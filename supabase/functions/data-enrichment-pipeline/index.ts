@@ -160,7 +160,7 @@ async function fetchCompaniesFromGoogle(cityZip: string): Promise<any[]> {
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': GOOGLE_API_KEY,
-          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.types,places.websiteUri,places.rating,places.userRatingCount,places.businessStatus,places.nationalPhoneNumber,places.internationalPhoneNumber'
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.addressComponents,places.types,places.websiteUri,places.rating,places.userRatingCount,places.businessStatus,places.nationalPhoneNumber,places.internationalPhoneNumber,places.currentOpeningHours,places.regularOpeningHours,places.editorialSummary,places.location,places.internationalPhoneNumber,places.priceLevel,places.userRatingCount,places.photos'
         },
         body: JSON.stringify({
           includedTypes: [
@@ -323,13 +323,34 @@ async function enrichCompany(company: any): Promise<any> {
   // Debug: Log what we received from Google Places
   console.log(`  Phone from API: ${company.phone || 'NOT PROVIDED'}`);
   console.log(`  Address from API: ${company.address || 'NOT PROVIDED'}`);
+  console.log(`  Website from API: ${company.website || 'NOT PROVIDED'}`);
   
-  // Use phone from Google Places API (no scraping needed)
-  const contactPhone = company.phone || null;
-  const fullAddress = company.address || null;
+  // Check for missing critical data
+  let contactPhone = company.phone || null;
+  let fullAddress = company.address || null;
+  let website = company.website || null;
   
-  // DO NOT scrape websites or use fake fallback data
-  // Contact info must come from verified sources only
+  const hasCriticalDataGaps = !contactPhone || !website;
+  
+  // If critical data is missing, use Gemini web search as fallback
+  if (hasCriticalDataGaps) {
+    console.log(`  ⚠️ Critical data missing for ${company.name}, using Gemini fallback...`);
+    const geminiData = await enrichWithGeminiWebSearch(company.name, company.address, {
+      needsPhone: !contactPhone,
+      needsWebsite: !website
+    });
+    
+    if (geminiData) {
+      if (geminiData.phone && !contactPhone) {
+        contactPhone = geminiData.phone;
+        console.log(`  ✓ Gemini found phone: ${contactPhone}`);
+      }
+      if (geminiData.website && !website) {
+        website = geminiData.website;
+        console.log(`  ✓ Gemini found website: ${website}`);
+      }
+    }
+  }
   
   // Infer technologies based on industry
   const techMap: { [key: string]: string[] } = {
@@ -368,8 +389,103 @@ async function enrichCompany(company: any): Promise<any> {
     contactEmail: null, // Email not available from Google Places API
     contactPhone,
     contactPerson: null, // Contact person not available from public APIs
-    fullAddress
+    fullAddress,
+    website
   };
+}
+
+// Enrich company with Gemini web search for missing critical data
+async function enrichWithGeminiWebSearch(
+  companyName: string, 
+  address: string,
+  needs: { needsPhone?: boolean; needsWebsite?: boolean }
+): Promise<{ phone?: string; website?: string } | null> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) {
+    console.log('LOVABLE_API_KEY not set, skipping Gemini fallback');
+    return null;
+  }
+
+  try {
+    const missingFields = [];
+    if (needs.needsPhone) missingFields.push('phone number');
+    if (needs.needsWebsite) missingFields.push('website');
+    
+    const prompt = `Find the official contact information for the business "${companyName}" located at "${address}".
+
+Please search the web and provide ONLY the following missing information: ${missingFields.join(' and ')}.
+
+Return your response in this exact JSON format:
+{
+  ${needs.needsPhone ? '"phone": "phone number or null if not found",' : ''}
+  ${needs.needsWebsite ? '"website": "website URL or null if not found"' : ''}
+}
+
+IMPORTANT: 
+- Only return information you can verify from official sources
+- Return null for any field you cannot find reliably
+- Do not fabricate or guess information
+- Provide just the JSON, no additional text`;
+
+    console.log(`  🔍 Gemini search query: ${missingFields.join(', ')} for ${companyName}`);
+
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { 
+            role: 'system', 
+            content: 'You are a business information research assistant. Search the web to find accurate, verified contact information for businesses. Always return valid JSON.' 
+          },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.1,
+        max_tokens: 500
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Gemini API error: ${response.status} - ${errorText}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    
+    if (!content) {
+      console.log('No content returned from Gemini');
+      return null;
+    }
+
+    // Extract JSON from response (handle cases where model adds markdown formatting)
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.log('Could not extract JSON from Gemini response');
+      return null;
+    }
+
+    const extractedData = JSON.parse(jsonMatch[0]);
+    
+    // Clean up null strings to actual null
+    const result: any = {};
+    if (needs.needsPhone && extractedData.phone && extractedData.phone !== 'null') {
+      result.phone = extractedData.phone;
+    }
+    if (needs.needsWebsite && extractedData.website && extractedData.website !== 'null') {
+      result.website = extractedData.website;
+    }
+
+    return Object.keys(result).length > 0 ? result : null;
+  } catch (error) {
+    console.error(`Gemini web search error for ${companyName}:`, error);
+    return null;
+  }
 }
 
 // Enrich company with Google Knowledge Graph API
