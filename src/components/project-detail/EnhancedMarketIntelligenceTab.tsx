@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { TrendingUp, DollarSign, Target, Briefcase, Code2, AlertCircle, Building2, Calendar, Users, Globe, Linkedin, Twitter, Facebook } from "lucide-react";
+import { EnrichmentPanel } from "./EnrichmentPanel";
 
 interface EnhancedMarketIntelligenceTabProps {
   companyProfile: any;
@@ -19,6 +20,14 @@ export const EnhancedMarketIntelligenceTab = ({ companyProfile, projectMetadata,
 
   return (
     <div className="space-y-6">
+      {/* Data Enrichment Panel */}
+      {companyProfile && (
+        <EnrichmentPanel 
+          companyProfile={companyProfile}
+          onEnrichmentComplete={() => window.location.reload()}
+        />
+      )}
+
       {/* Company Profile Section */}
       {companyProfile && (
         <Card className="border-l-4 border-l-blue-500">
@@ -134,10 +143,17 @@ export const EnhancedMarketIntelligenceTab = ({ companyProfile, projectMetadata,
                   </div>
                 )}
                 
-                {companyProfile.recent_news && (
+              {companyProfile.inferred_needs && companyProfile.inferred_needs.length > 0 && (
                   <div>
-                    <p className="text-sm text-muted-foreground">Recent Activity</p>
-                    <p className="text-sm">{companyProfile.recent_news}</p>
+                    <p className="text-sm font-medium mb-2">Identified Business Needs</p>
+                    <ul className="space-y-1">
+                      {companyProfile.inferred_needs.slice(0, 2).map((need: string, idx: number) => (
+                        <li key={idx} className="text-xs text-muted-foreground flex items-start gap-2">
+                          <span className="text-primary mt-0.5">•</span>
+                          <span>{need}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
               </div>
@@ -372,50 +388,59 @@ export const EnhancedMarketIntelligenceTab = ({ companyProfile, projectMetadata,
             <CardDescription>Key indicators driving this project</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Hiring Urgency */}
-            {marketSignals.job_postings_matched !== undefined && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Hiring Activity</span>
-                  <Badge variant={
-                    marketSignals.job_postings_matched >= 10 ? "destructive" :
-                    marketSignals.job_postings_matched >= 5 ? "default" : "secondary"
-                  }>
-                    {marketSignals.hiring_urgency || 'Low'}
-                  </Badge>
-                </div>
-                <Progress value={Math.min(100, (marketSignals.job_postings_matched / 15) * 100)} />
-                <p className="text-xs text-muted-foreground">
-                  {marketSignals.job_postings_matched} active job posting{marketSignals.job_postings_matched !== 1 ? 's' : ''}
-                </p>
+            {/* Hiring Activity */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Hiring Activity</span>
+                <Badge variant={
+                  (companyProfile.job_postings?.length || 0) >= 5 ? 'destructive' : 
+                  (companyProfile.job_postings?.length || 0) >= 2 ? 'default' : 
+                  'secondary'
+                }>
+                  {(companyProfile.job_postings?.length || 0) >= 5 ? 'High' :
+                   (companyProfile.job_postings?.length || 0) >= 2 ? 'Medium' : 'Low'}
+                </Badge>
               </div>
-            )}
+              <Progress value={Math.min(100, ((companyProfile.job_postings?.length || 0) / 10) * 100)} />
+              <p className="text-xs text-muted-foreground">
+                {companyProfile.job_postings?.length || 0} active job posting{(companyProfile.job_postings?.length || 0) !== 1 ? 's' : ''}
+              </p>
+              {companyProfile.open_roles && companyProfile.open_roles.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {companyProfile.open_roles.slice(0, 3).map((role: string, idx: number) => (
+                    <Badge key={idx} variant="outline" className="text-xs">{role}</Badge>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Funding Stage */}
-            {marketSignals.funding_stage && (
+            {(companyProfile.funding_stage || companyProfile.total_funding_usd) && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Funding Stage</span>
-                  <Badge variant="outline">{marketSignals.funding_stage}</Badge>
+                  <Badge variant="outline">{companyProfile.funding_stage || 'Private'}</Badge>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Growth-stage company with resources for partnerships
-                </p>
+                {companyProfile.total_funding_usd && (
+                  <p className="text-xs text-muted-foreground">
+                    ${companyProfile.total_funding_usd.toLocaleString()} total funding
+                  </p>
+                )}
               </div>
             )}
 
-            {/* Technology Alignment */}
-            {marketSignals.technologies_aligned?.length > 0 && (
+            {/* Technology Stack */}
+            {(companyProfile.technologies?.length > 0 || companyProfile.technologies_used?.length > 0) && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Technology Match</span>
+                  <span className="text-sm font-medium">Technology Stack</span>
                   <Badge variant="secondary">
                     <Code2 className="h-3 w-3 mr-1" />
-                    {marketSignals.technologies_aligned.length} matches
+                    {(companyProfile.technologies?.length || companyProfile.technologies_used?.length || 0)} tools
                   </Badge>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {marketSignals.technologies_aligned.slice(0, 6).map((tech: string, idx: number) => (
+                  {(companyProfile.technologies || companyProfile.technologies_used || []).slice(0, 6).map((tech: string, idx: number) => (
                     <Badge key={idx} variant="outline" className="text-xs">
                       {tech}
                     </Badge>
@@ -425,11 +450,11 @@ export const EnhancedMarketIntelligenceTab = ({ companyProfile, projectMetadata,
             )}
 
             {/* Identified Needs */}
-            {marketSignals.needs_identified > 0 && (
+            {companyProfile.inferred_needs && companyProfile.inferred_needs.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Business Needs</span>
-                  <Badge variant="secondary">{marketSignals.needs_identified} identified</Badge>
+                  <span className="text-sm font-medium">Business Challenges</span>
+                  <Badge variant="secondary">{companyProfile.inferred_needs.length} identified</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Project addresses verified company challenges
