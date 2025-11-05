@@ -9,15 +9,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import ProjectFeedback from "@/components/ProjectFeedback";
 import { ProjectHeader } from "@/components/project-detail/ProjectHeader";
-import { OverviewTab } from "@/components/project-detail/OverviewTab";
-import { ContactTab } from "@/components/project-detail/ContactTab";
-import { LogisticsTab } from "@/components/project-detail/LogisticsTab";
-import { AcademicTab } from "@/components/project-detail/AcademicTab";
-import { AlgorithmTab } from "@/components/project-detail/AlgorithmTab";
-import { LearningOutcomeAlignment } from "@/components/project-detail/LearningOutcomeAlignment";
-import { TimelineTab } from "@/components/project-detail/TimelineTab";
-import { VerificationTab } from "@/components/project-detail/VerificationTab";
-import { MarketInsightsTab } from "@/components/project-detail/MarketInsightsTab";
+import { EnhancedOverviewTab } from "@/components/project-detail/EnhancedOverviewTab";
+import { EnhancedMarketIntelligenceTab } from "@/components/project-detail/EnhancedMarketIntelligenceTab";
+import { PartnershipContactTab } from "@/components/project-detail/PartnershipContactTab";
+import { AcademicAlignmentTab } from "@/components/project-detail/AcademicAlignmentTab";
+import { ProjectValidationTab } from "@/components/project-detail/ProjectValidationTab";
 import { ValueAnalysisTab } from "@/components/project-detail/ValueAnalysisTab";
 import { Navigation } from "@/components/Navigation";
 import { useProjectAnalytics } from "@/hooks/useProjectAnalytics";
@@ -133,22 +129,16 @@ const ProjectDetail = () => {
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="flex flex-wrap h-auto gap-2 p-2">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="value-analysis">Value Analysis</TabsTrigger>
+            <TabsTrigger value="value-analysis">Value Proposition</TabsTrigger>
             <TabsTrigger value="market-insights">Market Intelligence</TabsTrigger>
-            <TabsTrigger value="contact">Contact</TabsTrigger>
-            <TabsTrigger value="timeline">Timeline</TabsTrigger>
-            <TabsTrigger value="logistics">Logistics</TabsTrigger>
-            <TabsTrigger value="academic">Academic</TabsTrigger>
-            <TabsTrigger value="lo-mapping">LO Alignment</TabsTrigger>
+            <TabsTrigger value="partnership">Partnership & Contact</TabsTrigger>
+            <TabsTrigger value="academic">Academic Alignment</TabsTrigger>
+            <TabsTrigger value="validation">Project Validation</TabsTrigger>
             <TabsTrigger value="feedback">Review & Feedback</TabsTrigger>
-            <TabsTrigger value="verification">Verification</TabsTrigger>
-            <TabsTrigger value="scoring">Scoring</TabsTrigger>
-            <TabsTrigger value="forms">All Forms</TabsTrigger>
-            <TabsTrigger value="algorithm">Algorithm</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
-            <OverviewTab project={project} forms={forms} metadata={metadata} />
+            <EnhancedOverviewTab project={project} forms={forms} metadata={metadata} />
           </TabsContent>
 
           <TabsContent value="value-analysis">
@@ -166,7 +156,7 @@ const ProjectDetail = () => {
           </TabsContent>
 
           <TabsContent value="market-insights">
-            <MarketInsightsTab 
+            <EnhancedMarketIntelligenceTab 
               companyProfile={companyProfile}
               projectMetadata={metadata}
               project={project}
@@ -174,8 +164,8 @@ const ProjectDetail = () => {
             />
           </TabsContent>
 
-          <TabsContent value="contact">
-            <ContactTab 
+          <TabsContent value="partnership">
+            <PartnershipContactTab 
               forms={forms} 
               companyProfile={companyProfile}
               projectId={id!}
@@ -184,39 +174,34 @@ const ProjectDetail = () => {
             />
           </TabsContent>
 
-          <TabsContent value="timeline">
-            <TimelineTab project={project} forms={forms} />
-          </TabsContent>
-
-          <TabsContent value="logistics">
-            <LogisticsTab forms={forms} />
-          </TabsContent>
-
           <TabsContent value="academic">
-            <AcademicTab forms={forms} />
+            <AcademicAlignmentTab 
+              project={project}
+              courseProfile={courseProfile}
+              forms={forms}
+              metadata={metadata}
+            />
           </TabsContent>
 
-          <TabsContent value="lo-mapping" className="space-y-6">
-            <LearningOutcomeAlignment project={project} courseProfile={courseProfile} />
+          <TabsContent value="validation">
+            <ProjectValidationTab 
+              metadata={metadata}
+              project={project}
+              course={courseProfile}
+            />
           </TabsContent>
 
           <TabsContent value="feedback">
             <div className="space-y-4">
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
                 <p className="text-sm font-medium flex items-center gap-2">
-                  <span className="text-primary">📝 Step 7 of 9:</span>
+                  <span className="text-primary">📝 Final Step:</span>
                   Review and provide feedback on this project proposal
                 </p>
               </div>
               <ProjectFeedback projectId={id!} onSubmitted={loadProjectData} />
             </div>
           </TabsContent>
-
-          <TabsContent value="verification" className="space-y-6">
-            <VerificationTab metadata={metadata} project={project} course={courseProfile} />
-          </TabsContent>
-
-          <TabsContent value="forms" className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
