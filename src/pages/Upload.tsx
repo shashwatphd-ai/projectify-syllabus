@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ const Upload = () => {
   const [cityZip, setCityZip] = useState("");
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
+  const detectionAttemptedRef = useRef(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,20 +27,21 @@ const Upload = () => {
 
   // Auto-detect location on mount if user email is available
   useEffect(() => {
-    const shouldDetect = user?.email && !cityZip && !locationLoading;
+    const shouldDetect = user?.email && !cityZip && !detectionAttemptedRef.current;
     
     console.log('Location detection check:', { 
       hasEmail: !!user?.email, 
       currentLocation: cityZip, 
-      isLoading: locationLoading,
+      alreadyAttempted: detectionAttemptedRef.current,
       willDetect: shouldDetect
     });
     
     if (shouldDetect) {
       console.log('🔍 Auto-detecting location for:', user.email);
+      detectionAttemptedRef.current = true;
       detectLocationFromEmail(user.email);
     }
-  }, [user?.email, cityZip, locationLoading]);
+  }, [user?.email, cityZip]);
 
   const detectLocationFromEmail = async (email: string) => {
     console.log('🌍 Starting location detection for:', email);
@@ -233,7 +235,12 @@ const Upload = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => user?.email && detectLocationFromEmail(user.email)}
+                    onClick={() => {
+                      if (user?.email) {
+                        detectionAttemptedRef.current = true;
+                        detectLocationFromEmail(user.email);
+                      }
+                    }}
                     disabled={locationLoading || !user?.email}
                   >
                     {locationLoading ? (
