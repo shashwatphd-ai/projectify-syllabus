@@ -1464,7 +1464,7 @@ serve(async (req) => {
       }
 
       const teamSize = 3;
-      const budget = estimateBudget(
+      const budgetResult = estimateBudget(
         course.weeks,
         course.hrs_per_week,
         teamSize,
@@ -1485,7 +1485,7 @@ serve(async (req) => {
         team_size: teamSize,
         tasks: proposal.tasks,
         deliverables: proposal.deliverables,
-        pricing_usd: budget,
+        pricing_usd: budgetResult.budget,
         lo_score: scores.lo_score,
         feasibility_score: scores.feasibility_score,
         mutual_benefit_score: scores.mutual_benefit_score,
@@ -1571,6 +1571,9 @@ serve(async (req) => {
         metadataInsert.lo_mapping_tasks = loAlignmentDetail.task_mappings;
         metadataInsert.lo_mapping_deliverables = loAlignmentDetail.deliverable_mappings;
       }
+      
+      // Add pricing breakdown to metadata
+      metadataInsert.pricing_breakdown = budgetResult.breakdown;
       
       // Add market signals used
       if (company.job_postings || company.technologies_used || company.funding_stage) {
