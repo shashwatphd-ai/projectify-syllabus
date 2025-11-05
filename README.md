@@ -59,10 +59,12 @@ This application helps university instructors:
   - Alignment scores (LO, feasibility, mutual benefit)
   - Six-form structured briefs
 
-### 3. `data-enrichment-pipeline`
-- Enriches company profiles with external data
-- Analyzes business needs using AI
-- Upserts enriched data to `company_profiles` table
+### 3. `discover-companies`
+- Discovers companies using Google Search + AI
+- Enriches with Apollo.io contact & organization data
+- Fetches market intelligence (job postings, technologies, funding)
+- Tracks generation runs for audit trail
+- Stores enriched data to `company_profiles` table
 - **Status**: Currently not integrated into main workflow
 
 ## Application Flow
@@ -99,10 +101,10 @@ This application helps university instructors:
 
 ## Known Issues & Pipeline Gaps
 
-### Critical Issues
-1. **Data Enrichment Not Triggered**: `data-enrichment-pipeline` edge function is never called, leaving `company_profiles` table empty
-2. **AI Fallback Dependency**: Project generation relies entirely on AI company search instead of real data
-3. **No Error Handling**: Silent failures in project generation with no user feedback
+### Critical Issues (RESOLVED)
+1. ✅ **Company Discovery Integrated**: `discover-companies` function now called automatically during project generation
+2. ✅ **Real Company Data**: Uses Apollo.io enrichment with market intelligence (job postings, technologies)
+3. ✅ **Generation Tracking**: Full audit trail with `generation_runs` table tracking statistics
 
 ### Medium Priority
 - Location auto-detection inconsistent
@@ -197,9 +199,11 @@ npm run preview
 │   └── index.css          # Global styles & design tokens
 ├── supabase/
 │   ├── functions/         # Edge functions
-│   │   ├── parse-syllabus/
-│   │   ├── generate-projects/
-│   │   └── data-enrichment-pipeline/
+│   │   ├── parse-syllabus/      # PDF parsing & course extraction
+│   │   ├── discover-companies/  # Company discovery + Apollo enrichment
+│   │   ├── generate-projects/   # AI project generation
+│   │   ├── enrich-apollo/       # Batch Apollo enrichment
+│   │   └── data-enrichment-pipeline/ # Legacy (being phased out)
 │   ├── migrations/        # Database migrations (auto-managed)
 │   └── config.toml        # Supabase configuration
 └── public/               # Static assets
@@ -221,10 +225,12 @@ npm run preview
 
 ## Future Improvements
 
-1. **Integrate Data Enrichment**: Call `data-enrichment-pipeline` before project generation
+1. ✅ **Data Enrichment Integrated**: `discover-companies` now called automatically with Apollo.io + market intelligence
 2. **Real-time Updates**: Add progress indicators for long-running operations
 3. **Batch Operations**: Support multiple course uploads
 4. **Export Functionality**: Download project briefs as PDFs
+5. **Auto-Refresh**: Automatically refresh stale company data (>90 days old)
+6. **Generation History UI**: Dashboard showing run statistics and analytics
 5. **Analytics Dashboard**: Track project success metrics
 6. **Role Management**: Implement instructor/admin/student roles
 

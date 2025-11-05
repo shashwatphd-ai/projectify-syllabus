@@ -6,10 +6,11 @@ The Apollo.io enrichment system maximizes the quality and completeness of compan
 
 ## Architecture
 
-### 1. **Data Enrichment Pipeline** (`data-enrichment-pipeline`)
-- Discovers companies via Google Places API
-- Performs initial data collection
-- Stores basic company profiles in the database
+### 1. **Company Discovery Function** (`discover-companies`)
+- Discovers companies via Google Search + AI
+- Enriches with Apollo.io contact & organization data
+- Fetches market intelligence (job postings, technologies)
+- Stores enriched company profiles in the database
 
 ### 2. **Apollo Enrichment Service** (`enrich-apollo`)
 - Enriches existing company profiles with Apollo.io data

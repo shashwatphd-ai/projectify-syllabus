@@ -84,15 +84,20 @@ const Configure = () => {
     try {
       // Step 1: Enrich company data if city_zip is available
       if (courseData?.city_zip) {
-        toast.info("Fetching local companies...", { duration: 3000 });
+        toast.info("Discovering companies in your area...", { duration: 3000 });
         
-        const { error: enrichError } = await supabase.functions.invoke('data-enrichment-pipeline', {
-          body: { cityZip: courseData.city_zip }
+        // Use the new discover-companies workflow
+        const { error: discoveryError } = await supabase.functions.invoke('discover-companies', {
+          body: { 
+            courseId: courseId,
+            location: courseData.city_zip,
+            count: 4
+          }
         });
 
-        if (enrichError) {
-          console.warn('Company enrichment failed, will use AI generation:', enrichError);
-          toast.warning("Couldn't fetch local companies, will generate with AI", { duration: 3000 });
+        if (discoveryError) {
+          console.warn('Company discovery failed, will use AI generation:', discoveryError);
+          toast.warning("Couldn't discover local companies, will generate with AI", { duration: 3000 });
         } else {
           toast.success("Company data ready!", { duration: 2000 });
         }

@@ -494,9 +494,9 @@ try {
 
 ## API Endpoints
 
-### 1. Trigger Generation
+### 1. Trigger Company Discovery & Enrichment
 
-**Endpoint**: `POST /functions/v1/data-enrichment-pipeline`
+**Endpoint**: `POST /functions/v1/discover-companies`
 
 **Request**:
 ```json
@@ -511,9 +511,16 @@ try {
 **Response**:
 ```json
 {
+  "success": true,
+  "companies": [...],
+  "count": 4,
   "generation_run_id": "uuid",
-  "companies_enriched": 4,
-  "status": "in_progress"
+  "stats": {
+    "discovered": 12,
+    "enriched": 4,
+    "processing_time_seconds": 18.5,
+    "apollo_credits_used": 4
+  }
 }
 ```
 
