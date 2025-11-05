@@ -121,8 +121,8 @@ async function intelligentCompanyFilter(
   outcomes: string[],
   level: string
 ): Promise<any[]> {
-  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-  if (!GEMINI_API_KEY) {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) {
     console.warn('⚠ No Gemini API key, skipping intelligent filtering');
     // Filter out generic needs only
     const genericPatterns = ['general operations', 'sales growth', 'digital transformation'];
@@ -168,19 +168,26 @@ Return ONLY this JSON array:
 ]`;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `${systemPrompt}\n\n${prompt}` }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 2048 }
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.3,
       }),
     });
 
     if (!response.ok) throw new Error('AI filtering failed');
 
     const data = await response.json();
-    const content = data.candidates[0].content.parts[0].text;
+    const content = data.choices?.[0]?.message?.content;
     const jsonMatch = content.match(/\[[\s\S]*\]/);
     if (!jsonMatch) throw new Error('No valid JSON in AI response');
     
@@ -280,7 +287,7 @@ Return ONLY valid JSON array format:
   return JSON.parse(jsonMatch[0]);
 }
 
-// MODIFIED: Now optimized for real company data
+// MODIFIED: Now optimized for real company data using Lovable AI
 async function generateProjectProposal(
   company: CompanyInfo,
   outcomes: string[],
@@ -289,8 +296,8 @@ async function generateProjectProposal(
   weeks: number,
   hrsPerWeek: number
 ): Promise<ProjectProposal> {
-  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
 
   const systemPrompt = 'You are an experiential learning designer specializing in creating authentic industry partnerships. Return only valid JSON, no markdown.';
   
@@ -414,21 +421,19 @@ Return ONLY valid JSON:
   "publication_opportunity": "Yes or No - realistic assessment of whether this work could lead to academic publication"
 }`;
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: `${systemPrompt}\n\n${prompt}`
-        }]
-      }],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 4096,
-      }
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
     }),
   });
 
@@ -436,15 +441,18 @@ Return ONLY valid JSON:
     const error = await response.text();
     console.error('AI proposal error:', response.status, error);
     
-    if (response.status === 403) {
-      throw new Error('Gemini API key is blocked. Please enable the Generative Language API in your Google Cloud Console: https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com');
+    if (response.status === 429) {
+      throw new Error('Rate limit exceeded. Please wait a moment and try again.');
+    }
+    if (response.status === 402) {
+      throw new Error('AI credits exhausted. Please add credits to your Lovable workspace.');
     }
     
-    throw new Error(`Gemini API error: ${response.status} - ${error}`);
+    throw new Error(`AI API error: ${response.status} - ${error}`);
   }
 
   const data = await response.json();
-  const content = data.candidates[0].content.parts[0].text;
+  const content = data.choices?.[0]?.message?.content;
   
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error('No valid JSON in response');
@@ -464,8 +472,8 @@ async function calculateLOAlignment(
   outcomes: string[],
   loAlignment: string
 ): Promise<number> {
-  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
 
   const systemPrompt = 'You are a learning outcomes assessment expert. Return only valid JSON.';
   const prompt = `Analyze how well this project aligns with the course learning outcomes.
@@ -491,21 +499,19 @@ Return ONLY a JSON object with:
   "gaps": ["Brief explanation of any gaps"]
 }`;
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: `${systemPrompt}\n\n${prompt}`
-        }]
-      }],
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 1024,
-      }
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.3,
     }),
   });
 
@@ -515,7 +521,7 @@ Return ONLY a JSON object with:
   }
 
   const data = await response.json();
-  const content = data.candidates[0].content.parts[0].text;
+  const content = data.choices?.[0]?.message?.content;
   
   try {
     const jsonMatch = content.match(/\{[\s\S]*\}/);
