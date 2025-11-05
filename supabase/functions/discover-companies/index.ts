@@ -261,13 +261,15 @@ serve(async (req) => {
       const APOLLO_API_KEY = Deno.env.get('APOLLO_API_KEY');
       
       if (APOLLO_API_KEY && placeDetails?.website) {
-        // PRIMARY: Use Apollo.io People Search for verified contact data
         try {
-          // Extract and validate domain
           const domain = new URL(placeDetails.website).hostname.replace('www.', '');
-          console.log(`  🚀 Searching Apollo.io for contacts at ${discovery.name} (domain: ${domain})...`);
+          console.log(`  🚀 Apollo.io enrichment for ${discovery.name} (${domain})...`);
           
-          // Try Apollo.io Organization Search first for better matching
+          let apolloOrgId = null;
+          let apolloOrgData = null;
+          
+          // STRATEGY 1: Organization Search by domain (most accurate)
+          console.log(`    Step 1: Searching organizations by domain...`);
           const orgSearchResponse = await fetch(
             'https://api.apollo.io/v1/organizations/search',
             {
@@ -285,279 +287,339 @@ serve(async (req) => {
             }
           );
 
-          let apolloOrgId = null;
           if (orgSearchResponse.ok) {
             const orgData = await orgSearchResponse.json();
             if (orgData.organizations && orgData.organizations.length > 0) {
-              apolloOrgId = orgData.organizations[0].id;
-              console.log(`    ✓ Found org in Apollo: ${orgData.organizations[0].name} (ID: ${apolloOrgId})`);
+              apolloOrgData = orgData.organizations[0];
+              apolloOrgId = apolloOrgData.id;
+              console.log(`    ✓ Org found: ${apolloOrgData.name} (ID: ${apolloOrgId})`);
             }
           }
-
-          // If org found, search for people within that specific org
-          const searchBody: any = {
-            person_titles: [
-              'Director of Partnerships',
-              'VP of Partnerships', 
-              'Director of Operations',
-              'COO',
-              'President',
-              'CEO',
-              'Owner',
-              'General Manager'
-            ],
-            person_seniorities: ['c_suite', 'vp', 'director', 'owner'],
-            page: 1,
-            per_page: 5  // Get more results to find best match
-          };
-
-          // Add organization filter
-          if (apolloOrgId) {
-            searchBody.organization_ids = [apolloOrgId];
-          } else {
-            searchBody.organization_domains = [domain];
-          }
-
-          const apolloResponse = await fetch(
-            'https://api.apollo.io/v1/mixed_people/search',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-cache',
-                'X-Api-Key': APOLLO_API_KEY
-              },
-              body: JSON.stringify(searchBody)
-            }
-          );
-
-          if (apolloResponse.ok) {
-            const apolloData = await apolloResponse.json();
+          
+          // STRATEGY 2: If no org found by domain, try name search
+          if (!apolloOrgId) {
+            console.log(`    Step 2: Trying organization name search...`);
+            const nameSearchResponse = await fetch(
+              'https://api.apollo.io/v1/organizations/search',
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Cache-Control': 'no-cache',
+                  'X-Api-Key': APOLLO_API_KEY
+                },
+                body: JSON.stringify({
+                  q_organization_name: discovery.name,
+                  page: 1,
+                  per_page: 3
+                })
+              }
+            );
             
-            if (apolloData.people && apolloData.people.length > 0) {
-              // Find best matching contact from results
-              let contact = null;
-              
-              for (const person of apolloData.people) {
-                const contactDomain = person.organization?.website_url 
-                  ? new URL(person.organization.website_url).hostname.replace('www.', '')
-                  : null;
-                
-                const contactOrgName = person.organization?.name?.toLowerCase() || '';
-                const searchOrgName = discovery.name.toLowerCase();
-                
-                // Strict validation: domain must match OR very close name match
-                const isDomainMatch = contactDomain === domain;
-                const baseSearchName = searchOrgName.split(/[\s&,.-]+/)[0];
-                const baseContactName = contactOrgName.split(/[\s&,.-]+/)[0];
-                const isNameMatch = baseSearchName.length > 3 && 
-                                   (contactOrgName.includes(baseSearchName) || 
-                                    searchOrgName.includes(baseContactName));
-                
-                if (isDomainMatch || isNameMatch) {
-                  contact = person;
-                  console.log(`    ✓ Matched contact: ${person.name} at ${person.organization?.name || 'N/A'}`);
-                  break;
+            if (nameSearchResponse.ok) {
+              const nameData = await nameSearchResponse.json();
+              if (nameData.organizations && nameData.organizations.length > 0) {
+                // Find best name match
+                for (const org of nameData.organizations) {
+                  const orgName = org.name?.toLowerCase() || '';
+                  const searchName = discovery.name.toLowerCase();
+                  const similarity = orgName.includes(searchName) || searchName.includes(orgName);
+                  
+                  if (similarity) {
+                    apolloOrgData = org;
+                    apolloOrgId = org.id;
+                    console.log(`    ✓ Org found by name: ${org.name} (ID: ${apolloOrgId})`);
+                    break;
+                  }
                 }
               }
-              
-              if (contact) {
-                // ====================================
-                // VALIDATION: Ensure COMPLETE data from Apollo
-                // ====================================
-                const hasCompletePersonData = 
-                  contact.name && 
-                  contact.email && 
-                  contact.title &&
-                  contact.first_name &&
-                  contact.last_name;
-                
-                const hasCompleteOrgData = 
-                  contact.organization?.name &&
-                  contact.organization?.linkedin_url &&
-                  contact.organization?.logo_url &&
-                  (contact.organization?.estimated_num_employees || contact.organization?.annual_revenue);
-                
-                if (!hasCompletePersonData || !hasCompleteOrgData) {
-                  console.log(`  ❌ SKIPPING ${discovery.name}: Incomplete Apollo data`);
-                  console.log(`    Person data complete: ${hasCompletePersonData}`);
-                  console.log(`    Org data complete: ${hasCompleteOrgData}`);
-                  shouldSkipCompany = true;
-                } else {
-                  // ====================================
-                  // MARKET INTELLIGENCE: Fetch job postings and technologies
-                  // ====================================
-                  let jobPostings: any[] = [];
-                  let technologiesUsed: string[] = [];
-                  let fundingStage: string | null = null;
-                  let totalFundingUsd: number | null = null;
-                  let buyingIntentSignals: any[] = [];
-                  
-                  // Get organization ID for job postings API
-                  const apolloOrgId = contact.organization?.id;
-                  
-                  if (apolloOrgId) {
-                    try {
-                      console.log(`  🔍 Fetching job postings for org ID: ${apolloOrgId}...`);
-                      
-                      // Fetch job postings
-                      const jobPostingsResponse = await fetch(
-                        `https://api.apollo.io/api/v1/organizations/${apolloOrgId}/job_postings`,
-                        {
-                          method: 'GET',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'Cache-Control': 'no-cache',
-                            'X-Api-Key': APOLLO_API_KEY
-                          }
-                        }
-                      );
-                      
-                      if (jobPostingsResponse.ok) {
-                        const jobData = await jobPostingsResponse.json();
-                        if (jobData.job_postings && jobData.job_postings.length > 0) {
-                          jobPostings = jobData.job_postings.map((jp: any) => ({
-                            id: jp.id,
-                            title: jp.title,
-                            url: jp.url,
-                            city: jp.city,
-                            state: jp.state,
-                            posted_at: jp.posted_at,
-                            last_seen_at: jp.last_seen_at,
-                            skills_needed: jp.tags || []
-                          })).slice(0, 10); // Limit to 10 most recent
-                          
-                          console.log(`    ✓ Found ${jobPostings.length} job postings`);
-                        } else {
-                          console.log(`    ℹ No job postings found`);
-                        }
-                      } else {
-                        console.log(`    ⚠ Job postings fetch failed: ${jobPostingsResponse.status}`);
-                      }
-                    } catch (jobError) {
-                      console.error(`    ⚠ Error fetching job postings:`, jobError);
-                    }
-                  }
-                  
-                  // Extract technologies from organization data
-                  if (contact.organization?.current_technologies) {
-                    technologiesUsed = contact.organization.current_technologies;
-                  }
-                  
-                  // Extract funding data
-                  if (contact.organization?.latest_funding_stage) {
-                    fundingStage = contact.organization.latest_funding_stage;
-                  }
-                  if (contact.organization?.total_funding) {
-                    totalFundingUsd = contact.organization.total_funding;
-                  }
-                  
-                  // Extract comprehensive contact and organization data
-                  contactDetails = {
-                    // Basic contact info (existing)
-                    contactPerson: contact.name || null,
-                    contactEmail: contact.email || null,
-                    contactPhone: contact.phone_numbers?.[0]?.sanitized_number || null,
-                    linkedinProfile: contact.linkedin_url || null,
-                    title: contact.title || null,
-                    source: 'apollo_verified',
-                    
-                    // New: Detailed contact fields
-                    contactFirstName: contact.first_name || null,
-                    contactLastName: contact.last_name || null,
-                    contactHeadline: contact.headline || null,
-                    contactPhotoUrl: contact.photo_url || null,
-                    contactCity: contact.city || null,
-                    contactState: contact.state || null,
-                    contactCountry: contact.country || null,
-                    contactTwitterUrl: contact.twitter_url || null,
-                    contactEmailStatus: contact.email_status || null,
-                    contactEmploymentHistory: contact.employment_history || null,
-                    contactPhoneNumbers: contact.phone_numbers || null,
-                    
-                    // New: Organization enrichment fields
-                    organizationLinkedinUrl: contact.organization?.linkedin_url || null,
-                    organizationTwitterUrl: contact.organization?.twitter_url || null,
-                    organizationFacebookUrl: contact.organization?.facebook_url || null,
-                    organizationFoundedYear: contact.organization?.founded_year || null,
-                    organizationLogoUrl: contact.organization?.logo_url || null,
-                    organizationEmployeeCount: contact.organization?.estimated_num_employees 
-                      ? `${contact.organization.estimated_num_employees}` 
-                      : null,
-                    organizationRevenueRange: contact.organization?.annual_revenue 
-                      ? `$${contact.organization.annual_revenue}` 
-                      : null,
-                    organizationIndustryKeywords: contact.organization?.industry_tag_list || null,
-                    
-                    // NEW: Market Intelligence
-                    jobPostings: jobPostings,
-                    technologiesUsed: technologiesUsed,
-                    fundingStage: fundingStage,
-                    totalFundingUsd: totalFundingUsd,
-                    buyingIntentSignals: buyingIntentSignals,
-                    
-                    // Data quality tracking
-                    apolloEnrichmentDate: new Date().toISOString()
-                  };
-                  
-                  console.log(`  ✅ Apollo.io COMPLETE data: ${contactDetails.contactPerson} (${contactDetails.title})`);
-                  console.log(`    Organization: ${contact.organization?.name || 'N/A'}`);
-                  console.log(`    Email Status: ${contactDetails.contactEmailStatus || 'N/A'}`);
-                  console.log(`    Org LinkedIn: ${contactDetails.organizationLinkedinUrl ? '✓' : '✗'}`);
-                  console.log(`    Org Logo: ${contactDetails.organizationLogoUrl ? '✓' : '✗'}`);
-                  console.log(`    Job Postings: ${jobPostings.length}`);
-                  console.log(`    Technologies: ${technologiesUsed.length}`);
-                }
-              } else {
-                console.log(`  ⚠ Apollo contact organization mismatch for all ${apolloData.people.length} results`);
-                console.log(`    Expected: ${discovery.name} (${domain})`);
-                if (apolloData.people[0]) {
-                  const firstContact = apolloData.people[0];
-                  const firstDomain = firstContact.organization?.website_url 
-                    ? new URL(firstContact.organization.website_url).hostname.replace('www.', '')
-                    : null;
-                  console.log(`    Got: ${firstContact.organization?.name || 'N/A'} (${firstDomain || 'N/A'})`);
-                }
-                shouldSkipCompany = true;
+            }
+          }
+
+          // STRATEGY 3: People search with flexible filters
+          let peopleSearchResults = [];
+          
+          if (apolloOrgId) {
+            // Search within specific organization
+            console.log(`    Step 3: Searching people in org ${apolloOrgId}...`);
+            const peopleResponse = await fetch(
+              'https://api.apollo.io/v1/mixed_people/search',
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Cache-Control': 'no-cache',
+                  'X-Api-Key': APOLLO_API_KEY
+                },
+                body: JSON.stringify({
+                  organization_ids: [apolloOrgId],
+                  person_titles: [
+                    'Director of Partnerships', 'VP of Partnerships', 
+                    'Director of Operations', 'COO', 'President', 
+                    'CEO', 'Owner', 'General Manager'
+                  ],
+                  person_seniorities: ['c_suite', 'vp', 'director', 'owner'],
+                  page: 1,
+                  per_page: 10
+                })
               }
+            );
+            
+            if (peopleResponse.ok) {
+              const peopleData = await peopleResponse.json();
+              peopleSearchResults = peopleData.people || [];
+              console.log(`    ✓ Found ${peopleSearchResults.length} contacts in organization`);
+            }
+          }
+          
+          // STRATEGY 4: Fallback to domain-based people search if no org-specific results
+          if (peopleSearchResults.length === 0) {
+            console.log(`    Step 4: Fallback domain-based people search...`);
+            const fallbackResponse = await fetch(
+              'https://api.apollo.io/v1/mixed_people/search',
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Cache-Control': 'no-cache',
+                  'X-Api-Key': APOLLO_API_KEY
+                },
+                body: JSON.stringify({
+                  organization_domains: [domain],
+                  person_titles: [
+                    'Director of Partnerships', 'VP of Partnerships', 
+                    'Director of Operations', 'COO', 'President', 
+                    'CEO', 'Owner', 'General Manager', 
+                    'VP', 'Director', 'Manager'  // Broader search
+                  ],
+                  page: 1,
+                  per_page: 10
+                })
+              }
+            );
+            
+            if (fallbackResponse.ok) {
+              const fallbackData = await fallbackResponse.json();
+              peopleSearchResults = fallbackData.people || [];
+              console.log(`    ✓ Fallback found ${peopleSearchResults.length} contacts`);
+            }
+          }
+
+          // VALIDATE & SELECT BEST CONTACT
+          let contact = null;
+          
+          if (peopleSearchResults.length > 0) {
+            // Score and rank contacts by relevance
+            const scoredContacts = peopleSearchResults.map((person: any) => {
+              let score = 0;
+              const personOrgName = person.organization?.name?.toLowerCase() || '';
+              const searchName = discovery.name.toLowerCase();
+              
+              // Domain match = highest priority
+              const personDomain = person.organization?.website_url 
+                ? new URL(person.organization.website_url).hostname.replace('www.', '')
+                : null;
+              if (personDomain === domain) score += 100;
+              
+              // Organization name match
+              const nameWords = searchName.split(/[\s&,.-]+/).filter((w: string) => w.length > 2);
+              for (const word of nameWords) {
+                if (personOrgName.includes(word)) score += 20;
+              }
+              
+              // Exact org match
+              if (apolloOrgId && person.organization?.id === apolloOrgId) score += 50;
+              
+              // Title relevance
+              const title = person.title?.toLowerCase() || '';
+              if (title.includes('partnership')) score += 30;
+              if (title.includes('ceo') || title.includes('president')) score += 25;
+              if (title.includes('director') || title.includes('vp')) score += 15;
+              
+              // Data completeness
+              if (person.email) score += 10;
+              if (person.phone_numbers?.length) score += 5;
+              if (person.linkedin_url) score += 5;
+              
+              return { person, score };
+            }).sort((a: any, b: any) => b.score - a.score);
+            
+            // Select best contact (score > 50 means reasonable match)
+            if (scoredContacts[0].score > 50) {
+              contact = scoredContacts[0].person;
+              console.log(`    ✅ Selected contact: ${contact.name} (score: ${scoredContacts[0].score})`);
+              console.log(`       Organization: ${contact.organization?.name || 'N/A'}`);
+              console.log(`       Title: ${contact.title || 'N/A'}`);
             } else {
-              console.log(`  ❌ SKIPPING ${discovery.name}: No contacts found in Apollo.io`);
+              console.log(`    ⚠️ Best match score too low (${scoredContacts[0].score}) - skipping`);
               shouldSkipCompany = true;
             }
           } else {
-            const errorText = await apolloResponse.text();
-            console.error(`  ❌ SKIPPING ${discovery.name}: Apollo.io API error (${apolloResponse.status}):`, errorText);
+            console.log(`    ❌ No contacts found via any search strategy`);
             shouldSkipCompany = true;
           }
+          
+          if (contact && !shouldSkipCompany) {
+            // VALIDATE DATA COMPLETENESS
+            const hasCompletePersonData = 
+              contact.name && 
+              contact.email && 
+              contact.title &&
+              contact.first_name &&
+              contact.last_name;
+            
+            const hasCompleteOrgData = 
+              contact.organization?.name &&
+              contact.organization?.linkedin_url &&
+              contact.organization?.logo_url &&
+              (contact.organization?.estimated_num_employees || contact.organization?.annual_revenue);
+            
+            if (!hasCompletePersonData || !hasCompleteOrgData) {
+              console.log(`    ⚠️ Incomplete data - Person: ${hasCompletePersonData}, Org: ${hasCompleteOrgData}`);
+              // Don't skip - collect what we have
+            }
+            
+            // MARKET INTELLIGENCE: Fetch job postings and technologies
+            let jobPostings: any[] = [];
+            let technologiesUsed: string[] = [];
+            let fundingStage: string | null = null;
+            let totalFundingUsd: number | null = null;
+            let buyingIntentSignals: any[] = [];
+            
+            const finalOrgId = apolloOrgId || contact.organization?.id;
+            
+            if (finalOrgId) {
+              try {
+                console.log(`    📊 Fetching market intelligence for org ${finalOrgId}...`);
+                
+                // Fetch job postings
+                const jobPostingsResponse = await fetch(
+                  `https://api.apollo.io/api/v1/organizations/${finalOrgId}/job_postings`,
+                  {
+                    method: 'GET',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Cache-Control': 'no-cache',
+                      'X-Api-Key': APOLLO_API_KEY
+                    }
+                  }
+                );
+                
+                if (jobPostingsResponse.ok) {
+                  const jobData = await jobPostingsResponse.json();
+                  if (jobData.job_postings && jobData.job_postings.length > 0) {
+                    jobPostings = jobData.job_postings.map((jp: any) => ({
+                      id: jp.id,
+                      title: jp.title,
+                      url: jp.url,
+                      city: jp.city,
+                      state: jp.state,
+                      posted_at: jp.posted_at,
+                      last_seen_at: jp.last_seen_at,
+                      skills_needed: jp.tags || []
+                    })).slice(0, 20); // Increased from 10 to 20
+                    
+                    console.log(`    ✓ Found ${jobPostings.length} job postings`);
+                  }
+                }
+              } catch (jobError) {
+                console.error(`    ⚠️ Error fetching market intelligence:`, jobError);
+              }
+            }
+            
+            // Extract ALL available data from Apollo
+            if (apolloOrgData) {
+              technologiesUsed = apolloOrgData.current_technologies || [];
+              fundingStage = apolloOrgData.latest_funding_stage || null;
+              totalFundingUsd = apolloOrgData.total_funding || null;
+            } else if (contact.organization) {
+              technologiesUsed = contact.organization.current_technologies || [];
+              fundingStage = contact.organization.latest_funding_stage || null;
+              totalFundingUsd = contact.organization.total_funding || null;
+            }
+            
+            console.log(`    📈 Market data: ${jobPostings.length} jobs, ${technologiesUsed.length} technologies`);
+            
+            
+            // Store ALL Apollo.io data (more comprehensive than before)
+            contactDetails = {
+              // Basic contact info
+              contactPerson: contact.name || null,
+              contactEmail: contact.email || null,
+              contactPhone: contact.phone_numbers?.[0]?.sanitized_number || null,
+              linkedinProfile: contact.linkedin_url || null,
+              title: contact.title || null,
+              source: 'apollo_verified',
+              
+              // Detailed contact fields
+              contactFirstName: contact.first_name || null,
+              contactLastName: contact.last_name || null,
+              contactHeadline: contact.headline || null,
+              contactPhotoUrl: contact.photo_url || null,
+              contactCity: contact.city || null,
+              contactState: contact.state || null,
+              contactCountry: contact.country || null,
+              contactTwitterUrl: contact.twitter_url || null,
+              contactEmailStatus: contact.email_status || null,
+              contactEmploymentHistory: contact.employment_history || null,
+              contactPhoneNumbers: contact.phone_numbers || null,
+              
+              // Organization enrichment (use apolloOrgData if available, fallback to contact.organization)
+              organizationLinkedinUrl: (apolloOrgData?.linkedin_url || contact.organization?.linkedin_url) || null,
+              organizationTwitterUrl: (apolloOrgData?.twitter_url || contact.organization?.twitter_url) || null,
+              organizationFacebookUrl: (apolloOrgData?.facebook_url || contact.organization?.facebook_url) || null,
+              organizationFoundedYear: (apolloOrgData?.founded_year || contact.organization?.founded_year) || null,
+              organizationLogoUrl: (apolloOrgData?.logo_url || contact.organization?.logo_url) || null,
+              organizationEmployeeCount: (apolloOrgData?.estimated_num_employees || contact.organization?.estimated_num_employees)
+                ? `${apolloOrgData?.estimated_num_employees || contact.organization?.estimated_num_employees}` 
+                : null,
+              organizationRevenueRange: (apolloOrgData?.annual_revenue || contact.organization?.annual_revenue)
+                ? `$${apolloOrgData?.annual_revenue || contact.organization?.annual_revenue}` 
+                : null,
+              organizationIndustryKeywords: (apolloOrgData?.industry_tag_list || contact.organization?.industry_tag_list) || null,
+              
+              // Market Intelligence (ENHANCED - collecting more data)
+              jobPostings: jobPostings,
+              technologiesUsed: technologiesUsed,
+              fundingStage: fundingStage,
+              totalFundingUsd: totalFundingUsd,
+              buyingIntentSignals: buyingIntentSignals,
+              
+              // Additional organization data from apolloOrgData
+              organizationDescription: apolloOrgData?.description || contact.organization?.description || null,
+              organizationPhone: apolloOrgData?.phone || contact.organization?.phone || null,
+              organizationIndustry: apolloOrgData?.industry || contact.organization?.industry || null,
+              organizationSubIndustry: apolloOrgData?.sub_industry || contact.organization?.sub_industry || null,
+              organizationKeywords: apolloOrgData?.keywords || contact.organization?.keywords || null,
+              
+              // Data quality tracking
+              apolloEnrichmentDate: new Date().toISOString(),
+              apolloOrgId: finalOrgId
+            };
+            
+            console.log(`  ✅ ENRICHED: ${contactDetails.contactPerson} at ${contact.organization?.name || apolloOrgData?.name || discovery.name}`);
+            console.log(`     Email: ${contactDetails.contactEmail || 'N/A'} (${contactDetails.contactEmailStatus || 'unknown'})`);
+            console.log(`     Data: ${jobPostings.length} jobs, ${technologiesUsed.length} tech, funding: ${fundingStage || 'N/A'}`);
+          }
         } catch (error) {
-          console.error(`  ❌ SKIPPING ${discovery.name}: Apollo.io search failed:`, error);
+          console.error(`  ❌ Apollo.io error for ${discovery.name}:`, error);
           shouldSkipCompany = true;
         }
       } else if (!APOLLO_API_KEY) {
-        console.log(`  ⚠️ Apollo API key not configured, cannot validate company data`);
+        console.log(`  ⚠️ Apollo API key not configured`);
         shouldSkipCompany = true;
       } else if (!placeDetails?.website) {
-        console.log(`  ❌ SKIPPING ${discovery.name}: No website available for Apollo enrichment`);
+        console.log(`  ❌ No website available for Apollo enrichment`);
         shouldSkipCompany = true;
       }
       
-      // ====================================
-      // PRIMARY FILTER: Skip if Apollo couldn't provide complete data
-      // ====================================
-      if (shouldSkipCompany) {
-        console.log(`  ⏭️ Skipping ${discovery.name} - does not meet Apollo data quality requirements\n`);
-        continue; // Skip to next company
-      }
-      
-      // REMOVED: AI fallback (we only want Apollo-verified companies)
-      // No longer using Lovable AI for contact discovery
-      if (!contactDetails) {
-        // This should never happen due to shouldSkipCompany check above
-        console.log(`  ❌ ERROR: No contact details despite passing filter - skipping ${discovery.name}\n`);
+      // Skip if Apollo couldn't provide data
+      if (shouldSkipCompany || !contactDetails) {
+        console.log(`  ⏭️ Skipping ${discovery.name}\n`);
         continue;
       }
 
-      // Calculate data completeness score (0-100)
+      // Calculate data completeness score
       const calculateCompletenessScore = (data: any): number => {
         const fields = [
           data.name, data.sector, data.website, data.full_address,
