@@ -58,7 +58,8 @@ async function getCompaniesFromDB(
   industries: string[], 
   count: number,
   outcomes: string[],
-  level: string
+  level: string,
+  courseId: string
 ): Promise<CompanyInfo[]> {
   console.log(`📊 Querying DB for ${count} companies in ${cityZip}...`);
 
@@ -101,7 +102,7 @@ async function getCompaniesFromDB(
   console.log(`✓ Found ${data.length} enriched companies in database for ${cityName}`);
 
   // CRITICAL: Intelligent pre-filtering before AI generation
-  const filteredCompanies = await intelligentCompanyFilter(data, outcomes, level);
+  const filteredCompanies = await intelligentCompanyFilter(data, outcomes, level, supabaseClient, courseId);
   
   console.log(`✓ Intelligent filter: ${filteredCompanies.length}/${data.length} companies relevant to course outcomes`);
   
@@ -115,11 +116,74 @@ async function getCompaniesFromDB(
   return mappedCompanies;
 }
 
+// NEW: Generate cache key for course filtering
+function generateCacheKey(outcomes: string[], level: string, companyIds: string[]): string {
+  const outcomesHash = outcomes.sort().join('|');
+  const companiesHash = companyIds.sort().join(',');
+  return `${level}:${outcomesHash}:${companiesHash}`;
+}
+
+// NEW: Check cache for filtered companies
+async function getCachedFilteredCompanies(
+  supabaseClient: any,
+  courseId: string,
+  cacheKey: string
+): Promise<any[] | null> {
+  try {
+    const { data, error } = await supabaseClient
+      .from('company_filter_cache')
+      .select('filtered_companies')
+      .eq('course_id', courseId)
+      .eq('cache_key', cacheKey)
+      .gt('expires_at', new Date().toISOString())
+      .single();
+
+    if (error || !data) return null;
+    
+    console.log('✅ Using cached company filtering results');
+    return data.filtered_companies;
+  } catch (error) {
+    console.log('⚠ Cache miss or error:', error);
+    return null;
+  }
+}
+
+// NEW: Save filtered companies to cache
+async function saveCachedFilteredCompanies(
+  supabaseClient: any,
+  courseId: string,
+  cacheKey: string,
+  filteredCompanies: any[]
+): Promise<void> {
+  try {
+    const { error } = await supabaseClient
+      .from('company_filter_cache')
+      .upsert({
+        course_id: courseId,
+        cache_key: cacheKey,
+        filtered_companies: filteredCompanies,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+      }, {
+        onConflict: 'course_id,cache_key'
+      });
+
+    if (error) {
+      console.error('⚠ Failed to cache filtering results:', error);
+    } else {
+      console.log('✅ Cached filtering results for future use');
+    }
+  } catch (error) {
+    console.error('⚠ Cache save error:', error);
+  }
+}
+
 // NEW: Intelligent company filtering based on course-company relevance
 async function intelligentCompanyFilter(
   companies: any[],
   outcomes: string[],
-  level: string
+  level: string,
+  supabaseClient: any,
+  courseId: string
 ): Promise<any[]> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   if (!LOVABLE_API_KEY) {
@@ -133,6 +197,15 @@ async function intelligentCompanyFilter(
       );
       return !hasGenericOnly;
     });
+  }
+
+  // Generate cache key and check cache
+  const companyIds = companies.map(c => c.id).filter(Boolean);
+  const cacheKey = generateCacheKey(outcomes, level, companyIds);
+  
+  const cachedResults = await getCachedFilteredCompanies(supabaseClient, courseId, cacheKey);
+  if (cachedResults) {
+    return cachedResults;
   }
 
   // AI-powered relevance scoring with creative thinking
@@ -205,6 +278,9 @@ Return ONLY this JSON array:
     scored.forEach(c => {
       console.log(`  ✓ ${c.name}: ${c.relevance}% relevant - ${c.reason}`);
     });
+
+    // Cache the filtered results
+    await saveCachedFilteredCompanies(supabaseClient, courseId, cacheKey, scored);
 
     return scored;
   } catch (error) {
@@ -1272,7 +1348,8 @@ serve(async (req) => {
         industries.length > 0 ? industries : ["Technology", "Healthcare", "Finance", "Manufacturing"],
         numTeams - companiesFound.length,
         outcomes,
-        level
+        level,
+        courseId
       );
       companiesFound = [...companiesFound, ...dbCompanies];
     }

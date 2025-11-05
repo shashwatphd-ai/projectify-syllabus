@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      company_filter_cache: {
+        Row: {
+          cache_key: string
+          course_id: string
+          created_at: string
+          expires_at: string
+          filtered_companies: Json
+          id: string
+        }
+        Insert: {
+          cache_key: string
+          course_id: string
+          created_at?: string
+          expires_at?: string
+          filtered_companies?: Json
+          id?: string
+        }
+        Update: {
+          cache_key?: string
+          course_id?: string
+          created_at?: string
+          expires_at?: string
+          filtered_companies?: Json
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_filter_cache_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_profiles: {
         Row: {
           apollo_enrichment_date: string | null
@@ -685,6 +720,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      cleanup_expired_cache: { Args: never; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
