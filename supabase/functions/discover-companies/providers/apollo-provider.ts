@@ -73,12 +73,14 @@ export class ApolloProvider implements DiscoveryProvider {
     
     try {
       // Simple API call to verify credentials
+      // SECURITY: API key in headers (not URL params) per Apollo's security requirements
       const response = await fetch(
         'https://api.apollo.io/v1/mixed_companies/search',
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
             'X-Api-Key': this.apolloApiKey!
           },
           body: JSON.stringify({

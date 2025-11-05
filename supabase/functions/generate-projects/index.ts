@@ -51,7 +51,83 @@ interface ProjectProposal {
   publication_opportunity: string;
 }
 
-// NEW: Query real companies from database instead of AI generation
+// NEW: Fetch Apollo-enriched companies from generation run
+async function getApolloEnrichedCompanies(
+  supabaseClient: any,
+  generationRunId: string,
+  count: number
+): Promise<CompanyInfo[]> {
+  console.log(`🎯 Fetching Apollo-enriched companies from generation run: ${generationRunId}`);
+  
+  const { data, error } = await supabaseClient
+    .from('company_profiles')
+    .select('*')
+    .eq('generation_run_id', generationRunId)
+    .order('data_completeness_score', { ascending: false })
+    .limit(count);
+  
+  if (error) {
+    console.error('❌ Error fetching Apollo companies:', error.message);
+    throw new Error('Failed to fetch Apollo-enriched companies');
+  }
+  
+  if (!data || data.length === 0) {
+    console.error('❌ No companies found for generation run:', generationRunId);
+    throw new Error('No Apollo-enriched companies available');
+  }
+  
+  console.log(`✓ Found ${data.length} Apollo-enriched companies with full contact data`);
+  
+  // Map Apollo data to CompanyInfo with ALL enriched fields
+  return data.map((company: any) => {
+    // Infer needs from job postings and technologies if inferred_needs is empty
+    const inferredNeeds = company.inferred_needs || [];
+    const derivedNeeds = [];
+    
+    if (company.job_postings && company.job_postings.length > 0) {
+      derivedNeeds.push(`Hiring velocity: ${company.job_postings.length} active openings`);
+    }
+    if (company.technologies_used && company.technologies_used.length > 0) {
+      derivedNeeds.push(`Technology stack optimization: ${company.technologies_used.slice(0, 3).join(', ')}`);
+    }
+    if (company.funding_stage) {
+      derivedNeeds.push(`${company.funding_stage} growth strategy and scaling`);
+    }
+    
+    const allNeeds = inferredNeeds.length > 0 ? inferredNeeds : derivedNeeds;
+    
+    return {
+      id: company.id, // CRITICAL: Include ID for linking
+      name: company.name,
+      sector: company.sector || 'Unknown',
+      size: company.size || company.organization_employee_count || 'Unknown',
+      needs: allNeeds,
+      description: company.recent_news || `${company.name} is a ${company.sector || 'business'} organization.`,
+      website: company.website,
+      
+      // CRITICAL: Apollo contact data (not placeholders)
+      contact_email: company.contact_email,
+      contact_phone: company.contact_phone,
+      contact_person: company.contact_person,
+      contact_title: company.contact_title,
+      contact_first_name: company.contact_first_name,
+      contact_last_name: company.contact_last_name,
+      full_address: company.full_address,
+      linkedin_profile: company.organization_linkedin_url,
+      
+      // CRITICAL: Market intelligence for project generation
+      job_postings: company.job_postings || [],
+      technologies_used: company.technologies_used || [],
+      funding_stage: company.funding_stage,
+      
+      // Metadata
+      data_completeness_score: company.data_completeness_score,
+      enrichment_level: company.data_enrichment_level
+    };
+  });
+}
+
+// LEGACY: Fallback for non-Apollo generation (location-based query)
 async function getCompaniesFromDB(
   supabaseClient: any, 
   cityZip: string, 
@@ -61,7 +137,8 @@ async function getCompaniesFromDB(
   level: string,
   courseId: string
 ): Promise<CompanyInfo[]> {
-  console.log(`📊 Querying DB for ${count} companies in ${cityZip}...`);
+  console.log(`⚠ FALLBACK: Querying DB by location (Apollo data not available)`);
+  console.log(`📊 Searching for ${count} companies in ${cityZip}...`);
 
   // Parse city_zip to extract zip code and city name
   const zipMatch = cityZip.match(/\b\d{5}\b/);
@@ -1176,18 +1253,18 @@ function createForms(company: CompanyInfo, proposal: ProjectProposal, course: an
       budget: budget
     },
     
-    // FORM 2: Company & Contact Info (ONLY REAL DATA, NO AI-GENERATED INFO)
+    // FORM 2: Company & Contact Info (APOLLO-ENRICHED DATA - NO PLACEHOLDERS)
     form2: {
       company: company.name,
       contact_name: company.contact_person || 'TBD',
       contact_email: company.contact_email || '',
-      contact_title: '',
+      contact_title: company.contact_person || '',
       contact_phone: company.contact_phone || '',
       website: company.website || '',
       description: proposal.company_description,
       size: company.size,
       sector: company.sector,
-      preferred_communication: 'Email'
+      preferred_communication: company.contact_email ? 'Email' : 'TBD'
     },
     
     // FORM 3: Project Requirements
@@ -1271,7 +1348,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { courseId, industries, numTeams } = await req.json();
+    const { courseId, industries, numTeams, generation_run_id } = await req.json();
 
     const { data: course, error: courseError } = await supabaseClient
       .from('course_profiles')
@@ -1294,15 +1371,33 @@ serve(async (req) => {
     console.log('Location:', cityZip);
     console.log('Industries:', industries);
     console.log('Teams requested:', numTeams);
+    console.log('Generation Run ID:', generation_run_id || 'None (using fallback)');
     
-    // MODIFIED: Try intelligent discovery first, then DB, then AI fallback
+    // MODIFIED: PRIORITY - Use Apollo-enriched companies from generation run
     let companiesFound: CompanyInfo[] = [];
-    let generationRunId: string | null = null;
+    let generationRunId: string | null = generation_run_id || null;
     
-    // Step 1: Try intelligent discovery using Google Search
-    console.log('🔍 Step 1: Intelligent company discovery via Google Search...');
-    try {
-      const discoveryResponse = await fetch(
+    // Step 1: PRIORITY - Use Apollo-enriched companies if generation_run_id provided
+    if (generation_run_id) {
+      console.log('\n🎯 Step 1: Using Apollo-enriched companies from generation run');
+      try {
+        companiesFound = await getApolloEnrichedCompanies(
+          serviceRoleClient,
+          generation_run_id,
+          numTeams
+        );
+        console.log(`✅ Loaded ${companiesFound.length} Apollo-enriched companies`);
+      } catch (error) {
+        console.error('❌ Failed to load Apollo companies:', error);
+        console.log('⚠ Falling back to intelligent discovery');
+      }
+    }
+    
+    // Step 2: FALLBACK - Try intelligent discovery using Google Search if no Apollo data
+    if (companiesFound.length === 0) {
+      console.log('\n🔍 Step 2: FALLBACK - Intelligent company discovery via Google Search...');
+      try {
+        const discoveryResponse = await fetch(
         `${Deno.env.get('SUPABASE_URL')}/functions/v1/discover-companies`,
         {
           method: 'POST',
@@ -1357,8 +1452,11 @@ serve(async (req) => {
     } catch (error) {
       console.error('⚠ Discovery function failed:', error);
     }
+    
+    // Close the if (companiesFound.length === 0) block
+    }
 
-    // Step 2: Fallback to DB if discovery didn't find enough
+    // Step 3: Fallback to DB if discovery didn't find enough
     if (companiesFound.length < numTeams) {
       console.log(`🗄️ Step 2: Querying enriched database (need ${numTeams - companiesFound.length} more)...`);
       const dbCompanies = await getCompaniesFromDB(

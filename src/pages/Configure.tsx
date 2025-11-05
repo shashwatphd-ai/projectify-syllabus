@@ -84,29 +84,34 @@ const Configure = () => {
     setLoading(true);
 
     try {
-      // Step 1: Enrich company data if city_zip is available
+      // Step 1: Discover & enrich companies with Apollo
+      let generationRunId = null;
+      
       if (courseData?.city_zip) {
-        toast.info("Discovering companies in your area...", { duration: 3000 });
+        toast.info("Discovering companies with Apollo...", { duration: 3000 });
         
-        // Use the new discover-companies workflow
-        const { error: discoveryError } = await supabase.functions.invoke('discover-companies', {
+        const { data: discoveryData, error: discoveryError } = await supabase.functions.invoke('discover-companies', {
           body: { 
             courseId: courseId,
             location: courseData.city_zip,
-            count: 4
+            count: parseInt(numTeams)
           }
         });
 
         if (discoveryError) {
-          console.warn('Company discovery failed, will use AI generation:', discoveryError);
-          toast.warning("Couldn't discover local companies, will generate with AI", { duration: 3000 });
+          console.error('Apollo discovery failed:', discoveryError);
+          toast.error("Apollo discovery failed. Please check your API keys.", { duration: 5000 });
+          setLoading(false);
+          return;
         } else {
-          toast.success("Company data ready!", { duration: 2000 });
+          generationRunId = discoveryData?.generation_run_id;
+          console.log('✓ Apollo discovery complete. Generation run ID:', generationRunId);
+          toast.success(`Found ${discoveryData?.count || 0} companies with Apollo!`, { duration: 2000 });
         }
       }
 
-      // Step 2: Generate projects
-      toast.info("Generating projects...", { duration: 3000 });
+      // Step 2: Generate projects using Apollo-enriched data
+      toast.info("Generating projects from Apollo data...", { duration: 3000 });
       const industriesArray = industries.split(',').map(i => i.trim()).filter(Boolean);
       const companiesArray = companies.split(',').map(c => c.trim()).filter(Boolean);
 
@@ -115,7 +120,8 @@ const Configure = () => {
           courseId,
           industries: industriesArray,
           companies: companiesArray,
-          numTeams: parseInt(numTeams)
+          numTeams: parseInt(numTeams),
+          generation_run_id: generationRunId // CRITICAL: Pass Apollo generation run ID
         }
       });
 
