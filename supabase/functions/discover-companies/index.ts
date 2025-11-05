@@ -221,14 +221,81 @@ serve(async (req) => {
         }
       }
 
-      // Now enrich with Lovable AI for contact person details
+      // ============================================
+      // APOLLO.IO INTEGRATION - Phase 1
+      // ============================================
+      // TODO: Add APOLLO_API_KEY secret before deployment
+      // Required for: Apollo.io People Search API
+      // Cost: $99/month Professional plan
+      // ============================================
+      
       let contactDetails = null;
-      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-      if (LOVABLE_API_KEY && placeDetails?.address) {
+      const APOLLO_API_KEY = Deno.env.get('APOLLO_API_KEY');
+      
+      if (APOLLO_API_KEY && placeDetails?.website) {
+        // PRIMARY: Use Apollo.io People Search for verified contact data
         try {
-          console.log(`  🔍 Finding contact person for ${discovery.name}...`);
+          console.log(`  🚀 Searching Apollo.io for contacts at ${discovery.name}...`);
           
-          const contactPrompt = `Find the key decision-maker at "${discovery.name}" located at "${placeDetails.address}".
+          const apolloResponse = await fetch(
+            'https://api.apollo.io/v1/mixed_people/search',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache',
+                'X-Api-Key': APOLLO_API_KEY
+              },
+              body: JSON.stringify({
+                organization_domains: [new URL(placeDetails.website).hostname.replace('www.', '')],
+                person_titles: [
+                  'CEO', 'President', 'Owner', 'Founder',
+                  'COO', 'General Manager', 'Director',
+                  'VP', 'Head of Operations', 'Managing Director'
+                ],
+                person_seniorities: ['owner', 'c_suite', 'vp', 'director'],
+                page: 1,
+                per_page: 3
+              })
+            }
+          );
+
+          if (apolloResponse.ok) {
+            const apolloData = await apolloResponse.json();
+            
+            if (apolloData.people && apolloData.people.length > 0) {
+              const contact = apolloData.people[0]; // Take highest-ranking person
+              
+              contactDetails = {
+                contactPerson: contact.name || null,
+                contactEmail: contact.email || null,
+                contactPhone: contact.phone_numbers?.[0]?.sanitized_number || null,
+                linkedinProfile: contact.linkedin_url || null,
+                title: contact.title || null,
+                source: 'apollo_verified'
+              };
+              
+              console.log(`  ✓ Apollo.io verified contact: ${contactDetails.contactPerson} (${contactDetails.title})`);
+            } else {
+              console.log(`  ⚠ No contacts found in Apollo.io for ${discovery.name}`);
+            }
+          } else {
+            const errorText = await apolloResponse.text();
+            console.error(`  ⚠ Apollo.io API error (${apolloResponse.status}):`, errorText);
+          }
+        } catch (error) {
+          console.error(`  ⚠ Apollo.io search failed for ${discovery.name}:`, error);
+        }
+      }
+      
+      // FALLBACK: Use Lovable AI if Apollo.io not configured or found nothing
+      if (!contactDetails && placeDetails?.address) {
+        const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+        if (LOVABLE_API_KEY) {
+          try {
+            console.log(`  🔍 Fallback: Using Lovable AI for ${discovery.name}...`);
+            
+            const contactPrompt = `Find the key decision-maker at "${discovery.name}" located at "${placeDetails.address}".
 
 Search for:
 - CEO, President, Owner, General Manager, or Director
@@ -244,47 +311,51 @@ Return ONLY valid JSON (no markdown):
   "linkedinProfile": "LinkedIn URL or null"
 }`;
 
-          const contactResponse = await fetch(
-            'https://ai.gateway.lovable.dev/v1/chat/completions',
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                model: 'google/gemini-2.5-flash',
-                messages: [
-                  { role: 'system', content: 'You are a research assistant. Return only valid JSON.' },
-                  { role: 'user', content: contactPrompt }
-                ],
-                temperature: 0.1,
-              }),
-            }
-          );
-
-          if (contactResponse.ok) {
-            const contactData = await contactResponse.json();
-            const contactText = contactData.choices?.[0]?.message?.content;
-            if (contactText) {
-              // Remove markdown code blocks if present
-              let jsonText = contactText;
-              const codeBlockMatch = contactText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-              if (codeBlockMatch) {
-                jsonText = codeBlockMatch[1];
+            const contactResponse = await fetch(
+              'https://ai.gateway.lovable.dev/v1/chat/completions',
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  model: 'google/gemini-2.5-flash',
+                  messages: [
+                    { role: 'system', content: 'You are a research assistant. Return only valid JSON.' },
+                    { role: 'user', content: contactPrompt }
+                  ],
+                  temperature: 0.1,
+                }),
               }
-              
-              const jsonMatch = jsonText.match(/\{[\s\S]*?\}/);
-              if (jsonMatch) {
-                contactDetails = JSON.parse(jsonMatch[0]);
-                if (contactDetails?.contactPerson && contactDetails.contactPerson !== 'null') {
-                  console.log(`  ✓ Found contact: ${contactDetails.contactPerson}`);
+            );
+
+            if (contactResponse.ok) {
+              const contactData = await contactResponse.json();
+              const contactText = contactData.choices?.[0]?.message?.content;
+              if (contactText) {
+                let jsonText = contactText;
+                const codeBlockMatch = contactText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+                if (codeBlockMatch) {
+                  jsonText = codeBlockMatch[1];
+                }
+                
+                const jsonMatch = jsonText.match(/\{[\s\S]*?\}/);
+                if (jsonMatch) {
+                  const fallbackContact = JSON.parse(jsonMatch[0]);
+                  contactDetails = {
+                    ...fallbackContact,
+                    source: 'ai_inferred'
+                  };
+                  if (contactDetails?.contactPerson && contactDetails.contactPerson !== 'null') {
+                    console.log(`  ✓ AI found contact: ${contactDetails.contactPerson}`);
+                  }
                 }
               }
             }
+          } catch (error) {
+            console.error(`  ⚠ Fallback contact search failed for ${discovery.name}:`, error);
           }
-        } catch (error) {
-          console.error(`  ⚠ Could not find contact for ${discovery.name}:`, error);
         }
       }
 
@@ -295,12 +366,12 @@ Return ONLY valid JSON (no markdown):
         size: discovery.estimatedSize,
         website: placeDetails?.website || discovery.website,
         full_address: placeDetails?.address || discovery.location,
-        contact_phone: placeDetails?.phone,
+        contact_phone: contactDetails?.contactPhone || placeDetails?.phone || null,
         contact_person: contactDetails?.contactPerson && contactDetails.contactPerson !== 'null' ? contactDetails.contactPerson : null,
         contact_email: contactDetails?.contactEmail && contactDetails.contactEmail !== 'null' ? contactDetails.contactEmail : null,
         linkedin_profile: contactDetails?.linkedinProfile && contactDetails.linkedinProfile !== 'null' ? contactDetails.linkedinProfile : null,
         inferred_needs: discovery.currentChallenges,
-        source: 'google_discovery',
+        source: contactDetails?.source || 'google_discovery', // Track data source: apollo_verified, ai_inferred, or google_discovery
         last_enriched_at: new Date().toISOString(),
       };
 
