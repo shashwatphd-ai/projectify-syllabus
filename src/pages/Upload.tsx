@@ -24,32 +24,38 @@ const Upload = () => {
     }
   }, [authLoading, user, navigate]);
 
+  // Auto-detect location on mount if user email is available
   useEffect(() => {
-    // Auto-detect location from user's email domain once when user is loaded
-    if (user?.email && !cityZip && !locationLoading) {
-      console.log('Triggering location detection for:', user.email);
+    const shouldDetect = user?.email && !cityZip && !locationLoading;
+    
+    console.log('Location detection check:', { 
+      hasEmail: !!user?.email, 
+      currentLocation: cityZip, 
+      isLoading: locationLoading,
+      willDetect: shouldDetect
+    });
+    
+    if (shouldDetect) {
+      console.log('🔍 Auto-detecting location for:', user.email);
       detectLocationFromEmail(user.email);
-    } else {
-      console.log('Skipping location detection:', { 
-        hasEmail: !!user?.email, 
-        cityZip, 
-        locationLoading 
-      });
     }
-  }, [user?.email]);
+  }, [user?.email, cityZip, locationLoading]);
 
   const detectLocationFromEmail = async (email: string) => {
+    console.log('🌍 Starting location detection for:', email);
     setLocationLoading(true);
+    
     try {
       // Extract domain from email (e.g., user@university.edu -> university.edu)
       const domain = email.split('@')[1];
       
       if (!domain) {
-        console.log('No domain found in email');
+        console.log('❌ No domain found in email');
+        toast.error('Could not extract domain from email');
         return;
       }
 
-      console.log('Detecting location for domain:', domain);
+      console.log('🔎 Extracting location from domain:', domain);
 
       // Use Nominatim to search for the university/organization
       const searchQuery = domain.split('.')[0]; // e.g., "university" from "university.edu"
@@ -61,7 +67,7 @@ const Upload = () => {
 
       if (data && data.length > 0) {
         const location = data[0];
-        console.log('Found location:', location);
+        console.log('✅ Found initial location:', location.display_name);
         
         // Get detailed address with reverse geocoding
         const reverseResponse = await fetch(
@@ -75,17 +81,27 @@ const Upload = () => {
           const postcode = reverseData.address.postcode || '';
           
           if (city && postcode) {
-            setCityZip(`${city}, ${state} ${postcode}`);
+            const detectedLocation = `${city}, ${state} ${postcode}`;
+            console.log('📍 Setting location:', detectedLocation);
+            setCityZip(detectedLocation);
             toast.success(`Location detected: ${city}, ${state}`);
+          } else {
+            console.log('⚠️ Missing city or postcode in address');
+            toast.error('Could not determine complete address');
           }
+        } else {
+          console.log('⚠️ No address data in reverse geocoding response');
         }
       } else {
-        console.log('No location found for domain');
+        console.log('❌ No location results found for domain');
+        toast.error('Could not find location for your institution');
       }
     } catch (error) {
-      console.log('Could not auto-detect location:', error);
+      console.error('❌ Location detection error:', error);
+      toast.error('Failed to detect location. Please enter manually.');
     } finally {
       setLocationLoading(false);
+      console.log('🏁 Location detection completed');
     }
   };
 
