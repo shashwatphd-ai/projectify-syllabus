@@ -1,7 +1,6 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { GraduationCap, Building2, Sparkles, TrendingUp, Target, CheckCircle2, ArrowRight, AlertTriangle } from "lucide-react";
+import { GraduationCap, Building2, Sparkles, TrendingUp, Target, Briefcase, BookOpen, Network, Award, Users, Handshake, ChartBar, Lightbulb, Rocket, DollarSign } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AnalyzeValueButton } from "./AnalyzeValueButton";
 
@@ -16,6 +15,68 @@ interface ValueAnalysisTabProps {
   courseProfile: any;
   onAnalysisComplete: () => void;
 }
+
+const CircularScore = ({ score, size = "md", color = "primary" }: { score: number; size?: "sm" | "md" | "lg"; color?: string }) => {
+  const sizeMap = {
+    sm: { outer: 40, inner: 32, stroke: 4, text: "text-lg" },
+    md: { outer: 60, inner: 48, stroke: 6, text: "text-2xl" },
+    lg: { outer: 80, inner: 64, stroke: 8, text: "text-3xl" }
+  };
+  
+  const { outer, inner, stroke, text } = sizeMap[size];
+  const radius = (outer - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
+
+  return (
+    <div className="relative" style={{ width: outer, height: outer }}>
+      <svg className="transform -rotate-90" width={outer} height={outer}>
+        <circle
+          cx={outer / 2}
+          cy={outer / 2}
+          r={radius}
+          stroke="currentColor"
+          strokeWidth={stroke}
+          fill="none"
+          className="text-muted/30"
+        />
+        <circle
+          cx={outer / 2}
+          cy={outer / 2}
+          r={radius}
+          stroke="currentColor"
+          strokeWidth={stroke}
+          fill="none"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          className={`text-${color} transition-all duration-1000`}
+          strokeLinecap="round"
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className={`${text} font-bold`}>{Math.round(score)}</span>
+      </div>
+    </div>
+  );
+};
+
+const MetricBar = ({ label, value, icon: Icon, color }: { label: string; value: number; icon: any; color: string }) => (
+  <div className="flex items-center gap-2">
+    <Icon className={`h-3.5 w-3.5 ${color} flex-shrink-0`} />
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs text-muted-foreground truncate">{label}</span>
+        <span className="text-xs font-medium ml-2">{Math.round(value)}</span>
+      </div>
+      <div className="h-1 bg-muted rounded-full overflow-hidden">
+        <div 
+          className={`h-full ${color.replace('text-', 'bg-')} transition-all duration-500`}
+          style={{ width: `${value}%` }}
+        />
+      </div>
+    </div>
+  </div>
+);
 
 export const ValueAnalysisTab = ({ 
   valueAnalysis, 
@@ -41,7 +102,7 @@ export const ValueAnalysisTab = ({
               <div>
                 <p className="font-medium text-amber-900 dark:text-amber-100">Value Analysis Unavailable</p>
                 <p className="text-sm text-amber-700 dark:text-amber-200 mt-1">
-                  This project was generated before AI-powered value analysis was implemented.
+                  Generate AI-powered insights for this project
                 </p>
               </div>
               {companyProfile && (
@@ -58,306 +119,216 @@ export const ValueAnalysisTab = ({
             </div>
           </CardContent>
         </Card>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle>What You'll Get</CardTitle>
-            <CardDescription>AI-powered stakeholder value intelligence</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <GraduationCap className="h-5 w-5 text-blue-500" />
-                  <span className="font-medium">Student Value Analysis</span>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Career opportunities, skill development, portfolio value, networking potential
-                </p>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-purple-500" />
-                  <span className="font-medium">University Value Analysis</span>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Partnership quality, placement potential, research collaboration, reputation impact
-                </p>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-green-500" />
-                  <span className="font-medium">Industry Value Analysis</span>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Deliverable ROI, talent pipeline access, innovation infusion, cost efficiency
-                </p>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-amber-500" />
-                  <span className="font-medium">Synergistic Value</span>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Knowledge transfer multipliers, long-term partnership potential, ecosystem impact
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     );
   }
 
   const { student_value, university_value, industry_value } = valueAnalysis;
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-600";
-    if (score >= 60) return "text-blue-600";
-    if (score >= 40) return "text-amber-600";
-    return "text-red-600";
-  };
-
-  const getScoreBg = (score: number) => {
-    if (score >= 80) return "bg-green-500/10 border-green-500/30";
-    if (score >= 60) return "bg-blue-500/10 border-blue-500/30";
-    if (score >= 40) return "bg-amber-500/10 border-amber-500/30";
-    return "bg-red-500/10 border-red-500/30";
-  };
-
   const overallScore = (student_value?.score + university_value?.score + industry_value?.score) / 3;
 
   return (
-    <div className="space-y-6">
-      {/* Hero Section - Partnership Overview */}
-      <div className="grid gap-4 md:grid-cols-3">
-        {/* Partnership Quality Score */}
-        <Card className={`${getScoreBg(partnershipQuality)}`}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Partnership Quality</p>
-                <div className="flex items-baseline gap-1">
-                  <span className={`text-4xl font-bold ${getScoreColor(partnershipQuality)}`}>
-                    {Math.round(partnershipQuality)}
-                  </span>
-                  <span className="text-lg text-muted-foreground">/100</span>
-                </div>
-              </div>
-              <Target className={`h-10 w-10 ${getScoreColor(partnershipQuality)} opacity-50`} />
+    <div className="space-y-4">
+      {/* Top Metrics Row */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30">
+          <CardContent className="pt-4 pb-3">
+            <div className="flex flex-col items-center gap-1">
+              <Target className="h-5 w-5 text-primary mb-1" />
+              <CircularScore score={partnershipQuality} size="sm" color="primary" />
+              <span className="text-xs text-muted-foreground mt-1">Partnership</span>
             </div>
           </CardContent>
         </Card>
 
-        {/* Synergy Index */}
-        <Card className={`${getScoreBg(synergyIndex)}`}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Synergy Index</p>
-                <div className="flex items-baseline gap-1">
-                  <span className={`text-4xl font-bold ${getScoreColor(synergyIndex)}`}>
-                    {Math.round(synergyIndex)}
-                  </span>
-                  <span className="text-lg text-muted-foreground">/100</span>
-                </div>
-              </div>
-              <Sparkles className={`h-10 w-10 ${getScoreColor(synergyIndex)} opacity-50`} />
+        <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/30">
+          <CardContent className="pt-4 pb-3">
+            <div className="flex flex-col items-center gap-1">
+              <Sparkles className="h-5 w-5 text-green-600 mb-1" />
+              <CircularScore score={synergyIndex} size="sm" color="green-600" />
+              <span className="text-xs text-muted-foreground mt-1">Synergy</span>
             </div>
           </CardContent>
         </Card>
 
-        {/* Overall Value */}
-        <Card className={`${getScoreBg(overallScore)}`}>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Overall Value</p>
-                <div className="flex items-baseline gap-1">
-                  <span className={`text-4xl font-bold ${getScoreColor(overallScore)}`}>
-                    {Math.round(overallScore)}
-                  </span>
-                  <span className="text-lg text-muted-foreground">/100</span>
-                </div>
-              </div>
-              <TrendingUp className={`h-10 w-10 ${getScoreColor(overallScore)} opacity-50`} />
+        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/30">
+          <CardContent className="pt-4 pb-3">
+            <div className="flex flex-col items-center gap-1">
+              <TrendingUp className="h-5 w-5 text-blue-600 mb-1" />
+              <CircularScore score={overallScore} size="sm" color="blue-600" />
+              <span className="text-xs text-muted-foreground mt-1">Overall</span>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Value Narrative */}
+      {/* Value Narrative - Compact */}
       {stakeholderInsights?.overall_assessment && (
-        <Alert className="border-primary/30 bg-gradient-to-r from-primary/5 to-primary/10">
-          <Sparkles className="h-5 w-5" />
-          <AlertDescription className="text-base leading-relaxed">
+        <Alert className="border-primary/30 bg-gradient-to-r from-primary/5 to-primary/10 py-3">
+          <AlertDescription className="text-sm leading-relaxed">
             {stakeholderInsights.overall_assessment}
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Stakeholder Value - Compact Grid */}
-      <div className="grid gap-4 md:grid-cols-3">
-        {/* Student Value */}
-        <Card className="border-l-4 border-l-blue-500">
-          <CardHeader className="pb-3">
+      {/* Stakeholder Dashboards */}
+      <div className="grid gap-3 md:grid-cols-3">
+        {/* Student Dashboard */}
+        <Card className="border-l-4 border-l-blue-500 bg-gradient-to-br from-blue-500/5 to-transparent">
+          <CardHeader className="pb-2 pt-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <GraduationCap className="h-5 w-5 text-blue-500" />
-                <CardTitle className="text-lg">Students</CardTitle>
+                <GraduationCap className="h-4 w-4 text-blue-500" />
+                <CardTitle className="text-sm font-medium">Students</CardTitle>
               </div>
-              <Badge variant="outline" className="text-blue-600 border-blue-300">
-                {Math.round(student_value?.score || 0)}
-              </Badge>
+              <CircularScore score={student_value?.score || 0} size="sm" color="blue-500" />
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Career</span>
-                <span className="font-medium">{Math.round(student_value?.career_opportunities_score || 0)}</span>
-              </div>
-              <Progress value={student_value?.career_opportunities_score || 0} className="h-1.5" />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Skills</span>
-                <span className="font-medium">{Math.round(student_value?.skill_development_score || 0)}</span>
-              </div>
-              <Progress value={student_value?.skill_development_score || 0} className="h-1.5" />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Portfolio</span>
-                <span className="font-medium">{Math.round(student_value?.portfolio_value_score || 0)}</span>
-              </div>
-              <Progress value={student_value?.portfolio_value_score || 0} className="h-1.5" />
-            </div>
-
+          <CardContent className="space-y-2 pb-3">
+            <MetricBar 
+              label="Career" 
+              value={student_value?.career_opportunities_score || 0}
+              icon={Briefcase}
+              color="text-blue-500"
+            />
+            <MetricBar 
+              label="Skills" 
+              value={student_value?.skill_development_score || 0}
+              icon={BookOpen}
+              color="text-blue-500"
+            />
+            <MetricBar 
+              label="Portfolio" 
+              value={student_value?.portfolio_value_score || 0}
+              icon={Award}
+              color="text-blue-500"
+            />
+            <MetricBar 
+              label="Network" 
+              value={student_value?.networking_score || 0}
+              icon={Network}
+              color="text-blue-500"
+            />
             {student_value?.insights && (
-              <p className="text-xs text-muted-foreground leading-relaxed pt-2 border-t">
-                {student_value.insights}
-              </p>
+              <div className="pt-2 border-t mt-2">
+                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
+                  {student_value.insights}
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>
 
-        {/* University Value */}
-        <Card className="border-l-4 border-l-purple-500">
-          <CardHeader className="pb-3">
+        {/* University Dashboard */}
+        <Card className="border-l-4 border-l-purple-500 bg-gradient-to-br from-purple-500/5 to-transparent">
+          <CardHeader className="pb-2 pt-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-purple-500" />
-                <CardTitle className="text-lg">University</CardTitle>
+                <Building2 className="h-4 w-4 text-purple-500" />
+                <CardTitle className="text-sm font-medium">University</CardTitle>
               </div>
-              <Badge variant="outline" className="text-purple-600 border-purple-300">
-                {Math.round(university_value?.score || 0)}
-              </Badge>
+              <CircularScore score={university_value?.score || 0} size="sm" color="purple-500" />
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Partnership</span>
-                <span className="font-medium">{Math.round(university_value?.partnership_quality_score || 0)}</span>
-              </div>
-              <Progress value={university_value?.partnership_quality_score || 0} className="h-1.5" />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Placements</span>
-                <span className="font-medium">{Math.round(university_value?.placement_potential_score || 0)}</span>
-              </div>
-              <Progress value={university_value?.placement_potential_score || 0} className="h-1.5" />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Research</span>
-                <span className="font-medium">{Math.round(university_value?.research_collaboration_score || 0)}</span>
-              </div>
-              <Progress value={university_value?.research_collaboration_score || 0} className="h-1.5" />
-            </div>
-
+          <CardContent className="space-y-2 pb-3">
+            <MetricBar 
+              label="Partnership" 
+              value={university_value?.partnership_quality_score || 0}
+              icon={Handshake}
+              color="text-purple-500"
+            />
+            <MetricBar 
+              label="Placements" 
+              value={university_value?.placement_potential_score || 0}
+              icon={Users}
+              color="text-purple-500"
+            />
+            <MetricBar 
+              label="Research" 
+              value={university_value?.research_collaboration_score || 0}
+              icon={Lightbulb}
+              color="text-purple-500"
+            />
+            <MetricBar 
+              label="Reputation" 
+              value={university_value?.reputation_score || 0}
+              icon={Award}
+              color="text-purple-500"
+            />
             {university_value?.insights && (
-              <p className="text-xs text-muted-foreground leading-relaxed pt-2 border-t">
-                {university_value.insights}
-              </p>
+              <div className="pt-2 border-t mt-2">
+                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
+                  {university_value.insights}
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Industry Value */}
-        <Card className="border-l-4 border-l-green-500">
-          <CardHeader className="pb-3">
+        {/* Industry Dashboard */}
+        <Card className="border-l-4 border-l-green-500 bg-gradient-to-br from-green-500/5 to-transparent">
+          <CardHeader className="pb-2 pt-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-green-500" />
-                <CardTitle className="text-lg">Industry</CardTitle>
+                <TrendingUp className="h-4 w-4 text-green-500" />
+                <CardTitle className="text-sm font-medium">Industry</CardTitle>
               </div>
-              <Badge variant="outline" className="text-green-600 border-green-300">
-                {Math.round(industry_value?.score || 0)}
-              </Badge>
+              <CircularScore score={industry_value?.score || 0} size="sm" color="green-500" />
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">ROI</span>
-                <span className="font-medium">{Math.round(industry_value?.deliverable_roi_score || 0)}</span>
-              </div>
-              <Progress value={industry_value?.deliverable_roi_score || 0} className="h-1.5" />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Talent</span>
-                <span className="font-medium">{Math.round(industry_value?.talent_pipeline_score || 0)}</span>
-              </div>
-              <Progress value={industry_value?.talent_pipeline_score || 0} className="h-1.5" />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Innovation</span>
-                <span className="font-medium">{Math.round(industry_value?.innovation_score || 0)}</span>
-              </div>
-              <Progress value={industry_value?.innovation_score || 0} className="h-1.5" />
-            </div>
-
+          <CardContent className="space-y-2 pb-3">
+            <MetricBar 
+              label="ROI" 
+              value={industry_value?.deliverable_roi_score || 0}
+              icon={DollarSign}
+              color="text-green-500"
+            />
+            <MetricBar 
+              label="Talent" 
+              value={industry_value?.talent_pipeline_score || 0}
+              icon={Users}
+              color="text-green-500"
+            />
+            <MetricBar 
+              label="Innovation" 
+              value={industry_value?.innovation_score || 0}
+              icon={Rocket}
+              color="text-green-500"
+            />
+            <MetricBar 
+              label="Cost Efficiency" 
+              value={industry_value?.cost_efficiency_score || 0}
+              icon={ChartBar}
+              color="text-green-500"
+            />
             {industry_value?.insights && (
-              <p className="text-xs text-muted-foreground leading-relaxed pt-2 border-t">
-                {industry_value.insights}
-              </p>
+              <div className="pt-2 border-t mt-2">
+                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
+                  {industry_value.insights}
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Action Intelligence - Compact Two Column */}
-      {stakeholderInsights && (
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* Recommendations */}
+      {/* Action Items - Compact */}
+      {stakeholderInsights && (stakeholderInsights.recommendations?.length > 0 || stakeholderInsights.risks?.length > 0) && (
+        <div className="grid gap-3 md:grid-cols-2">
           {stakeholderInsights.recommendations && stakeholderInsights.recommendations.length > 0 && (
-            <Card className="border-green-500/30 bg-green-500/5">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  Key Actions
+            <Card className="border-green-500/30 bg-gradient-to-br from-green-500/5 to-transparent">
+              <CardHeader className="pb-2 pt-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-300 h-5">
+                    ✓ Actions
+                  </Badge>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
+              <CardContent className="pb-3">
+                <ul className="space-y-1.5">
                   {stakeholderInsights.recommendations.slice(0, 3).map((rec: string, i: number) => (
-                    <li key={i} className="flex items-start gap-2 text-sm">
-                      <ArrowRight className="h-3.5 w-3.5 text-green-600 mt-0.5 flex-shrink-0" />
-                      <span className="text-muted-foreground leading-relaxed">{rec}</span>
+                    <li key={i} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-1.5">
+                      <span className="text-green-600 mt-0.5">•</span>
+                      <span className="line-clamp-2">{rec}</span>
                     </li>
                   ))}
                 </ul>
@@ -365,21 +336,21 @@ export const ValueAnalysisTab = ({
             </Card>
           )}
 
-          {/* Risks */}
           {stakeholderInsights.risks && stakeholderInsights.risks.length > 0 && (
-            <Card className="border-amber-500/30 bg-amber-500/5">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  Watch Out For
+            <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent">
+              <CardHeader className="pb-2 pt-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-300 h-5">
+                    ⚠ Risks
+                  </Badge>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
+              <CardContent className="pb-3">
+                <ul className="space-y-1.5">
                   {stakeholderInsights.risks.slice(0, 3).map((risk: string, i: number) => (
-                    <li key={i} className="flex items-start gap-2 text-sm">
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-600 mt-0.5 flex-shrink-0" />
-                      <span className="text-muted-foreground leading-relaxed">{risk}</span>
+                    <li key={i} className="text-xs text-muted-foreground leading-relaxed flex items-start gap-1.5">
+                      <span className="text-amber-600 mt-0.5">•</span>
+                      <span className="line-clamp-2">{risk}</span>
                     </li>
                   ))}
                 </ul>
