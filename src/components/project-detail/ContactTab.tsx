@@ -4,15 +4,17 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Mail, Phone, Globe, MessageSquare, Building2, Users as UsersIcon, Linkedin, Twitter, Facebook, Calendar, Award, Briefcase, MapPin } from "lucide-react";
 import { ProposePartnershipDialog } from "@/components/ProposePartnershipDialog";
+import { EnrichmentPanel } from "./EnrichmentPanel";
 
 interface ContactTabProps {
   forms: any;
   companyProfile?: any;
   projectId: string;
   projectTitle: string;
+  onDataRefresh?: () => void;
 }
 
-export const ContactTab = ({ forms, companyProfile, projectId, projectTitle }: ContactTabProps) => {
+export const ContactTab = ({ forms, companyProfile, projectId, projectTitle, onDataRefresh }: ContactTabProps) => {
   const form2 = forms.form2 || {};
   
   // Prioritize real company profile data over AI-generated form data
@@ -77,6 +79,14 @@ export const ContactTab = ({ forms, companyProfile, projectId, projectTitle }: C
   
   return (
     <div className="space-y-6">
+      {/* Enrichment Panel */}
+      {companyProfile && (
+        <EnrichmentPanel 
+          companyProfile={companyProfile} 
+          onEnrichmentComplete={onDataRefresh}
+        />
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between">

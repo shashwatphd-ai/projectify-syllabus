@@ -153,6 +153,7 @@ const ProjectDetail = () => {
               companyProfile={companyProfile}
               projectId={id!}
               projectTitle={project.title}
+              onDataRefresh={loadProjectData}
             />
           </TabsContent>
 
