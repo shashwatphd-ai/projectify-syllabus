@@ -235,7 +235,9 @@ serve(async (req) => {
       if (APOLLO_API_KEY && placeDetails?.website) {
         // PRIMARY: Use Apollo.io People Search for verified contact data
         try {
-          console.log(`  🚀 Searching Apollo.io for contacts at ${discovery.name}...`);
+          // Extract and validate domain
+          const domain = new URL(placeDetails.website).hostname.replace('www.', '');
+          console.log(`  🚀 Searching Apollo.io for contacts at ${discovery.name} (domain: ${domain})...`);
           
           const apolloResponse = await fetch(
             'https://api.apollo.io/v1/mixed_people/search',
@@ -247,15 +249,23 @@ serve(async (req) => {
                 'X-Api-Key': APOLLO_API_KEY
               },
               body: JSON.stringify({
-                organization_domains: [new URL(placeDetails.website).hostname.replace('www.', '')],
+                // Primary filter: organization domain
+                organization_domains: [domain],
+                // Prioritize decision makers who handle partnerships
                 person_titles: [
-                  'CEO', 'President', 'Owner', 'Founder',
-                  'COO', 'General Manager', 'Director',
-                  'VP', 'Head of Operations', 'Managing Director'
+                  'Director of Partnerships',
+                  'VP of Partnerships', 
+                  'Director of Operations',
+                  'COO',
+                  'President',
+                  'CEO',
+                  'Owner',
+                  'General Manager'
                 ],
-                person_seniorities: ['owner', 'c_suite', 'vp', 'director'],
+                person_seniorities: ['c_suite', 'vp', 'director', 'owner'],
+                // Only get top result
                 page: 1,
-                per_page: 3
+                per_page: 1
               })
             }
           );
@@ -264,18 +274,38 @@ serve(async (req) => {
             const apolloData = await apolloResponse.json();
             
             if (apolloData.people && apolloData.people.length > 0) {
-              const contact = apolloData.people[0]; // Take highest-ranking person
+              const contact = apolloData.people[0];
               
-              contactDetails = {
-                contactPerson: contact.name || null,
-                contactEmail: contact.email || null,
-                contactPhone: contact.phone_numbers?.[0]?.sanitized_number || null,
-                linkedinProfile: contact.linkedin_url || null,
-                title: contact.title || null,
-                source: 'apollo_verified'
-              };
+              // CRITICAL: Verify the contact actually belongs to this organization
+              const contactDomain = contact.organization?.website_url 
+                ? new URL(contact.organization.website_url).hostname.replace('www.', '')
+                : null;
               
-              console.log(`  ✓ Apollo.io verified contact: ${contactDetails.contactPerson} (${contactDetails.title})`);
+              const contactOrgName = contact.organization?.name?.toLowerCase() || '';
+              const searchOrgName = discovery.name.toLowerCase();
+              
+              // Validate: domain match OR organization name similarity
+              const isDomainMatch = contactDomain === domain;
+              const isNameMatch = contactOrgName.includes(searchOrgName.split(' ')[0]) || 
+                                  searchOrgName.includes(contactOrgName.split(' ')[0]);
+              
+              if (isDomainMatch || isNameMatch) {
+                contactDetails = {
+                  contactPerson: contact.name || null,
+                  contactEmail: contact.email || null,
+                  contactPhone: contact.phone_numbers?.[0]?.sanitized_number || null,
+                  linkedinProfile: contact.linkedin_url || null,
+                  title: contact.title || null,
+                  source: 'apollo_verified'
+                };
+                
+                console.log(`  ✓ Apollo.io verified contact: ${contactDetails.contactPerson} (${contactDetails.title})`);
+                console.log(`    Organization: ${contact.organization?.name || 'N/A'}`);
+              } else {
+                console.log(`  ⚠ Apollo contact organization mismatch:`);
+                console.log(`    Expected: ${discovery.name} (${domain})`);
+                console.log(`    Got: ${contact.organization?.name || 'N/A'} (${contactDomain || 'N/A'})`);
+              }
             } else {
               console.log(`  ⚠ No contacts found in Apollo.io for ${discovery.name}`);
             }
