@@ -1585,7 +1585,12 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { courseId, industries, numTeams, generation_run_id } = await req.json();
+    const requestBody = await req.json();
+    console.log('📦 Request body received:', JSON.stringify(requestBody));
+    
+    const { courseId, industries, numTeams, generation_run_id } = requestBody;
+    
+    console.log('🔍 Extracted generation_run_id:', generation_run_id, 'Type:', typeof generation_run_id);
 
     const { data: course, error: courseError } = await supabaseClient
       .from('course_profiles')
@@ -1616,18 +1621,20 @@ serve(async (req) => {
     
     // Step 1: PRIORITY - Use Apollo-enriched companies if generation_run_id provided
     if (generation_run_id) {
-      console.log('\n🎯 Step 1: Using Apollo-enriched companies from generation run');
+      console.log('\n🎯 Step 1: Using Apollo-enriched companies from generation run:', generation_run_id);
       try {
         companiesFound = await getApolloEnrichedCompanies(
           serviceRoleClient,
           generation_run_id,
           numTeams
         );
-        console.log(`✅ Loaded ${companiesFound.length} Apollo-enriched companies`);
+        console.log(`✅ Loaded ${companiesFound.length} Apollo-enriched companies with IDs:`, companiesFound.map(c => c.id));
       } catch (error) {
         console.error('❌ Failed to load Apollo companies:', error);
         console.log('⚠ Falling back to intelligent discovery');
       }
+    } else {
+      console.log('⚠ No generation_run_id provided, skipping Apollo fetch');
     }
     
     // Step 2: FALLBACK - Try intelligent discovery using Google Search if no Apollo data
