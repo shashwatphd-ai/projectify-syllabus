@@ -20,25 +20,12 @@ export const AcademicAlignmentTab = ({ project, courseProfile, forms, metadata }
   const form6 = forms.form6 || {};
 
   useEffect(() => {
-    loadAlignmentData();
-  }, [project.id]);
-
-  const loadAlignmentData = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('project_lo_alignments')
-        .select('*')
-        .eq('project_id', project.id)
-        .maybeSingle();
-
-      if (error) throw error;
-      setAlignmentData(data);
-    } catch (error) {
-      console.error('Error loading alignment:', error);
-    } finally {
-      setLoading(false);
+    // Load alignment data from metadata instead of separate table
+    if (metadata?.lo_alignment_details) {
+      setAlignmentData(metadata.lo_alignment_details);
     }
-  };
+    setLoading(false);
+  }, [metadata]);
 
   const learningOutcomes = courseProfile?.learning_outcomes || [];
 
