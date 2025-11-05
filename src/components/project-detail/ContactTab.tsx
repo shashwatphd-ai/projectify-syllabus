@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Mail, Phone, Globe, MessageSquare, Building2, Users as UsersIcon, Linkedin, Twitter, Facebook, Calendar, Award, Briefcase, MapPin } from "lucide-react";
+import { Mail, Phone, Globe, MessageSquare, Building2, Users as UsersIcon, Linkedin, Twitter, Facebook, Calendar, Award, Briefcase, MapPin, Target, AlertCircle, Code, TrendingUp } from "lucide-react";
 import { ProposePartnershipDialog } from "@/components/ProposePartnershipDialog";
 import { EnrichmentPanel } from "./EnrichmentPanel";
 
@@ -386,6 +386,159 @@ export const ContactTab = ({ forms, companyProfile, projectId, projectTitle, onD
           </div>
         </CardContent>
       </Card>
+
+      {/* Business Challenges & Needs */}
+      {companyProfile?.inferred_needs && companyProfile.inferred_needs.length > 0 && (
+        <Card className="border-l-4 border-l-amber-500">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Current Business Challenges
+            </CardTitle>
+            <CardDescription>
+              Market-verified needs this company is actively addressing
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
+              {companyProfile.inferred_needs.map((need: string, i: number) => (
+                <li key={i} className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">{need}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Active Job Postings */}
+      {companyProfile?.job_postings && companyProfile.job_postings.length > 0 && (
+        <Card className="border-l-4 border-l-blue-500">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Briefcase className="h-4 w-4" />
+              Active Hiring ({companyProfile.job_postings.length} Open Roles)
+            </CardTitle>
+            <CardDescription>
+              Current talent needs - potential project alignment opportunities
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {companyProfile.job_postings.slice(0, 5).map((job: any, i: number) => (
+                <div key={i} className="rounded-lg border border-border p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{job.title}</p>
+                      {(job.city || job.state) && (
+                        <p className="text-xs text-muted-foreground">
+                          {job.city}{job.city && job.state ? ', ' : ''}{job.state}
+                          {job.posted_at && ` • Posted ${new Date(job.posted_at).toLocaleDateString()}`}
+                        </p>
+                      )}
+                    </div>
+                    {job.url && (
+                      <a 
+                        href={job.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline flex-shrink-0"
+                      >
+                        View →
+                      </a>
+                    )}
+                  </div>
+                  {job.skills_needed && job.skills_needed.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {job.skills_needed.slice(0, 5).map((skill: string, idx: number) => (
+                        <Badge key={idx} variant="outline" className="text-xs">
+                          {skill}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {companyProfile.job_postings.length > 5 && (
+                <p className="text-xs text-muted-foreground text-center pt-2">
+                  + {companyProfile.job_postings.length - 5} more positions
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Technology Stack */}
+      {companyProfile?.technologies_used && companyProfile.technologies_used.length > 0 && (
+        <Card className="border-l-4 border-l-green-500">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Code className="h-4 w-4" />
+              Technology Stack
+            </CardTitle>
+            <CardDescription>
+              {companyProfile.technologies_used.length} technologies tracked
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {companyProfile.technologies_used.map((tech: string, i: number) => (
+                <Badge key={i} variant="secondary">
+                  {tech}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Funding & Market Position */}
+      {(companyProfile?.funding_stage || companyProfile?.total_funding_usd || companyProfile?.recent_news) && (
+        <Card className="border-l-4 border-l-purple-500">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Market Position & Funding
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {companyProfile.funding_stage && (
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Funding Stage</p>
+                <Badge variant="default">{companyProfile.funding_stage}</Badge>
+              </div>
+            )}
+            {companyProfile.total_funding_usd && (
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Total Funding</p>
+                <p className="font-bold text-lg">
+                  ${(companyProfile.total_funding_usd / 1000000).toFixed(1)}M
+                </p>
+              </div>
+            )}
+            {companyProfile.organization_revenue_range && (
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Revenue Range</p>
+                <p className="text-sm font-medium">{companyProfile.organization_revenue_range}</p>
+              </div>
+            )}
+            {companyProfile.organization_employee_count && (
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Employee Count</p>
+                <p className="text-sm font-medium">{companyProfile.organization_employee_count}</p>
+              </div>
+            )}
+            {companyProfile.recent_news && (
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Recent Activity</p>
+                <p className="text-sm">{companyProfile.recent_news}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

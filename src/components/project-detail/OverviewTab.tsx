@@ -1,13 +1,14 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Target, Package, Lightbulb } from "lucide-react";
+import { Target, Package, Lightbulb, DollarSign } from "lucide-react";
 
 interface OverviewTabProps {
   project: any;
   forms: any;
+  metadata?: any;
 }
 
-export const OverviewTab = ({ project, forms }: OverviewTabProps) => {
+export const OverviewTab = ({ project, forms, metadata }: OverviewTabProps) => {
   const form1 = forms.form1 || {};
   const form3 = forms.form3 || {};
 
@@ -24,6 +25,69 @@ export const OverviewTab = ({ project, forms }: OverviewTabProps) => {
           </CardContent>
         </Card>
       )}
+
+      {/* Budget & Market Signals Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
+            Project Investment & Value
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Main Budget Display */}
+            <div className="text-center p-6 bg-primary/5 rounded-lg">
+              <p className="text-sm text-muted-foreground mb-2">Total Project Budget</p>
+              <p className="text-4xl font-bold text-primary">
+                ${project.pricing_usd.toLocaleString()}
+              </p>
+            </div>
+            
+            {/* Quick Market Signals */}
+            {metadata?.market_signals_used && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Market Intelligence Applied</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {metadata.market_signals_used.job_postings_matched > 0 && (
+                    <Badge variant="secondary" className="justify-center">
+                      🔥 {metadata.market_signals_used.job_postings_matched} Job Postings
+                    </Badge>
+                  )}
+                  {metadata.market_signals_used.funding_stage && (
+                    <Badge variant="secondary" className="justify-center">
+                      💰 {metadata.market_signals_used.funding_stage}
+                    </Badge>
+                  )}
+                  {metadata.market_signals_used.technologies_aligned?.length > 0 && (
+                    <Badge variant="secondary" className="justify-center">
+                      ⚙️ {metadata.market_signals_used.technologies_aligned.length} Tech Matches
+                    </Badge>
+                  )}
+                  {metadata.market_signals_used.hiring_urgency && (
+                    <Badge variant="secondary" className="justify-center">
+                      📈 {metadata.market_signals_used.hiring_urgency} Hiring
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {/* ROI Preview */}
+            {metadata?.estimated_roi?.roi_multiplier && (
+              <div className="rounded-lg bg-green-500/10 border border-green-500/20 p-3 text-center">
+                <p className="text-sm text-muted-foreground">Estimated ROI</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  {metadata.estimated_roi.roi_multiplier}× Value Multiplier
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  ${metadata.estimated_roi.total_estimated_value?.toLocaleString()} total value
+                </p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {form3.learning_objectives && (
         <Card>

@@ -488,12 +488,15 @@ export type Database = {
           algorithm_version: string | null
           companies_considered: Json | null
           created_at: string | null
+          estimated_roi: Json | null
           generation_timestamp: string | null
           id: string
           lo_alignment_detail: Json | null
           lo_mapping_deliverables: Json | null
           lo_mapping_tasks: Json | null
+          market_alignment_score: number | null
           market_signals_used: Json | null
+          pricing_breakdown: Json | null
           project_id: string
           scoring_rationale: Json | null
           selection_criteria: Json | null
@@ -504,12 +507,15 @@ export type Database = {
           algorithm_version?: string | null
           companies_considered?: Json | null
           created_at?: string | null
+          estimated_roi?: Json | null
           generation_timestamp?: string | null
           id?: string
           lo_alignment_detail?: Json | null
           lo_mapping_deliverables?: Json | null
           lo_mapping_tasks?: Json | null
+          market_alignment_score?: number | null
           market_signals_used?: Json | null
+          pricing_breakdown?: Json | null
           project_id: string
           scoring_rationale?: Json | null
           selection_criteria?: Json | null
@@ -520,12 +526,15 @@ export type Database = {
           algorithm_version?: string | null
           companies_considered?: Json | null
           created_at?: string | null
+          estimated_roi?: Json | null
           generation_timestamp?: string | null
           id?: string
           lo_alignment_detail?: Json | null
           lo_mapping_deliverables?: Json | null
           lo_mapping_tasks?: Json | null
+          market_alignment_score?: number | null
           market_signals_used?: Json | null
+          pricing_breakdown?: Json | null
           project_id?: string
           scoring_rationale?: Json | null
           selection_criteria?: Json | null

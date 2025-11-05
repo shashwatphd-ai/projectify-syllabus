@@ -17,6 +17,7 @@ import { AlgorithmTab } from "@/components/project-detail/AlgorithmTab";
 import { LearningOutcomeAlignment } from "@/components/project-detail/LearningOutcomeAlignment";
 import { TimelineTab } from "@/components/project-detail/TimelineTab";
 import { VerificationTab } from "@/components/project-detail/VerificationTab";
+import { MarketInsightsTab } from "@/components/project-detail/MarketInsightsTab";
 import { Navigation } from "@/components/Navigation";
 import { useProjectAnalytics } from "@/hooks/useProjectAnalytics";
 
@@ -131,6 +132,7 @@ const ProjectDetail = () => {
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="flex flex-wrap h-auto gap-2 p-2">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="market-insights">Market Insights</TabsTrigger>
             <TabsTrigger value="contact">Contact</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
             <TabsTrigger value="logistics">Logistics</TabsTrigger>
@@ -144,7 +146,16 @@ const ProjectDetail = () => {
           </TabsList>
 
           <TabsContent value="overview">
-            <OverviewTab project={project} forms={forms} />
+            <OverviewTab project={project} forms={forms} metadata={metadata} />
+          </TabsContent>
+
+          <TabsContent value="market-insights">
+            <MarketInsightsTab 
+              companyProfile={companyProfile}
+              projectMetadata={metadata}
+              project={project}
+              courseProfile={courseProfile}
+            />
           </TabsContent>
 
           <TabsContent value="contact">

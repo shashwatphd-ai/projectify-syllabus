@@ -548,19 +548,294 @@ async function calculateScores(
   };
 }
 
-function estimateBudget(weeks: number, hrsPerWeek: number, teamSize: number, tier: string, companySize: string): number {
-  const rate = tier === "Advanced" ? 20 : 15;
-  const allowance = tier === "Advanced" ? 300 : 150;
-  const hours = weeks * hrsPerWeek * teamSize;
-  let budget = hours * rate + allowance;
+function estimateBudget(
+  weeks: number, 
+  hrsPerWeek: number, 
+  teamSize: number, 
+  tier: string, 
+  companySize: string,
+  jobPostings?: any[],
+  fundingStage?: string | null,
+  technologiesUsed?: string[],
+  inferredNeeds?: string[]
+): { budget: number; breakdown: any } {
   
-  if (companySize === "Small" || companySize === "Nonprofit") {
-    budget *= 0.85;
-  } else if (companySize === "Enterprise") {
-    budget *= 1.10;
+  const baseRate = tier === "Advanced" ? 20 : 15;
+  const materialAllowance = tier === "Advanced" ? 300 : 150;
+  const baseHours = weeks * hrsPerWeek * teamSize;
+  let budget = (baseHours * baseRate) + materialAllowance;
+  
+  const breakdown: any = {
+    base_calculation: {
+      hours: baseHours,
+      rate_per_hour: baseRate,
+      labor_cost: baseHours * baseRate,
+      materials: materialAllowance,
+      subtotal: budget
+    },
+    multipliers_applied: []
+  };
+  
+  // 1. HIRING URGENCY MULTIPLIER
+  if (jobPostings && jobPostings.length > 0) {
+    let hiringMultiplier = 1.0;
+    let urgencyLevel = "Low";
+    
+    if (jobPostings.length >= 10) {
+      hiringMultiplier = 1.20;
+      urgencyLevel = "Critical";
+    } else if (jobPostings.length >= 5) {
+      hiringMultiplier = 1.10;
+      urgencyLevel = "High";
+    } else if (jobPostings.length >= 2) {
+      hiringMultiplier = 1.05;
+      urgencyLevel = "Moderate";
+    }
+    
+    if (hiringMultiplier > 1.0) {
+      budget *= hiringMultiplier;
+      breakdown.multipliers_applied.push({
+        factor: "Hiring Urgency",
+        level: urgencyLevel,
+        open_positions: jobPostings.length,
+        multiplier: hiringMultiplier,
+        rationale: `${jobPostings.length} active job postings indicate immediate talent needs`
+      });
+    }
   }
   
-  return Math.round(budget / 10) * 10;
+  // 2. FUNDING STAGE PREMIUM
+  const fundingMultipliers: Record<string, number> = {
+    'Series C': 1.25,
+    'Series C+': 1.30,
+    'Series B': 1.15,
+    'Series A': 1.05,
+    'Seed': 0.95,
+    'Pre-seed': 0.90,
+    'Bootstrapped': 0.85
+  };
+  
+  if (fundingStage && fundingMultipliers[fundingStage]) {
+    const multiplier = fundingMultipliers[fundingStage];
+    budget *= multiplier;
+    breakdown.multipliers_applied.push({
+      factor: "Funding Stage",
+      stage: fundingStage,
+      multiplier: multiplier,
+      rationale: multiplier > 1.0 
+        ? `Well-funded companies can afford premium consulting rates`
+        : `Early-stage companies get discounted rates for mutual learning`
+    });
+  }
+  
+  // 3. TECHNOLOGY COMPLEXITY PREMIUM
+  const advancedTechnologies = [
+    'AI', 'ML', 'Machine Learning', 'Artificial Intelligence',
+    'Cloud', 'AWS', 'Azure', 'GCP', 'Kubernetes', 'Docker',
+    'React', 'Python', 'TensorFlow', 'PyTorch',
+    'Blockchain', 'Cryptocurrency', 'IoT', 'Edge Computing'
+  ];
+  
+  if (technologiesUsed && technologiesUsed.length > 0) {
+    const techMatches = technologiesUsed.filter(tech => 
+      advancedTechnologies.some(advTech => 
+        tech.toLowerCase().includes(advTech.toLowerCase())
+      )
+    );
+    
+    if (techMatches.length >= 3) {
+      budget *= 1.25;
+      breakdown.multipliers_applied.push({
+        factor: "Technology Complexity",
+        technologies_matched: techMatches,
+        multiplier: 1.25,
+        rationale: `Advanced technology stack (${techMatches.length} cutting-edge tools) requires specialized skills`
+      });
+    } else if (techMatches.length >= 1) {
+      budget *= 1.10;
+      breakdown.multipliers_applied.push({
+        factor: "Technology Complexity",
+        technologies_matched: techMatches,
+        multiplier: 1.10,
+        rationale: `Moderate technology requirements`
+      });
+    }
+  }
+  
+  // 4. STRATEGIC VALUE ASSESSMENT
+  const strategicKeywords = [
+    'strategic', 'optimization', 'transformation', 'innovation',
+    'scale', 'growth', 'expansion', 'market entry', 'competitive advantage'
+  ];
+  
+  if (inferredNeeds && inferredNeeds.length > 0) {
+    const hasStrategicNeeds = inferredNeeds.some(need => 
+      strategicKeywords.some(keyword => 
+        need.toLowerCase().includes(keyword)
+      )
+    );
+    
+    if (hasStrategicNeeds) {
+      budget *= 1.15;
+      breakdown.multipliers_applied.push({
+        factor: "Strategic Value",
+        multiplier: 1.15,
+        rationale: "Project addresses high-level strategic initiatives with significant business impact"
+      });
+    }
+  }
+  
+  // 5. COMPANY SIZE ADJUSTMENT
+  let sizeMultiplier = 1.0;
+  if (companySize === "Small" || companySize === "Nonprofit") {
+    sizeMultiplier = 0.85;
+  } else if (companySize === "Enterprise") {
+    sizeMultiplier = 1.10;
+  }
+  
+  if (sizeMultiplier !== 1.0) {
+    budget *= sizeMultiplier;
+    breakdown.multipliers_applied.push({
+      factor: "Company Size",
+      size: companySize,
+      multiplier: sizeMultiplier,
+      rationale: sizeMultiplier < 1.0 
+        ? "Discount for small/nonprofit organizations to maximize social impact"
+        : "Premium for enterprise clients with larger budgets"
+    });
+  }
+  
+  budget = Math.round(budget / 100) * 100;
+  breakdown.final_budget = budget;
+  
+  return { budget, breakdown };
+}
+
+function estimateProjectROI(
+  budget: number,
+  deliverables: string[],
+  jobPostings: any[],
+  fundingStage: string | null,
+  tasks: string[]
+): any {
+  
+  let totalValue = budget;
+  
+  const deliverableValues: Record<string, number> = {
+    'Market Research Report': 8000,
+    'Competitive Analysis': 7000,
+    'Financial Model': 12000,
+    'Prototype': 25000,
+    'MVP': 30000,
+    'Dashboard': 15000,
+    'Analytics Platform': 20000,
+    'Strategy Framework': 10000,
+    'Process Optimization': 18000,
+    'Business Plan': 9000,
+    'Marketing Strategy': 11000,
+    'Data Analysis': 6000,
+    'Feasibility Study': 8500,
+    'Technical Documentation': 5000,
+    'User Research': 7500
+  };
+  
+  const deliverableValueBreakdown: any[] = [];
+  deliverables.forEach(deliverable => {
+    Object.entries(deliverableValues).forEach(([key, value]) => {
+      if (deliverable.includes(key)) {
+        totalValue += value;
+        deliverableValueBreakdown.push({
+          deliverable,
+          market_value: value,
+          comparison: `Hiring consultant for ${key} typically costs $${value.toLocaleString()}`
+        });
+      }
+    });
+  });
+  
+  let talentPipelineValue = 0;
+  if (jobPostings && jobPostings.length > 0) {
+    const avgRecruitingCost = 5000;
+    const qualifiedCandidates = Math.min(3, jobPostings.length);
+    talentPipelineValue = qualifiedCandidates * avgRecruitingCost * 0.5;
+    totalValue += talentPipelineValue;
+  }
+  
+  let strategicValue = 0;
+  if (['Series B', 'Series C', 'Series C+'].includes(fundingStage || '')) {
+    strategicValue = budget * 0.20;
+    totalValue += strategicValue;
+  }
+  
+  const knowledgeTransferValue = budget * 0.15;
+  totalValue += knowledgeTransferValue;
+  
+  return {
+    estimated_budget: budget,
+    deliverable_value: deliverableValueBreakdown.reduce((sum, d) => sum + d.market_value, 0),
+    talent_pipeline_value: talentPipelineValue,
+    strategic_value: strategicValue,
+    knowledge_transfer_value: knowledgeTransferValue,
+    total_estimated_value: Math.round(totalValue),
+    roi_multiplier: (totalValue / budget).toFixed(2),
+    breakdown: {
+      deliverables: deliverableValueBreakdown,
+      talent_pipeline: {
+        open_positions: jobPostings?.length || 0,
+        qualified_candidates_expected: Math.min(3, jobPostings?.length || 0),
+        value: talentPipelineValue,
+        rationale: "Project provides direct access to pre-vetted talent"
+      },
+      strategic_consulting: {
+        value: strategicValue,
+        rationale: fundingStage ? `${fundingStage} companies benefit from external innovation perspectives` : null
+      },
+      knowledge_transfer: {
+        value: knowledgeTransferValue,
+        rationale: "Students bring latest academic research and methodologies"
+      }
+    }
+  };
+}
+
+function calculateMarketAlignmentScore(
+  projectTasks: string[],
+  projectDeliverables: string[],
+  inferredNeeds: string[],
+  jobPostings: any[],
+  technologiesUsed: string[]
+): number {
+  let alignmentScore = 0;
+  
+  if (inferredNeeds && inferredNeeds.length > 0) {
+    const taskText = projectTasks.join(' ').toLowerCase();
+    const matchedNeeds = inferredNeeds.filter(need => {
+      const needKeywords = need.toLowerCase().split(' ');
+      return needKeywords.some(keyword => keyword.length > 3 && taskText.includes(keyword));
+    });
+    alignmentScore += (matchedNeeds.length / inferredNeeds.length) * 40;
+  }
+  
+  if (jobPostings && jobPostings.length > 0) {
+    const jobSkills = jobPostings.flatMap(jp => jp.skills_needed || []);
+    const deliverableText = projectDeliverables.join(' ').toLowerCase();
+    const matchedSkills = jobSkills.filter(skill => 
+      deliverableText.includes(skill.toLowerCase())
+    );
+    if (jobSkills.length > 0) {
+      alignmentScore += (matchedSkills.length / jobSkills.length) * 30;
+    }
+  }
+  
+  if (technologiesUsed && technologiesUsed.length > 0) {
+    const taskText = projectTasks.join(' ').toLowerCase();
+    const matchedTech = technologiesUsed.filter(tech =>
+      taskText.includes(tech.toLowerCase())
+    );
+    alignmentScore += (matchedTech.length / technologiesUsed.length) * 30;
+  }
+  
+  return Math.round(alignmentScore);
 }
 
 async function generateLOAlignmentDetail(
