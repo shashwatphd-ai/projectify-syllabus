@@ -469,6 +469,47 @@ serve(async (req) => {
                       }
                       
                       // ====================================
+                      // BUYING INTENT SIGNALS (New)
+                      // ====================================
+                      const buyingIntentSignals = [];
+                      
+                      // Signal 1: Recent funding (indicates budget availability)
+                      if (fundingStage && ['Series A', 'Series B', 'Series C', 'Series C+'].includes(fundingStage)) {
+                        const fundingDate = organization.latest_funding_stage_cd || new Date().toISOString();
+                        const monthsSinceFunding = (Date.now() - new Date(fundingDate).getTime()) / (1000 * 60 * 60 * 24 * 30);
+                        if (monthsSinceFunding < 12) {
+                          buyingIntentSignals.push({
+                            signal_type: 'recent_funding',
+                            confidence: 'high',
+                            details: `Raised ${fundingStage} within last ${Math.round(monthsSinceFunding)} months`,
+                            timing: 'immediate'
+                          });
+                        }
+                      }
+                      
+                      // Signal 2: High hiring velocity (indicates growth mode)
+                      if (jobPostings.length >= 5) {
+                        buyingIntentSignals.push({
+                          signal_type: 'hiring_velocity',
+                          confidence: jobPostings.length >= 10 ? 'high' : 'medium',
+                          details: `${jobPostings.length} active job openings indicate rapid growth`,
+                          timing: 'immediate'
+                        });
+                      }
+                      
+                      // Signal 3: Technology adoption (new tools = need for training/consulting)
+                      if (technologiesUsed.length >= 10) {
+                        buyingIntentSignals.push({
+                          signal_type: 'technology_adoption',
+                          confidence: 'medium',
+                          details: `Using ${technologiesUsed.length} technologies suggests need for specialized expertise`,
+                          timing: 'near_term'
+                        });
+                      }
+                      
+                      console.log(`    📊 Identified ${buyingIntentSignals.length} buying intent signals`);
+                      
+                      // ====================================
                       // BUILD COMPLETE CONTACT DETAILS
                       // ====================================
                       contactDetails = {
@@ -512,7 +553,7 @@ serve(async (req) => {
                         technologiesUsed,
                         fundingStage,
                         totalFundingUsd,
-                        buyingIntentSignals: [],
+                        buyingIntentSignals,
                         
                         // Metadata
                         apolloEnrichmentDate: new Date().toISOString()

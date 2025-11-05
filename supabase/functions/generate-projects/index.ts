@@ -414,10 +414,29 @@ Company Profile:
 ${company.website ? `- Website: ${company.website}` : ''}
 
 ${marketContext.length > 0 ? `
-📊 MARKET INTELLIGENCE (Real-time data from Apollo.io):
+📊 MARKET INTELLIGENCE (Real-time signals from Apollo.io):
 ${marketContext.map(m => `- ${m}`).join('\n')}
 
-USE THIS DATA: Design a project that addresses their hiring needs OR leverages their technology stack.
+🎯 STRATEGIC IMPERATIVES - LEVERAGE THIS DATA:
+${company.job_postings && company.job_postings.length > 0 ? `
+→ HIRING URGENCY: ${company.job_postings.length} open positions = immediate talent needs
+  • Students preview real roles and demonstrate skills employers actively seek
+  • Project deliverables should align with job posting requirements
+  • Focus on skills mentioned in their job descriptions
+` : ''}
+${company.technologies_used && company.technologies_used.length > 0 ? `
+→ TECH STACK RELEVANCE: Students gain hands-on experience with company's actual tools
+  • Project should integrate: ${company.technologies_used.slice(0, 5).join(', ')}
+  • Deliverables should showcase proficiency in their production environment
+  • Tasks should reflect real workflows using these technologies
+` : ''}
+${company.funding_stage ? `
+→ BUSINESS STAGE CONTEXT: ${company.funding_stage} companies have specific priorities
+  • Early-stage (Seed/Series A): Rapid prototyping, MVP validation, market research
+  • Growth-stage (Series B/C): Optimization, scalability, process improvement  
+  • Mature (IPO+): Innovation, R&D, new market exploration
+  • Scope project complexity to match their current business stage
+` : ''}
 ` : ''}
 
 REAL Business Challenges (from customer reviews & market analysis):
