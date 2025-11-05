@@ -16,6 +16,7 @@ interface StakeholderValueCardProps {
     icon: LucideIcon;
   }[];
   insight: string;
+  evidence: string;
   benefits: string[];
 }
 
@@ -35,6 +36,7 @@ export const StakeholderValueCard = ({
   score,
   metrics,
   insight,
+  evidence,
   benefits
 }: StakeholderValueCardProps) => {
   const grade = getScoreGrade(score);
@@ -75,18 +77,27 @@ export const StakeholderValueCard = ({
       </CardHeader>
 
       <CardContent className="space-y-3 pt-0">
+        {/* Evidence Citation */}
+        <div className="bg-muted/30 rounded-lg p-2.5 border border-border/30">
+          <div className="flex items-start gap-2">
+            <div className="text-xs text-muted-foreground leading-relaxed">
+              <span className="font-semibold text-foreground">Evidence:</span> {evidence}
+            </div>
+          </div>
+        </div>
+
         {/* Key Insight */}
-        <div className={`rounded-lg p-3 border ${color.replace('text-', 'bg-')}/10 ${color.replace('text-', 'border-')}/30`}>
-          <p className="text-sm font-medium leading-relaxed">{insight}</p>
+        <div className={`rounded-lg p-3 border ${color.replace('text-', 'bg-')}/5 ${color.replace('text-', 'border-')}/20`}>
+          <p className="text-sm leading-relaxed">{insight}</p>
         </div>
 
         {/* Benefits List */}
         {benefits && benefits.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {benefits.slice(0, 3).map((benefit, idx) => (
-              <div key={idx} className="flex items-start gap-2.5 bg-background/50 rounded-lg p-2 border border-border/30">
-                <span className={`${color} mt-0.5 flex-shrink-0 text-lg`}>●</span>
-                <span className="text-sm leading-relaxed">{benefit}</span>
+              <div key={idx} className="flex items-start gap-2 text-xs text-muted-foreground">
+                <span className={`${color} mt-0.5 flex-shrink-0`}>●</span>
+                <span className="leading-relaxed">{benefit}</span>
               </div>
             ))}
           </div>

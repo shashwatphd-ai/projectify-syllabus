@@ -155,17 +155,21 @@ Return comprehensive analysis with validated insights.`;
                     key_benefits: { 
                       type: 'array', 
                       items: { type: 'string' },
-                      description: 'Exactly 3 benefits. Each MUST be max 8 words. Evidence-based from job postings/tech stack.',
-                      minItems: 3,
-                      maxItems: 3
+                      description: '3-4 crisp benefits (max 12 words each). Evidence-based from job postings/tech stack.',
+                      maxItems: 4
                     },
                     insights: {
                       type: 'string',
-                      description: 'Single powerful insight (max 20 words) connecting project to validated career outcomes',
+                      description: 'Single concise statement (max 25 words) connecting project to validated career outcomes',
+                      maxLength: 150
+                    },
+                    evidence_summary: {
+                      type: 'string',
+                      description: 'One-liner (max 20 words) citing specific data points that validate the value',
                       maxLength: 120
                     }
                   },
-                  required: ['score', 'career_opportunities_score', 'skill_development_score', 'portfolio_value_score', 'networking_score', 'key_benefits', 'insights']
+                  required: ['score', 'career_opportunities_score', 'skill_development_score', 'portfolio_value_score', 'networking_score', 'key_benefits', 'insights', 'evidence_summary']
                 },
                 university_value: {
                   type: 'object',
@@ -178,17 +182,21 @@ Return comprehensive analysis with validated insights.`;
                     key_benefits: { 
                       type: 'array', 
                       items: { type: 'string' },
-                      description: 'Exactly 3 benefits. Each MUST be max 8 words. Focus on institutional strategic value.',
-                      minItems: 3,
-                      maxItems: 3
+                      description: '3-4 crisp benefits (max 12 words each). Focus on institutional strategic value.',
+                      maxItems: 4
                     },
                     insights: {
                       type: 'string',
-                      description: 'Single powerful insight (max 20 words) on institutional strategic value',
+                      description: 'Single concise statement (max 25 words) on institutional strategic value',
+                      maxLength: 150
+                    },
+                    evidence_summary: {
+                      type: 'string',
+                      description: 'One-liner (max 20 words) citing specific validation data',
                       maxLength: 120
                     }
                   },
-                  required: ['score', 'partnership_quality_score', 'placement_potential_score', 'research_collaboration_score', 'reputation_score', 'key_benefits', 'insights']
+                  required: ['score', 'partnership_quality_score', 'placement_potential_score', 'research_collaboration_score', 'reputation_score', 'key_benefits', 'insights', 'evidence_summary']
                 },
                 industry_value: {
                   type: 'object',
@@ -201,17 +209,21 @@ Return comprehensive analysis with validated insights.`;
                     key_benefits: { 
                       type: 'array', 
                       items: { type: 'string' },
-                      description: 'Exactly 3 benefits. Each MUST be max 8 words. Quantify business impact where possible.',
-                      minItems: 3,
-                      maxItems: 3
+                      description: '3-4 crisp benefits (max 12 words each). Quantify business impact where possible.',
+                      maxItems: 4
                     },
                     insights: {
                       type: 'string',
-                      description: 'Single powerful insight (max 20 words) on validated business value',
+                      description: 'Single concise statement (max 25 words) on validated business value',
+                      maxLength: 150
+                    },
+                    evidence_summary: {
+                      type: 'string',
+                      description: 'One-liner (max 20 words) citing how project addresses verified company needs',
                       maxLength: 120
                     }
                   },
-                  required: ['score', 'deliverable_roi_score', 'talent_pipeline_score', 'innovation_score', 'cost_efficiency_score', 'key_benefits', 'insights']
+                  required: ['score', 'deliverable_roi_score', 'talent_pipeline_score', 'innovation_score', 'cost_efficiency_score', 'key_benefits', 'insights', 'evidence_summary']
                 },
                 synergistic_value: {
                   type: 'object',

@@ -172,6 +172,7 @@ export const ValueAnalysisTab = ({
             { label: "Network", value: student_value?.networking_score || 0, icon: Users }
           ]}
           insight={student_value?.insights || ""}
+          evidence={student_value?.evidence_summary || ""}
           benefits={student_value?.key_benefits || []}
         />
 
@@ -189,6 +190,7 @@ export const ValueAnalysisTab = ({
             { label: "Reputation", value: university_value?.reputation_score || 0, icon: Award }
           ]}
           insight={university_value?.insights || ""}
+          evidence={university_value?.evidence_summary || ""}
           benefits={university_value?.key_benefits || []}
         />
 
@@ -206,6 +208,7 @@ export const ValueAnalysisTab = ({
             { label: "Efficiency", value: industry_value?.cost_efficiency_score || 0, icon: CheckCircle2 }
           ]}
           insight={industry_value?.insights || ""}
+          evidence={industry_value?.evidence_summary || ""}
           benefits={industry_value?.key_benefits || []}
         />
       </div>
