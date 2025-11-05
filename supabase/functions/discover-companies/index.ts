@@ -290,17 +290,50 @@ serve(async (req) => {
                                   searchOrgName.includes(contactOrgName.split(' ')[0]);
               
               if (isDomainMatch || isNameMatch) {
+                // Extract comprehensive contact and organization data
                 contactDetails = {
+                  // Basic contact info (existing)
                   contactPerson: contact.name || null,
                   contactEmail: contact.email || null,
                   contactPhone: contact.phone_numbers?.[0]?.sanitized_number || null,
                   linkedinProfile: contact.linkedin_url || null,
                   title: contact.title || null,
-                  source: 'apollo_verified'
+                  source: 'apollo_verified',
+                  
+                  // New: Detailed contact fields
+                  contactFirstName: contact.first_name || null,
+                  contactLastName: contact.last_name || null,
+                  contactHeadline: contact.headline || null,
+                  contactPhotoUrl: contact.photo_url || null,
+                  contactCity: contact.city || null,
+                  contactState: contact.state || null,
+                  contactCountry: contact.country || null,
+                  contactTwitterUrl: contact.twitter_url || null,
+                  contactEmailStatus: contact.email_status || null,
+                  contactEmploymentHistory: contact.employment_history || null,
+                  contactPhoneNumbers: contact.phone_numbers || null,
+                  
+                  // New: Organization enrichment fields
+                  organizationLinkedinUrl: contact.organization?.linkedin_url || null,
+                  organizationTwitterUrl: contact.organization?.twitter_url || null,
+                  organizationFacebookUrl: contact.organization?.facebook_url || null,
+                  organizationFoundedYear: contact.organization?.founded_year || null,
+                  organizationLogoUrl: contact.organization?.logo_url || null,
+                  organizationEmployeeCount: contact.organization?.estimated_num_employees 
+                    ? `${contact.organization.estimated_num_employees}` 
+                    : null,
+                  organizationRevenueRange: contact.organization?.annual_revenue 
+                    ? `$${contact.organization.annual_revenue}` 
+                    : null,
+                  organizationIndustryKeywords: contact.organization?.industry_tag_list || null,
+                  
+                  // Data quality tracking
+                  apolloEnrichmentDate: new Date().toISOString()
                 };
                 
                 console.log(`  ✓ Apollo.io verified contact: ${contactDetails.contactPerson} (${contactDetails.title})`);
                 console.log(`    Organization: ${contact.organization?.name || 'N/A'}`);
+                console.log(`    Email Status: ${contactDetails.contactEmailStatus || 'N/A'}`);
               } else {
                 console.log(`  ⚠ Apollo contact organization mismatch:`);
                 console.log(`    Expected: ${discovery.name} (${domain})`);
@@ -389,20 +422,96 @@ Return ONLY valid JSON (no markdown):
         }
       }
 
-      // Store in company_profiles table
+      // Calculate data completeness score (0-100)
+      const calculateCompletenessScore = (data: any): number => {
+        const fields = [
+          data.name, data.sector, data.website, data.full_address,
+          data.contact_person, data.contact_email, data.contact_phone,
+          data.contactFirstName, data.contactHeadline, data.contactPhotoUrl,
+          data.organizationLinkedinUrl, data.organizationLogoUrl,
+          data.organizationFoundedYear, data.contactEmploymentHistory
+        ];
+        const populated = fields.filter(f => f !== null && f !== undefined).length;
+        return Math.round((populated / fields.length) * 100);
+      };
+
+      // Determine enrichment level
+      const getEnrichmentLevel = (data: any): string => {
+        if (data.apolloEnrichmentDate && data.contactEmailStatus && data.organizationLinkedinUrl) {
+          return 'fully_enriched';
+        } else if (data.apolloEnrichmentDate) {
+          return 'apollo_verified';
+        }
+        return 'basic';
+      };
+
+      // Store in company_profiles table with comprehensive Apollo.io data
       const companyData = {
         name: discovery.name,
         sector: discovery.sector,
         size: discovery.estimatedSize,
         website: placeDetails?.website || discovery.website,
         full_address: placeDetails?.address || discovery.location,
-        contact_phone: contactDetails?.contactPhone || placeDetails?.phone || null,
+        city: null,
+        zip: null,
+        
+        // Basic contact fields
         contact_person: contactDetails?.contactPerson && contactDetails.contactPerson !== 'null' ? contactDetails.contactPerson : null,
         contact_email: contactDetails?.contactEmail && contactDetails.contactEmail !== 'null' ? contactDetails.contactEmail : null,
+        contact_phone: contactDetails?.contactPhone || placeDetails?.phone || null,
         linkedin_profile: contactDetails?.linkedinProfile && contactDetails.linkedinProfile !== 'null' ? contactDetails.linkedinProfile : null,
+        
+        // Extended contact fields from Apollo.io
+        contact_first_name: contactDetails?.contactFirstName || null,
+        contact_last_name: contactDetails?.contactLastName || null,
+        contact_title: contactDetails?.title || null,
+        contact_headline: contactDetails?.contactHeadline || null,
+        contact_photo_url: contactDetails?.contactPhotoUrl || null,
+        contact_city: contactDetails?.contactCity || null,
+        contact_state: contactDetails?.contactState || null,
+        contact_country: contactDetails?.contactCountry || null,
+        contact_twitter_url: contactDetails?.contactTwitterUrl || null,
+        contact_email_status: contactDetails?.contactEmailStatus || null,
+        contact_employment_history: contactDetails?.contactEmploymentHistory || null,
+        contact_phone_numbers: contactDetails?.contactPhoneNumbers || null,
+        
+        // Organization fields from Apollo.io
+        organization_linkedin_url: contactDetails?.organizationLinkedinUrl || null,
+        organization_twitter_url: contactDetails?.organizationTwitterUrl || null,
+        organization_facebook_url: contactDetails?.organizationFacebookUrl || null,
+        organization_founded_year: contactDetails?.organizationFoundedYear || null,
+        organization_logo_url: contactDetails?.organizationLogoUrl || null,
+        organization_employee_count: contactDetails?.organizationEmployeeCount || null,
+        organization_revenue_range: contactDetails?.organizationRevenueRange || null,
+        organization_industry_keywords: contactDetails?.organizationIndustryKeywords || null,
+        
+        // Metadata
+        source: contactDetails?.source || 'google_discovery',
         inferred_needs: discovery.currentChallenges,
-        source: contactDetails?.source || 'google_discovery', // Track data source: apollo_verified, ai_inferred, or google_discovery
+        technologies: null,
+        open_roles: null,
+        
+        // Data quality tracking
+        apollo_enrichment_date: contactDetails?.apolloEnrichmentDate || null,
+        data_enrichment_level: getEnrichmentLevel(contactDetails || {}),
+        data_completeness_score: calculateCompletenessScore({
+          name: discovery.name,
+          sector: discovery.sector,
+          website: placeDetails?.website || discovery.website,
+          full_address: placeDetails?.address || discovery.location,
+          contact_person: contactDetails?.contactPerson,
+          contact_email: contactDetails?.contactEmail,
+          contact_phone: contactDetails?.contactPhone,
+          contactFirstName: contactDetails?.contactFirstName,
+          contactHeadline: contactDetails?.contactHeadline,
+          contactPhotoUrl: contactDetails?.contactPhotoUrl,
+          organizationLinkedinUrl: contactDetails?.organizationLinkedinUrl,
+          organizationLogoUrl: contactDetails?.organizationLogoUrl,
+          organizationFoundedYear: contactDetails?.organizationFoundedYear,
+          contactEmploymentHistory: contactDetails?.contactEmploymentHistory
+        }),
         last_enriched_at: new Date().toISOString(),
+        last_verified_at: contactDetails?.source === 'apollo_verified' ? new Date().toISOString() : null,
       };
 
       // Try to insert, or update if exists
@@ -413,6 +522,9 @@ Return ONLY valid JSON (no markdown):
         .maybeSingle();
 
       let companyProfileId;
+      const enrichmentLevel = companyData.data_enrichment_level;
+      const completenessScore = companyData.data_completeness_score;
+      
       if (existingCompany) {
         const { data: updated } = await supabase
           .from('company_profiles')
@@ -422,6 +534,7 @@ Return ONLY valid JSON (no markdown):
           .single();
         companyProfileId = updated?.id;
         console.log(`  💾 Updated company profile: ${discovery.name}`);
+        console.log(`     Enrichment: ${enrichmentLevel} | Completeness: ${completenessScore}%`);
       } else {
         const { data: inserted } = await supabase
           .from('company_profiles')
@@ -430,6 +543,7 @@ Return ONLY valid JSON (no markdown):
           .single();
         companyProfileId = inserted?.id;
         console.log(`  💾 Stored new company profile: ${discovery.name}`);
+        console.log(`     Enrichment: ${enrichmentLevel} | Completeness: ${completenessScore}%`);
       }
 
       enrichedDiscoveries.push({

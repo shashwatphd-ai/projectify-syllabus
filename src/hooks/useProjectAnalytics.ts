@@ -1,0 +1,73 @@
+import { useEffect } from 'react';
+
+interface ProjectAnalyticsData {
+  projectId: string;
+  projectTitle: string;
+  companyName: string;
+  enrichmentLevel: string;
+  completenessScore: number;
+  timestamp: string;
+}
+
+export const useProjectAnalytics = (
+  projectId: string,
+  projectTitle: string,
+  companyProfile?: any
+) => {
+  useEffect(() => {
+    if (!projectId || !companyProfile) return;
+
+    // Track project view with enrichment data
+    const analyticsData: ProjectAnalyticsData = {
+      projectId,
+      projectTitle,
+      companyName: companyProfile.name,
+      enrichmentLevel: companyProfile.data_enrichment_level || 'basic',
+      completenessScore: companyProfile.data_completeness_score || 0,
+      timestamp: new Date().toISOString()
+    };
+
+    // Log to console for debugging
+    console.log('📊 Project Analytics:', {
+      project: analyticsData.projectTitle,
+      company: analyticsData.companyName,
+      dataQuality: `${analyticsData.enrichmentLevel} (${analyticsData.completenessScore}%)`,
+      timestamp: analyticsData.timestamp
+    });
+
+    // Store in localStorage for session tracking
+    const recentViews = JSON.parse(localStorage.getItem('recentProjectViews') || '[]');
+    recentViews.unshift(analyticsData);
+    
+    // Keep only last 10 views
+    if (recentViews.length > 10) {
+      recentViews.pop();
+    }
+    
+    localStorage.setItem('recentProjectViews', JSON.stringify(recentViews));
+
+    // Calculate aggregate metrics
+    const enrichmentLevels = recentViews.reduce((acc: any, view: ProjectAnalyticsData) => {
+      acc[view.enrichmentLevel] = (acc[view.enrichmentLevel] || 0) + 1;
+      return acc;
+    }, {});
+
+    const avgCompleteness = recentViews.reduce(
+      (sum: number, view: ProjectAnalyticsData) => sum + view.completenessScore, 
+      0
+    ) / recentViews.length;
+
+    console.log('📈 Aggregate Metrics:', {
+      totalViews: recentViews.length,
+      enrichmentDistribution: enrichmentLevels,
+      avgDataCompleteness: `${Math.round(avgCompleteness)}%`
+    });
+  }, [projectId, projectTitle, companyProfile]);
+
+  return {
+    // Could return analytics data or methods here if needed
+    trackEvent: (eventName: string, data?: any) => {
+      console.log(`🎯 Event: ${eventName}`, data);
+    }
+  };
+};

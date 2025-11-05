@@ -16,17 +16,41 @@ export type Database = {
     Tables: {
       company_profiles: {
         Row: {
+          apollo_enrichment_date: string | null
           city: string | null
+          contact_city: string | null
+          contact_country: string | null
           contact_email: string | null
+          contact_email_status: string | null
+          contact_employment_history: Json | null
+          contact_first_name: string | null
+          contact_headline: string | null
+          contact_last_name: string | null
           contact_person: string | null
           contact_phone: string | null
+          contact_phone_numbers: Json | null
+          contact_photo_url: string | null
+          contact_state: string | null
+          contact_title: string | null
+          contact_twitter_url: string | null
+          data_completeness_score: number | null
+          data_enrichment_level: string | null
           full_address: string | null
           id: string
           inferred_needs: Json | null
           last_enriched_at: string
+          last_verified_at: string | null
           linkedin_profile: string | null
           name: string
           open_roles: Json | null
+          organization_employee_count: string | null
+          organization_facebook_url: string | null
+          organization_founded_year: number | null
+          organization_industry_keywords: Json | null
+          organization_linkedin_url: string | null
+          organization_logo_url: string | null
+          organization_revenue_range: string | null
+          organization_twitter_url: string | null
           recent_news: string | null
           sector: string | null
           size: string | null
@@ -36,17 +60,41 @@ export type Database = {
           zip: string | null
         }
         Insert: {
+          apollo_enrichment_date?: string | null
           city?: string | null
+          contact_city?: string | null
+          contact_country?: string | null
           contact_email?: string | null
+          contact_email_status?: string | null
+          contact_employment_history?: Json | null
+          contact_first_name?: string | null
+          contact_headline?: string | null
+          contact_last_name?: string | null
           contact_person?: string | null
           contact_phone?: string | null
+          contact_phone_numbers?: Json | null
+          contact_photo_url?: string | null
+          contact_state?: string | null
+          contact_title?: string | null
+          contact_twitter_url?: string | null
+          data_completeness_score?: number | null
+          data_enrichment_level?: string | null
           full_address?: string | null
           id?: string
           inferred_needs?: Json | null
           last_enriched_at?: string
+          last_verified_at?: string | null
           linkedin_profile?: string | null
           name: string
           open_roles?: Json | null
+          organization_employee_count?: string | null
+          organization_facebook_url?: string | null
+          organization_founded_year?: number | null
+          organization_industry_keywords?: Json | null
+          organization_linkedin_url?: string | null
+          organization_logo_url?: string | null
+          organization_revenue_range?: string | null
+          organization_twitter_url?: string | null
           recent_news?: string | null
           sector?: string | null
           size?: string | null
@@ -56,17 +104,41 @@ export type Database = {
           zip?: string | null
         }
         Update: {
+          apollo_enrichment_date?: string | null
           city?: string | null
+          contact_city?: string | null
+          contact_country?: string | null
           contact_email?: string | null
+          contact_email_status?: string | null
+          contact_employment_history?: Json | null
+          contact_first_name?: string | null
+          contact_headline?: string | null
+          contact_last_name?: string | null
           contact_person?: string | null
           contact_phone?: string | null
+          contact_phone_numbers?: Json | null
+          contact_photo_url?: string | null
+          contact_state?: string | null
+          contact_title?: string | null
+          contact_twitter_url?: string | null
+          data_completeness_score?: number | null
+          data_enrichment_level?: string | null
           full_address?: string | null
           id?: string
           inferred_needs?: Json | null
           last_enriched_at?: string
+          last_verified_at?: string | null
           linkedin_profile?: string | null
           name?: string
           open_roles?: Json | null
+          organization_employee_count?: string | null
+          organization_facebook_url?: string | null
+          organization_founded_year?: number | null
+          organization_industry_keywords?: Json | null
+          organization_linkedin_url?: string | null
+          organization_logo_url?: string | null
+          organization_revenue_range?: string | null
+          organization_twitter_url?: string | null
           recent_news?: string | null
           sector?: string | null
           size?: string | null

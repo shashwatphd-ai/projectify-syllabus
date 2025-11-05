@@ -18,6 +18,7 @@ import { LearningOutcomeAlignment } from "@/components/project-detail/LearningOu
 import { TimelineTab } from "@/components/project-detail/TimelineTab";
 import { VerificationTab } from "@/components/project-detail/VerificationTab";
 import { Navigation } from "@/components/Navigation";
+import { useProjectAnalytics } from "@/hooks/useProjectAnalytics";
 
 const ProjectDetail = () => {
   const { id } = useParams();
@@ -29,6 +30,9 @@ const ProjectDetail = () => {
   const [metadata, setMetadata] = useState<any>(null);
   const [companyProfile, setCompanyProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Track analytics with enrichment data
+  useProjectAnalytics(id || '', project?.title || '', companyProfile);
 
   useEffect(() => {
     requireAuth();
