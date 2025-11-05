@@ -243,10 +243,17 @@ export const ContactTab = ({ forms, companyProfile, projectId, projectTitle, onD
 
             {/* Contact Information */}
             <div className="space-y-4">
-              <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                Contact Information
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  Contact Information
+                </h3>
+                {displayData.data_enrichment_level === 'fully_enriched' && (
+                  <Badge variant="default" className="bg-green-600">
+                    ✓ Apollo Verified
+                  </Badge>
+                )}
+              </div>
               
               {displayData.contact_name && displayData.contact_name !== 'TBD' && displayData.contact_name !== 'General Manager' ? (
                 <>
@@ -280,32 +287,45 @@ export const ContactTab = ({ forms, companyProfile, projectId, projectTitle, onD
                   </div>
                   
                   {/* Contact Details */}
-                  {displayData.contact_email && displayData.contact_email !== '' && (
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Email</p>
-                      <a 
-                        href={`mailto:${displayData.contact_email}`}
-                        className="flex items-center gap-2 text-primary hover:underline"
-                      >
-                        <Mail className="h-4 w-4" />
-                        {displayData.contact_email}
-                        {displayData.contact_email_status && (
-                          <Badge variant="outline" className="text-xs">
-                            {displayData.contact_email_status}
-                          </Badge>
-                        )}
-                      </a>
+                  {displayData.contact_email && (
+                    <div className="p-3 border rounded-lg bg-card">
+                      <p className="text-sm text-muted-foreground mb-1 flex items-center gap-2">
+                        <Mail className="h-3 w-3" />
+                        Email Address
+                      </p>
+                      {displayData.contact_email.includes('email_not_unlocked') ? (
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-amber-600">🔒 Email Requires Apollo Credits</p>
+                          <p className="text-xs text-muted-foreground">
+                            Use the Propose Partnership button above to reach out, or unlock this email through Apollo.
+                          </p>
+                        </div>
+                      ) : (
+                        <a 
+                          href={`mailto:${displayData.contact_email}`}
+                          className="flex items-center gap-2 text-primary hover:underline font-medium"
+                        >
+                          {displayData.contact_email}
+                          {displayData.contact_email_status && (
+                            <Badge variant="outline" className="text-xs">
+                              {displayData.contact_email_status}
+                            </Badge>
+                          )}
+                        </a>
+                      )}
                     </div>
                   )}
                   
-                  {displayData.contact_phone && displayData.contact_phone !== '' && (
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Phone</p>
+                  {displayData.contact_phone && (
+                    <div className="p-3 border rounded-lg bg-card">
+                      <p className="text-sm text-muted-foreground mb-1 flex items-center gap-2">
+                        <Phone className="h-3 w-3" />
+                        Direct Phone
+                      </p>
                       <a 
                         href={`tel:${displayData.contact_phone}`}
-                        className="flex items-center gap-2 text-primary hover:underline"
+                        className="flex items-center gap-2 text-primary hover:underline text-lg font-semibold"
                       >
-                        <Phone className="h-4 w-4" />
                         {displayData.contact_phone}
                       </a>
                     </div>
@@ -313,17 +333,21 @@ export const ContactTab = ({ forms, companyProfile, projectId, projectTitle, onD
                   
                   {/* Social Links */}
                   {(displayData.linkedin_profile || displayData.contact_twitter_url) && (
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-2">Professional Profiles</p>
-                      <div className="flex gap-2">
+                    <div className="p-3 border rounded-lg bg-card">
+                      <p className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                        <Linkedin className="h-3 w-3" />
+                        Professional Profiles
+                      </p>
+                      <div className="flex gap-3">
                         {displayData.linkedin_profile && (
                           <a 
                             href={displayData.linkedin_profile}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-2 rounded-md bg-secondary hover:bg-secondary/80 transition-colors"
+                            className="flex items-center gap-2 px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white transition-colors"
                           >
                             <Linkedin className="h-4 w-4" />
+                            <span className="text-sm font-medium">View LinkedIn Profile</span>
                           </a>
                         )}
                         {displayData.contact_twitter_url && (
@@ -331,9 +355,10 @@ export const ContactTab = ({ forms, companyProfile, projectId, projectTitle, onD
                             href={displayData.contact_twitter_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-2 rounded-md bg-secondary hover:bg-secondary/80 transition-colors"
+                            className="flex items-center gap-2 px-3 py-2 rounded-md bg-secondary hover:bg-secondary/80 transition-colors"
                           >
                             <Twitter className="h-4 w-4" />
+                            <span className="text-sm font-medium">Twitter</span>
                           </a>
                         )}
                       </div>
