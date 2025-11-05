@@ -336,6 +336,8 @@ serve(async (req) => {
                         'General Manager'
                       ],
                       person_seniorities: ['c_suite', 'vp', 'director', 'owner'],
+                      reveal_personal_emails: true,
+                      reveal_phone_number: true,
                       page: 1,
                       per_page: 1
                     })
@@ -368,49 +370,9 @@ serve(async (req) => {
                       console.log(`    Has: name=${!!contact.name}, email=${!!contact.email}, title=${!!contact.title}`);
                       shouldSkipCompany = true;
                     } else {
-                      // ====================================
-                      // STEP 3: UNLOCK EMAIL (People Enrich API)
-                      // ====================================
-                      console.log(`  🔓 Step 3: Unlocking email for ${contact.name}...`);
+                      console.log(`  ✅ Contact found: ${contact.name} (${contact.title})`);
+                      console.log(`    Email: ${contact.email} (${contact.email_status || 'status unknown'})`);
                       
-                      let unlockedEmail = contact.email;
-                      let emailStatus = contact.email_status;
-                      
-                      if (contact.id) {
-                        try {
-                          const enrichResponse = await fetch(
-                            'https://api.apollo.io/v1/people/match',
-                            {
-                              method: 'POST',
-                              headers: {
-                                'Content-Type': 'application/json',
-                                'Cache-Control': 'no-cache',
-                                'X-Api-Key': APOLLO_API_KEY
-                              },
-                              body: JSON.stringify({
-                                id: contact.id,
-                                reveal_personal_emails: true,
-                                reveal_phone_number: true
-                              })
-                            }
-                          );
-                          
-                          if (enrichResponse.ok) {
-                            const enrichData = await enrichResponse.json();
-                            if (enrichData.person?.email) {
-                              unlockedEmail = enrichData.person.email;
-                              emailStatus = enrichData.person.email_status;
-                              console.log(`    ✅ Email unlocked: ${unlockedEmail} (${emailStatus})`);
-                            } else {
-                              console.log(`    ⚠️ Email not available for unlock`);
-                            }
-                          } else {
-                            console.log(`    ⚠️ Could not unlock email (${enrichResponse.status})`);
-                          }
-                        } catch (enrichError) {
-                          console.log(`    ⚠️ Email unlock failed:`, enrichError);
-                        }
-                      }
                       // ====================================
                       // FETCH JOB POSTINGS & MARKET INTEL
                       // ====================================
@@ -472,8 +434,8 @@ serve(async (req) => {
                       contactDetails = {
                         // Contact info
                         contactPerson: contact.name,
-                        contactEmail: unlockedEmail,
-                        contactEmailStatus: emailStatus,
+                        contactEmail: contact.email,
+                        contactEmailStatus: contact.email_status || null,
                         contactPhone: contact.phone_numbers?.[0]?.sanitized_number || null,
                         linkedinProfile: contact.linkedin_url || null,
                         title: contact.title,
