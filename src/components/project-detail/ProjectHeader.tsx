@@ -30,9 +30,11 @@ export const ProjectHeader = ({ project }: ProjectHeaderProps) => {
             {project.company_name}
           </p>
         </div>
-        <Badge variant="secondary" className="text-lg px-4 py-2">
-          {project.sector}
-        </Badge>
+        <div className="flex gap-2">
+          <Badge variant="secondary" className="text-lg px-4 py-2">
+            {project.sector}
+          </Badge>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

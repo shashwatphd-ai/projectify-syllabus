@@ -35,6 +35,9 @@ interface CompanyInfo {
   total_funding_usd?: number | null;
   organization_employee_count?: string | null;
   organization_revenue_range?: string | null;
+  // Intelligence Fields
+  match_score?: number;
+  match_reason?: string;
 }
 
 interface ProjectProposal {
@@ -62,20 +65,23 @@ interface ProjectProposal {
   publication_opportunity: string;
 }
 
-// NEW: Fetch Apollo-enriched companies from generation run
+// NEW: Fetch Apollo-enriched companies from generation run with INTELLIGENT FILTERING
 async function getApolloEnrichedCompanies(
   supabaseClient: any,
   generationRunId: string,
-  count: number
+  count: number,
+  outcomes: string[],
+  level: string,
+  courseId: string
 ): Promise<CompanyInfo[]> {
   console.log(`🎯 Fetching Apollo-enriched companies from generation run: ${generationRunId}`);
   
+  // CRITICAL: Fetch ALL companies (no limit) for intelligent scoring
   const { data, error } = await supabaseClient
     .from('company_profiles')
     .select('*')
     .eq('generation_run_id', generationRunId)
-    .order('data_completeness_score', { ascending: false })
-    .limit(count);
+    .order('data_completeness_score', { ascending: false });
   
   if (error) {
     console.error('❌ Error fetching Apollo companies:', error.message);
@@ -87,10 +93,24 @@ async function getApolloEnrichedCompanies(
     throw new Error('No Apollo-enriched companies available');
   }
   
-  console.log(`✓ Found ${data.length} Apollo-enriched companies with full contact data`);
+  console.log(`✓ Found ${data.length} Apollo-enriched companies, scoring for relevance...`);
   
-  // Map Apollo data to CompanyInfo with ALL enriched fields
-  return data.map((company: any) => {
+  // CRITICAL: Use intelligent filtering to score by relevance to course
+  const scoredCompanies = await intelligentCompanyFilter(
+    data,
+    outcomes,
+    level,
+    supabaseClient,
+    courseId
+  );
+  
+  console.log(`✓ Intelligent scoring complete: Top companies by relevance:`);
+  scoredCompanies.slice(0, count).forEach((c, i) => {
+    console.log(`  ${i+1}. ${c.name}: ${c.relevance}% - ${c.reason}`);
+  });
+  
+  // CRITICAL: Return top N by RELEVANCE (not data completeness)
+  return scoredCompanies.slice(0, count).map((company: any) => {
     // Infer needs from job postings and technologies if inferred_needs is empty
     const inferredNeeds = company.inferred_needs || [];
     const derivedNeeds = [];
@@ -133,7 +153,11 @@ async function getApolloEnrichedCompanies(
       
       // Metadata
       data_completeness_score: company.data_completeness_score,
-      enrichment_level: company.data_enrichment_level
+      enrichment_level: company.data_enrichment_level,
+      
+      // CRITICAL: Intelligence data for display
+      match_score: company.relevance,
+      match_reason: company.reason
     };
   });
 }
@@ -1624,7 +1648,10 @@ serve(async (req) => {
         const apolloCompanies = await getApolloEnrichedCompanies(
           serviceRoleClient,
           generation_run_id,
-          numTeams
+          numTeams,
+          outcomes,
+          level,
+          courseId
         );
         
         if (apolloCompanies && apolloCompanies.length > 0) {
@@ -1994,6 +2021,31 @@ serve(async (req) => {
           hiring_urgency: company.job_postings && company.job_postings.length > 5 ? 'high' : 'medium',
           needs_identified: company.needs || []
         };
+      }
+      
+      // CRITICAL: Add match intelligence for display
+      if (company.match_score && company.match_reason) {
+        metadataInsert.match_analysis = {
+          relevance_score: company.match_score,
+          match_reasoning: company.match_reason,
+          intelligence_factors: []
+        };
+        
+        // Add intelligence factors based on available data
+        if (company.job_postings && company.job_postings.length > 0) {
+          metadataInsert.match_analysis.intelligence_factors.push(`${company.job_postings.length} active job openings indicate growth`);
+        }
+        if (company.technologies_used && company.technologies_used.length > 0) {
+          metadataInsert.match_analysis.intelligence_factors.push(`Technology stack alignment: ${company.technologies_used.slice(0, 3).join(', ')}`);
+        }
+        if (company.funding_stage) {
+          metadataInsert.match_analysis.intelligence_factors.push(`${company.funding_stage} funding stage shows investment readiness`);
+        }
+        if (company.buying_intent_signals && company.buying_intent_signals.length > 0) {
+          metadataInsert.match_analysis.intelligence_factors.push(`${company.buying_intent_signals.length} buying intent signals detected`);
+        }
+        
+        console.log(`  🎯 Match Intelligence: ${company.match_score}% - ${company.match_reason}`);
       }
 
       const { error: metadataError } = await serviceRoleClient

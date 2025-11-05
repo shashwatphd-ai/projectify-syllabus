@@ -11,9 +11,49 @@ interface OverviewTabProps {
 export const OverviewTab = ({ project, forms, metadata }: OverviewTabProps) => {
   const form1 = forms.form1 || {};
   const form3 = forms.form3 || {};
+  
+  // Extract match intelligence if available
+  const matchAnalysis = metadata?.match_analysis;
 
   return (
     <div className="space-y-6">
+      {/* Match Intelligence Card - Shows WHY this partnership is excellent */}
+      {matchAnalysis && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              🎯 Match Intelligence
+              <Badge variant="default" className="ml-auto text-lg">
+                {matchAnalysis.relevance_score}% Match
+              </Badge>
+            </CardTitle>
+            <CardDescription>AI-powered relevance analysis</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium mb-2">Why This Partnership is Excellent:</p>
+                <p className="text-muted-foreground leading-relaxed">
+                  {matchAnalysis.match_reasoning}
+                </p>
+              </div>
+              {matchAnalysis.intelligence_factors?.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Intelligence Factors:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {matchAnalysis.intelligence_factors.map((factor: string, i: number) => (
+                      <Badge key={i} variant="secondary" className="text-xs">
+                        {factor}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    
       {form1.description && (
         <Card>
           <CardHeader>

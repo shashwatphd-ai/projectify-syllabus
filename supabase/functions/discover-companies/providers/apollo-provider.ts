@@ -131,6 +131,21 @@ export class ApolloProvider implements DiscoveryProvider {
   }
   
   private async generateFilters(context: CourseContext): Promise<ApolloSearchFilters> {
+    // Add randomization for variety in results
+    const randomSeed = Date.now() % 1000;
+    const jobTitleCategories = [
+      ['Director', 'VP', 'Manager', 'Lead'],
+      ['Engineer', 'Analyst', 'Specialist', 'Coordinator'],
+      ['Operations', 'Business', 'Technical', 'Strategic']
+    ];
+    const employeeRanges = [
+      ['10,50', '51,200'],
+      ['51,200', '201,500'],
+      ['201,500', '501,1000']
+    ];
+    const randomTitleCategory = jobTitleCategories[randomSeed % 3];
+    const randomEmployeeRange = employeeRanges[randomSeed % 3];
+    
     const systemPrompt = `You are an AI that analyzes course syllabi and generates Apollo.io search filters.
 
 Apollo.io Organization Search Filters:
@@ -149,12 +164,15 @@ COURSE: ${context.level}
 TOPICS: ${context.topics.join(', ')}
 OUTCOMES: ${context.outcomes.map((o, i) => `${i + 1}. ${o}`).join('\n')}
 
+VARIETY SEED: ${randomSeed} - Use these job title categories for variety: ${randomTitleCategory.join(', ')}
+Employee ranges to prefer: ${randomEmployeeRange.join(', ')}
+
 Return JSON:
 {
   "organization_locations": ["${context.location}"],
   "q_organization_keyword_tags": ["relevant industries"],
-  "q_organization_job_titles": ["matching job titles"],
-  "organization_num_employees_ranges": ["10,50", "51,200", "201,500"],
+  "q_organization_job_titles": ["matching job titles from suggested categories"],
+  "organization_num_employees_ranges": ${JSON.stringify(randomEmployeeRange)},
   "organization_num_jobs_range": {"min": 3}
 }`;
 
