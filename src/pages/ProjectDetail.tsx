@@ -18,6 +18,7 @@ import { LearningOutcomeAlignment } from "@/components/project-detail/LearningOu
 import { TimelineTab } from "@/components/project-detail/TimelineTab";
 import { VerificationTab } from "@/components/project-detail/VerificationTab";
 import { MarketInsightsTab } from "@/components/project-detail/MarketInsightsTab";
+import { ValueAnalysisTab } from "@/components/project-detail/ValueAnalysisTab";
 import { Navigation } from "@/components/Navigation";
 import { useProjectAnalytics } from "@/hooks/useProjectAnalytics";
 
@@ -132,7 +133,8 @@ const ProjectDetail = () => {
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="flex flex-wrap h-auto gap-2 p-2">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="market-insights">Market Insights</TabsTrigger>
+            <TabsTrigger value="value-analysis">Value Analysis</TabsTrigger>
+            <TabsTrigger value="market-insights">Market Intelligence</TabsTrigger>
             <TabsTrigger value="contact">Contact</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
             <TabsTrigger value="logistics">Logistics</TabsTrigger>
@@ -147,6 +149,15 @@ const ProjectDetail = () => {
 
           <TabsContent value="overview">
             <OverviewTab project={project} forms={forms} metadata={metadata} />
+          </TabsContent>
+
+          <TabsContent value="value-analysis">
+            <ValueAnalysisTab 
+              valueAnalysis={metadata?.value_analysis}
+              stakeholderInsights={metadata?.stakeholder_insights}
+              synergyIndex={metadata?.synergistic_value_index || 0}
+              partnershipQuality={metadata?.partnership_quality_score || 0}
+            />
           </TabsContent>
 
           <TabsContent value="market-insights">

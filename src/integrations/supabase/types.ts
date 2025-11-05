@@ -496,10 +496,14 @@ export type Database = {
           lo_mapping_tasks: Json | null
           market_alignment_score: number | null
           market_signals_used: Json | null
+          partnership_quality_score: number | null
           pricing_breakdown: Json | null
           project_id: string
           scoring_rationale: Json | null
           selection_criteria: Json | null
+          stakeholder_insights: Json | null
+          synergistic_value_index: number | null
+          value_analysis: Json | null
         }
         Insert: {
           ai_model_version?: string | null
@@ -515,10 +519,14 @@ export type Database = {
           lo_mapping_tasks?: Json | null
           market_alignment_score?: number | null
           market_signals_used?: Json | null
+          partnership_quality_score?: number | null
           pricing_breakdown?: Json | null
           project_id: string
           scoring_rationale?: Json | null
           selection_criteria?: Json | null
+          stakeholder_insights?: Json | null
+          synergistic_value_index?: number | null
+          value_analysis?: Json | null
         }
         Update: {
           ai_model_version?: string | null
@@ -534,10 +542,14 @@ export type Database = {
           lo_mapping_tasks?: Json | null
           market_alignment_score?: number | null
           market_signals_used?: Json | null
+          partnership_quality_score?: number | null
           pricing_breakdown?: Json | null
           project_id?: string
           scoring_rationale?: Json | null
           selection_criteria?: Json | null
+          stakeholder_insights?: Json | null
+          synergistic_value_index?: number | null
+          value_analysis?: Json | null
         }
         Relationships: [
           {
