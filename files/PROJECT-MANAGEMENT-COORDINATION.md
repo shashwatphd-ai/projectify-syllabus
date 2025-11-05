@@ -33,7 +33,7 @@ This document provides **strict guardrails** for any AI agent or developer worki
 - [x] **User approval obtained** for the strategic plan
 - [x] **API keys secured**:
   - [x] `APOLLO_API_KEY` added to Supabase secrets
-  - [ ] `RESEND_API_KEY` added to Supabase secrets
+  - [x] `RESEND_API_KEY` added to Supabase secrets
   - [ ] Keys validated (test API call successful)
 - [ ] **Backup created**: Current working state saved/tagged
 - [ ] **Database schema reviewed**: Confirm `company_profiles` table structure
