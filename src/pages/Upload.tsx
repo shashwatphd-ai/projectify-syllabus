@@ -44,59 +44,27 @@ const Upload = () => {
   }, [user?.email, cityZip]);
 
   const detectLocationFromEmail = async (email: string) => {
-    console.log('🌍 Starting location detection for:', email);
+    console.log('🌍 Starting backend location detection for:', email);
     setLocationLoading(true);
     
     try {
-      // Extract domain from email (e.g., user@university.edu -> university.edu)
-      const domain = email.split('@')[1];
-      
-      if (!domain) {
-        console.log('❌ No domain found in email');
-        toast.error('Could not extract domain from email');
+      const { data, error } = await supabase.functions.invoke('detect-location', {
+        body: { email }
+      });
+
+      if (error) {
+        console.error('❌ Location detection error:', error);
+        toast.error('Failed to detect location. Please enter manually.');
         return;
       }
 
-      console.log('🔎 Extracting location from domain:', domain);
-
-      // Use Nominatim to search for the university/organization
-      const searchQuery = domain.split('.')[0]; // e.g., "university" from "university.edu"
-      
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery + ' university')}&format=json&limit=1`
-      );
-      const data = await response.json();
-
-      if (data && data.length > 0) {
-        const location = data[0];
-        console.log('✅ Found initial location:', location.display_name);
-        
-        // Get detailed address with reverse geocoding
-        const reverseResponse = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${location.lat}&lon=${location.lon}`
-        );
-        const reverseData = await reverseResponse.json();
-        
-        if (reverseData.address) {
-          const city = reverseData.address.city || reverseData.address.town || reverseData.address.village || '';
-          const state = reverseData.address.state || '';
-          const postcode = reverseData.address.postcode || '';
-          
-          if (city && postcode) {
-            const detectedLocation = `${city}, ${state} ${postcode}`;
-            console.log('📍 Setting location:', detectedLocation);
-            setCityZip(detectedLocation);
-            toast.success(`Location detected: ${city}, ${state}`);
-          } else {
-            console.log('⚠️ Missing city or postcode in address');
-            toast.error('Could not determine complete address');
-          }
-        } else {
-          console.log('⚠️ No address data in reverse geocoding response');
-        }
+      if (data.success && data.location) {
+        console.log('📍 Location detected:', data.location);
+        setCityZip(data.location);
+        toast.success(`Location detected: ${data.city}, ${data.state}`);
       } else {
-        console.log('❌ No location results found for domain');
-        toast.error('Could not find location for your institution');
+        console.log('⚠️ Location detection unsuccessful:', data.error);
+        toast.error(data.error || 'Could not find location for your institution');
       }
     } catch (error) {
       console.error('❌ Location detection error:', error);
