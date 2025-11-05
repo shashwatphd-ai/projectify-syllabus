@@ -72,9 +72,7 @@ async function enrichPersonWithApollo(
   try {
     console.log(`🔍 Apollo Person Enrichment for: ${name} at ${organizationDomain || 'unknown domain'}`);
     
-    const payload: any = {
-      api_key: APOLLO_API_KEY,
-    };
+    const payload: any = {};
 
     // Parse name into first/last
     const nameParts = name.trim().split(' ');
@@ -94,6 +92,7 @@ async function enrichPersonWithApollo(
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache',
+        'X-Api-Key': APOLLO_API_KEY,
       },
       body: JSON.stringify(payload)
     });
@@ -155,9 +154,9 @@ async function enrichOrganizationWithApollo(
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache',
+        'X-Api-Key': APOLLO_API_KEY,
       },
       body: JSON.stringify({
-        api_key: APOLLO_API_KEY,
         domain: domain
       })
     });
