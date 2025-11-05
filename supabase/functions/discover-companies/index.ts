@@ -268,9 +268,11 @@ serve(async (req) => {
           let apolloOrgId = null;
           let apolloOrgData = null;
           
-          // STRATEGY 1: Organization Search by domain (most accurate)
-          console.log(`    Step 1: Searching organizations by domain: ${domain}...`);
-          const orgSearchResponse = await fetch(
+          // STRATEGY 1: Organization Search by domain (FIXED - using q_organization_domain)
+          console.log(`    Step 1: Searching organizations by EXACT domain: ${domain}...`);
+          
+          // METHOD A: Try exact domain match first (most reliable)
+          const exactDomainResponse = await fetch(
             'https://api.apollo.io/v1/organizations/search',
             {
               method: 'POST',
@@ -280,43 +282,48 @@ serve(async (req) => {
                 'X-Api-Key': APOLLO_API_KEY
               },
               body: JSON.stringify({
-                organization_domains: [domain],
+                q_organization_domain: domain,  // More reliable than organization_domains
                 page: 1,
-                per_page: 5  // Get multiple results to find best match
+                per_page: 10
               })
             }
           );
 
-          if (orgSearchResponse.ok) {
-            const orgData = await orgSearchResponse.json();
-            console.log(`    📊 Apollo returned ${orgData.organizations?.length || 0} orgs for domain ${domain}`);
+          if (exactDomainResponse.ok) {
+            const orgData = await exactDomainResponse.json();
+            console.log(`    📊 Apollo returned ${orgData.organizations?.length || 0} orgs for domain query: ${domain}`);
             
             if (orgData.organizations && orgData.organizations.length > 0) {
-              // Find organization that actually matches the domain
+              // Strict domain validation - ONLY accept exact matches
               for (const org of orgData.organizations) {
-                const orgDomain = org.primary_domain || org.website_url?.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
-                console.log(`      Checking org: ${org.name} (domain: ${orgDomain})`);
+                const orgPrimaryDomain = org.primary_domain?.toLowerCase().replace(/^www\./, '');
+                const orgWebsite = org.website_url?.toLowerCase().replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
+                const searchDomain = domain.toLowerCase().replace(/^www\./, '');
                 
-                if (orgDomain === domain || orgDomain?.includes(domain) || domain?.includes(orgDomain)) {
+                console.log(`      Validating: ${org.name}`);
+                console.log(`        Primary domain: ${orgPrimaryDomain}`);
+                console.log(`        Website: ${orgWebsite}`);
+                console.log(`        Search domain: ${searchDomain}`);
+                
+                // CRITICAL: Only accept if domains match EXACTLY
+                if (orgPrimaryDomain === searchDomain || orgWebsite === searchDomain) {
                   apolloOrgData = org;
                   apolloOrgId = org.id;
-                  console.log(`    ✅ MATCHED Org: ${apolloOrgData.name} (ID: ${apolloOrgId}, domain: ${orgDomain})`);
+                  console.log(`    ✅ EXACT MATCH: ${apolloOrgData.name} (ID: ${apolloOrgId})`);
                   break;
                 }
               }
               
-              // If no exact match, use first result but log warning
-              if (!apolloOrgId && orgData.organizations.length > 0) {
-                apolloOrgData = orgData.organizations[0];
-                apolloOrgId = apolloOrgData.id;
-                const orgDomain = apolloOrgData.primary_domain || apolloOrgData.website_url;
-                console.log(`    ⚠️ FALLBACK to first org: ${apolloOrgData.name} (ID: ${apolloOrgId}, domain: ${orgDomain}) - domain mismatch!`);
+              // If no exact match found, reject all results
+              if (!apolloOrgId) {
+                console.log(`    ❌ No exact domain match found - rejecting ${orgData.organizations.length} Apollo results`);
+                console.log(`       Apollo returned wrong companies (e.g., ${orgData.organizations[0]?.name})`);
               }
             } else {
               console.log(`    ❌ No organizations found for domain: ${domain}`);
             }
           } else {
-            console.error(`    ❌ Org search failed: ${orgSearchResponse.status}`);
+            console.error(`    ❌ Org search failed: ${exactDomainResponse.status}`);
           }
           
           // STRATEGY 2: If no org found by domain, try name search
