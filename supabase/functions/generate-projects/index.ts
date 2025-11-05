@@ -1381,7 +1381,7 @@ serve(async (req) => {
       }
 
       const teamSize = 3;
-      const budget = estimateBudget(
+      const budgetEstimate = estimateBudget(
         course.weeks,
         course.hrs_per_week,
         teamSize,
@@ -1402,7 +1402,7 @@ serve(async (req) => {
         team_size: teamSize,
         tasks: proposal.tasks,
         deliverables: proposal.deliverables,
-        pricing_usd: budget,
+        pricing_usd: budgetEstimate.budget,
         lo_score: scores.lo_score,
         feasibility_score: scores.feasibility_score,
         mutual_benefit_score: scores.mutual_benefit_score,
@@ -1499,6 +1499,18 @@ serve(async (req) => {
           needs_identified: company.needs || []
         };
       }
+
+      // Add pricing breakdown and ROI estimation
+      const roi = estimateProjectROI(
+        budgetEstimate.budget,
+        proposal.deliverables,
+        company.job_postings || [],
+        company.funding_stage || null,
+        proposal.tasks
+      );
+      
+      metadataInsert.pricing_breakdown = budgetEstimate.breakdown;
+      metadataInsert.estimated_roi = roi;
 
       const { error: metadataError } = await serviceRoleClient
         .from('project_metadata')
