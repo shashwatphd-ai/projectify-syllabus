@@ -545,22 +545,134 @@ export const ContactTab = ({ forms, companyProfile, projectId, projectTitle, onD
             )}
             {companyProfile.organization_revenue_range && (
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Revenue Range</p>
+                <p className="text-sm text-muted-foreground mb-1 flex items-center gap-2">
+                  <TrendingUp className="h-3 w-3" />
+                  Revenue Range
+                </p>
                 <p className="text-sm font-medium">{companyProfile.organization_revenue_range}</p>
               </div>
             )}
-            {companyProfile.organization_employee_count && (
+            {companyProfile.organization_founded_year && (
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Employee Count</p>
-                <p className="text-sm font-medium">{companyProfile.organization_employee_count}</p>
+                <p className="text-sm text-muted-foreground mb-1 flex items-center gap-2">
+                  <Calendar className="h-3 w-3" />
+                  Founded
+                </p>
+                <p className="text-sm font-medium">{companyProfile.organization_founded_year}</p>
               </div>
             )}
-            {companyProfile.recent_news && (
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Recent Activity</p>
-                <p className="text-sm">{companyProfile.recent_news}</p>
+            {companyProfile.organization_industry_keywords && companyProfile.organization_industry_keywords.length > 0 && (
+              <div className="col-span-2">
+                <p className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                  <Target className="h-3 w-3" />
+                  Industry Keywords
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {companyProfile.organization_industry_keywords.slice(0, 8).map((keyword: string, idx: number) => (
+                    <Badge key={idx} variant="secondary" className="text-xs">
+                      {keyword}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Technologies Section */}
+      {companyProfile.technologies_used && companyProfile.technologies_used.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Code className="h-5 w-5" />
+              Technology Stack
+            </CardTitle>
+            <CardDescription>
+              Technologies currently used by {companyProfile.name}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {companyProfile.technologies_used.map((tech: any, idx: number) => (
+                <Badge key={idx} variant="outline" className="text-xs">
+                  {tech.name || tech}
+                  {tech.category && (
+                    <span className="ml-1 text-muted-foreground">• {tech.category}</span>
+                  )}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Market Intelligence - Job Postings Section */}
+      {companyProfile.job_postings && companyProfile.job_postings.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Briefcase className="h-5 w-5" />
+              Active Job Postings ({companyProfile.job_postings.length})
+            </CardTitle>
+            <CardDescription>
+              Current hiring signals indicate growth and needs
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {companyProfile.job_postings.slice(0, 10).map((job: any, idx: number) => (
+                <div key={idx} className="border-l-2 border-primary/20 pl-3 py-2">
+                  <p className="font-medium text-sm">{job.title || 'Position Available'}</p>
+                  {job.location && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                      <MapPin className="h-3 w-3" />
+                      {job.location}
+                    </p>
+                  )}
+                  {job.posted_date && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Posted: {new Date(job.posted_date).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Buying Intent Signals */}
+      {companyProfile.buying_intent_signals && companyProfile.buying_intent_signals.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              Buying Intent Signals
+            </CardTitle>
+            <CardDescription>
+              Market signals indicating readiness for partnerships
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {companyProfile.buying_intent_signals.map((signal: any, idx: number) => (
+                <div key={idx} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                  <Badge variant={signal.confidence === 'high' ? 'default' : 'secondary'}>
+                    {signal.confidence}
+                  </Badge>
+                  <div className="flex-1">
+                    <p className="font-medium text-sm capitalize">{signal.signal_type?.replace('_', ' ')}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{signal.details}</p>
+                    {signal.timing && (
+                      <Badge variant="outline" className="mt-2 text-xs">
+                        Timing: {signal.timing}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}

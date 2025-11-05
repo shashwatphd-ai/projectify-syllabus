@@ -56,6 +56,12 @@ interface ApolloOrganizationEnrichment {
   industry?: string;
   keywords?: string[];
   annual_revenue?: string;
+  technology_names?: string[];
+  current_technologies?: Array<{
+    uid: string;
+    name: string;
+    category: string;
+  }>;
 }
 
 // Enrich a person using Apollo.io API
@@ -175,7 +181,7 @@ async function enrichOrganizationWithApollo(
     }
 
     const org = data.organization;
-    console.log(`✅ Apollo Organization found: ${org.name} (${org.estimated_num_employees} employees)`);
+    console.log(`✅ Apollo Organization found: ${org.name} (${org.estimated_num_employees} employees, ${org.technology_names?.length || 0} technologies)`);
 
     return {
       name: org.name,
@@ -189,7 +195,9 @@ async function enrichOrganizationWithApollo(
       estimated_num_employees: org.estimated_num_employees,
       industry: org.industry,
       keywords: org.keywords,
-      annual_revenue: org.annual_revenue
+      annual_revenue: org.annual_revenue,
+      technology_names: org.technology_names,
+      current_technologies: org.current_technologies
     };
   } catch (error) {
     console.error('❌ Apollo Organization enrichment error:', error);
@@ -331,6 +339,45 @@ serve(async (req) => {
               if (orgData.keywords && orgData.keywords.length > 0) {
                 updates.organization_industry_keywords = orgData.keywords;
               }
+
+              // Technologies
+              if (orgData.current_technologies && orgData.current_technologies.length > 0) {
+                updates.technologies_used = orgData.current_technologies;
+                console.log(`  ✓ Added ${orgData.current_technologies.length} technologies`);
+              }
+            }
+
+            // Fetch job postings
+            try {
+              const APOLLO_API_KEY = Deno.env.get('APOLLO_API_KEY');
+              // We need the organization ID for job postings - try to get it from profile or search
+              if (profile.discovery_source === 'apollo_discovery' && APOLLO_API_KEY) {
+                const jobResponse = await fetch(
+                  `https://api.apollo.io/api/v1/organizations/bulk_job_postings`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Cache-Control': 'no-cache',
+                      'X-Api-Key': APOLLO_API_KEY
+                    },
+                    body: JSON.stringify({
+                      domains: [domain]
+                    })
+                  }
+                );
+
+                if (jobResponse.ok) {
+                  const jobData = await jobResponse.json();
+                  if (jobData.job_postings && Array.isArray(jobData.job_postings) && jobData.job_postings.length > 0) {
+                    updates.job_postings = jobData.job_postings.slice(0, 25);
+                    updates.job_postings_last_fetched = new Date().toISOString();
+                    console.log(`  ✓ Added ${updates.job_postings.length} job postings`);
+                  }
+                }
+              }
+            } catch (error) {
+              console.error(`  ⚠ Job postings fetch error:`, error);
             }
           }
         }

@@ -271,7 +271,37 @@ Return JSON:
   private async enrichSingleOrganization(
     org: ApolloOrganization
   ): Promise<DiscoveredCompany | null> {
-    // Find decision-maker contact
+    // Step 1: Call Organization Enrichment API to get complete data including technologies
+    let enrichedOrg = org;
+    try {
+      const enrichResponse = await fetch(
+        'https://api.apollo.io/v1/organizations/enrich',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Api-Key': this.apolloApiKey!
+          },
+          body: JSON.stringify({
+            domain: org.primary_domain
+          })
+        }
+      );
+
+      if (enrichResponse.ok) {
+        const enrichData = await enrichResponse.json();
+        if (enrichData.organization) {
+          enrichedOrg = { ...org, ...enrichData.organization };
+          console.log(`  ✓ Enriched ${org.name} with technologies: ${enrichData.organization.technology_names?.length || 0}`);
+        }
+      } else {
+        console.log(`  ⚠ Enrichment API returned ${enrichResponse.status} for ${org.name}`);
+      }
+    } catch (error) {
+      console.error(`  ❌ Enrichment error for ${org.name}:`, error);
+    }
+
+    // Step 2: Find decision-maker contact
     const peopleResponse = await fetch(
       'https://api.apollo.io/v1/mixed_people/search',
       {
@@ -332,26 +362,49 @@ Return JSON:
     }
 
     // Calculate buying intent signals
-    const buyingIntentSignals = this.calculateBuyingIntent(org, jobPostings);
+    const buyingIntentSignals = this.calculateBuyingIntent(enrichedOrg, jobPostings);
+    
+    // Extract technologies from enriched data
+    const technologies = enrichedOrg.current_technologies || [];
     
     // CRITICAL: Calculate actual data completeness (not hardcoded)
     const completeness = this.calculateDataCompleteness({
       contact,
-      org,
+      org: enrichedOrg,
       jobPostings,
-      technologies: org.current_technologies || []
+      technologies
     });
 
+    // Format employee count into ranges
+    const formatEmployeeCount = (count?: number): string => {
+      if (!count) return 'Unknown';
+      if (count < 50) return '1-50';
+      if (count < 200) return '51-200';
+      if (count < 500) return '201-500';
+      if (count < 1000) return '501-1000';
+      if (count < 5000) return '1001-5000';
+      return '5000+';
+    };
+
+    // Clean up address - only include non-empty parts
+    const addressParts = [
+      enrichedOrg.street_address,
+      enrichedOrg.city,
+      enrichedOrg.state,
+      enrichedOrg.postal_code
+    ].filter(part => part && part.trim());
+    const cleanAddress = addressParts.join(', ');
+
     return {
-      name: org.name,
-      website: org.website_url,
-      sector: org.industry || 'Unknown',
-      size: org.estimated_num_employees ? `${org.estimated_num_employees}` : 'Unknown',
-      address: `${org.street_address || ''}, ${org.city || ''}, ${org.state || ''} ${org.postal_code || ''}`.trim(),
-      city: org.city || '',
-      state: org.state,
-      zip: org.postal_code || '',
-      country: org.country,
+      name: enrichedOrg.name,
+      website: enrichedOrg.website_url,
+      sector: enrichedOrg.industry || 'Unknown',
+      size: formatEmployeeCount(enrichedOrg.estimated_num_employees),
+      address: cleanAddress,
+      city: enrichedOrg.city || '',
+      state: enrichedOrg.state,
+      zip: enrichedOrg.postal_code || '',
+      country: enrichedOrg.country,
       
       contactPerson: contact.name,
       contactEmail: contact.email,
@@ -370,20 +423,20 @@ Return JSON:
       contactEmploymentHistory: contact.employment_history,
       contactPhoneNumbers: contact.phone_numbers,
       
-      organizationLinkedin: org.linkedin_url,
-      organizationTwitter: org.twitter_url,
-      organizationFacebook: org.facebook_url,
-      organizationLogoUrl: org.logo_url,
-      organizationFoundedYear: org.founded_year,
-      organizationEmployeeCount: org.estimated_num_employees ? `${org.estimated_num_employees}` : undefined,
-      organizationRevenueRange: org.annual_revenue ? `$${org.annual_revenue}` : undefined,
-      organizationIndustryKeywords: org.industry_tag_list,
+      organizationLinkedin: enrichedOrg.linkedin_url,
+      organizationTwitter: enrichedOrg.twitter_url,
+      organizationFacebook: enrichedOrg.facebook_url,
+      organizationLogoUrl: enrichedOrg.logo_url,
+      organizationFoundedYear: enrichedOrg.founded_year,
+      organizationEmployeeCount: formatEmployeeCount(enrichedOrg.estimated_num_employees),
+      organizationRevenueRange: enrichedOrg.annual_revenue ? `$${enrichedOrg.annual_revenue}` : undefined,
+      organizationIndustryKeywords: enrichedOrg.industry_tag_list,
       
       jobPostings,
-      technologiesUsed: org.current_technologies || [],
+      technologiesUsed: technologies,
       buyingIntentSignals,
-      fundingStage: org.latest_funding_stage,
-      totalFundingUsd: org.total_funding,
+      fundingStage: enrichedOrg.latest_funding_stage,
+      totalFundingUsd: enrichedOrg.total_funding,
       
       discoverySource: 'apollo_discovery',
       enrichmentLevel: completeness.level,
