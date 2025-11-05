@@ -3,36 +3,112 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { GraduationCap, Building2, Sparkles, TrendingUp, Users, Lightbulb, AlertTriangle, Target, CheckCircle2, ArrowRight } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AnalyzeValueButton } from "./AnalyzeValueButton";
 
 interface ValueAnalysisTabProps {
   valueAnalysis: any;
   stakeholderInsights: any;
   synergyIndex: number;
   partnershipQuality: number;
+  projectId: string;
+  companyProfile: any;
+  project: any;
+  courseProfile: any;
+  onAnalysisComplete: () => void;
 }
 
 export const ValueAnalysisTab = ({ 
   valueAnalysis, 
   stakeholderInsights, 
   synergyIndex,
-  partnershipQuality 
+  partnershipQuality,
+  projectId,
+  companyProfile,
+  project,
+  courseProfile,
+  onAnalysisComplete
 }: ValueAnalysisTabProps) => {
   
   const hasAnalysis = valueAnalysis && Object.keys(valueAnalysis).length > 0;
 
   if (!hasAnalysis) {
     return (
-      <Card className="border-amber-500/50 bg-amber-500/5">
-        <CardContent className="pt-6">
-          <div className="text-center py-8">
-            <Sparkles className="h-12 w-12 mx-auto mb-3 text-amber-600 opacity-50" />
-            <p className="font-medium text-amber-900 dark:text-amber-100">Value Analysis Unavailable</p>
-            <p className="text-sm text-amber-700 dark:text-amber-200 mt-1">
-              This project was generated before AI-powered value analysis was implemented.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <Card className="border-amber-500/50 bg-amber-500/5">
+          <CardContent className="pt-6">
+            <div className="text-center py-8 space-y-4">
+              <Sparkles className="h-12 w-12 mx-auto mb-3 text-amber-600 opacity-50" />
+              <div>
+                <p className="font-medium text-amber-900 dark:text-amber-100">Value Analysis Unavailable</p>
+                <p className="text-sm text-amber-700 dark:text-amber-200 mt-1">
+                  This project was generated before AI-powered value analysis was implemented.
+                </p>
+              </div>
+              {companyProfile && (
+                <div className="flex justify-center pt-2">
+                  <AnalyzeValueButton
+                    projectId={projectId}
+                    companyProfile={companyProfile}
+                    project={project}
+                    courseProfile={courseProfile}
+                    onAnalysisComplete={onAnalysisComplete}
+                  />
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>What You'll Get</CardTitle>
+            <CardDescription>AI-powered stakeholder value intelligence</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <GraduationCap className="h-5 w-5 text-blue-500" />
+                  <span className="font-medium">Student Value Analysis</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Career opportunities, skill development, portfolio value, networking potential
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-purple-500" />
+                  <span className="font-medium">University Value Analysis</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Partnership quality, placement potential, research collaboration, reputation impact
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-green-500" />
+                  <span className="font-medium">Industry Value Analysis</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Deliverable ROI, talent pipeline access, innovation infusion, cost efficiency
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-amber-500" />
+                  <span className="font-medium">Synergistic Value</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Knowledge transfer multipliers, long-term partnership potential, ecosystem impact
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 

@@ -157,6 +157,11 @@ const ProjectDetail = () => {
               stakeholderInsights={metadata?.stakeholder_insights}
               synergyIndex={metadata?.synergistic_value_index || 0}
               partnershipQuality={metadata?.partnership_quality_score || 0}
+              projectId={id!}
+              companyProfile={companyProfile}
+              project={project}
+              courseProfile={courseProfile}
+              onAnalysisComplete={loadProjectData}
             />
           </TabsContent>
 
