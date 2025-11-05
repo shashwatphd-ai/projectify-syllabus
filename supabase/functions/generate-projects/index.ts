@@ -1586,11 +1586,7 @@ serve(async (req) => {
     );
 
     const requestBody = await req.json();
-    console.log('📦 Request body received:', JSON.stringify(requestBody));
-    
     const { courseId, industries, numTeams, generation_run_id } = requestBody;
-    
-    console.log('🔍 Extracted generation_run_id:', generation_run_id, 'Type:', typeof generation_run_id);
 
     const { data: course, error: courseError } = await supabaseClient
       .from('course_profiles')
@@ -1609,37 +1605,53 @@ serve(async (req) => {
     const cityZip = course.city_zip;
     const level = course.level;
     
-    console.log('Starting intelligent project generation...');
-    console.log('Location:', cityZip);
-    console.log('Industries:', industries);
-    console.log('Teams requested:', numTeams);
-    console.log('Generation Run ID:', generation_run_id || 'None (using fallback)');
+    console.log('\n🚀 Starting Apollo-First Project Generation');
+    console.log('📍 Location:', cityZip);
+    console.log('🏢 Industries:', industries);
+    console.log('👥 Teams requested:', numTeams);
+    console.log('🔗 Generation Run ID:', generation_run_id || 'NONE - Will use fallback');
     
-    // MODIFIED: PRIORITY - Use Apollo-enriched companies from generation run
     let companiesFound: CompanyInfo[] = [];
     let generationRunId: string | null = generation_run_id || null;
+    let apolloFetchSuccess = false;
     
-    // Step 1: PRIORITY - Use Apollo-enriched companies if generation_run_id provided
-    if (generation_run_id) {
-      console.log('\n🎯 Step 1: Using Apollo-enriched companies from generation run:', generation_run_id);
+    // CRITICAL: STEP 1 - ALWAYS TRY APOLLO FIRST if generation_run_id exists
+    if (generation_run_id && typeof generation_run_id === 'string' && generation_run_id.length > 0) {
+      console.log('\n✅ STEP 1: Fetching Apollo-enriched companies...');
+      console.log('   Generation Run ID:', generation_run_id);
+      
       try {
-        companiesFound = await getApolloEnrichedCompanies(
+        const apolloCompanies = await getApolloEnrichedCompanies(
           serviceRoleClient,
           generation_run_id,
           numTeams
         );
-        console.log(`✅ Loaded ${companiesFound.length} Apollo-enriched companies with IDs:`, companiesFound.map(c => c.id));
-      } catch (error) {
-        console.error('❌ Failed to load Apollo companies:', error);
-        console.log('⚠ Falling back to intelligent discovery');
+        
+        if (apolloCompanies && apolloCompanies.length > 0) {
+          companiesFound = apolloCompanies;
+          apolloFetchSuccess = true;
+          console.log(`   ✅ SUCCESS: Loaded ${companiesFound.length} Apollo companies`);
+          console.log('   Company IDs:', companiesFound.map(c => `${c.name}(${c.id})`).join(', '));
+          console.log('   Sample contact data:', {
+            name: companiesFound[0]?.contact_person,
+            email: companiesFound[0]?.contact_email,
+            phone: companiesFound[0]?.contact_phone
+          });
+        } else {
+          console.warn('   ⚠ Apollo fetch returned 0 companies');
+        }
+      } catch (error: any) {
+        console.error('   ❌ Apollo fetch failed:', error.message);
+        console.error('   Error details:', error);
       }
     } else {
-      console.log('⚠ No generation_run_id provided, skipping Apollo fetch');
+      console.log('\n⚠ STEP 1 SKIPPED: No valid generation_run_id provided');
+      console.log('   Received value:', generation_run_id, 'Type:', typeof generation_run_id);
     }
     
-    // Step 2: FALLBACK - Try intelligent discovery using Google Search if no Apollo data
-    if (companiesFound.length === 0) {
-      console.log('\n🔍 Step 2: FALLBACK - Intelligent company discovery via Google Search...');
+    // Step 2: FALLBACK - Only use Google Search if Apollo fetch failed completely
+    if (companiesFound.length === 0 && !apolloFetchSuccess) {
+      console.log('\n⚠ STEP 2: FALLBACK - Apollo unavailable, trying Google Search...');
       try {
         const discoveryResponse = await fetch(
         `${Deno.env.get('SUPABASE_URL')}/functions/v1/discover-companies`,
@@ -1663,12 +1675,11 @@ serve(async (req) => {
         generationRunId = discoveryData.generation_run_id || null;
         
         if (discoveryData.success && discoveryData.companies.length > 0) {
-          console.log(`✓ Discovered ${discoveryData.companies.length} companies via Google Search`);
-          console.log(`✓ Generation run ID: ${generationRunId}`);
+          console.log(`   ✓ Google Search found ${discoveryData.companies.length} companies`);
+          console.log(`   ✓ New generation_run_id: ${generationRunId}`);
           
-          // Convert discoveries to CompanyInfo format with company_profile_id
           companiesFound = discoveryData.companies.map((d: any) => ({
-            id: d.companyProfileId, // Link to company_profiles table
+            id: d.companyProfileId,
             name: d.name,
             sector: d.sector,
             size: d.estimatedSize,
@@ -1680,24 +1691,17 @@ serve(async (req) => {
             contactPerson: d.contactPerson,
             contactEmail: d.contactEmail,
             linkedinProfile: d.linkedinProfile,
-            // NEW: Market intelligence from Apollo
             job_postings: d.jobPostings || [],
             technologies_used: d.technologiesUsed || [],
-            funding_stage: d.fundingStage || null,
-            // Store relevance data for linking
-            _discoveryData: {
-              relevanceScore: d.relevanceScore,
-              skillsNeeded: d.skillsNeeded,
-              whyRelevant: d.whyRelevant
-            }
+            funding_stage: d.fundingStage || null
           }));
         }
       }
     } catch (error) {
-      console.error('⚠ Discovery function failed:', error);
+      console.error('   ❌ Google Search fallback failed:', error);
     }
-    
-    // Close the if (companiesFound.length === 0) block
+    } else if (apolloFetchSuccess) {
+      console.log('\n✅ STEP 2: SKIPPED - Using Apollo-enriched data');
     }
 
     // Step 3: Fallback to DB if discovery didn't find enough
@@ -1853,7 +1857,7 @@ serve(async (req) => {
       console.log(`  📈 Apollo-Enriched ROI: ${roiAnalysis.roi_multiplier}x ($${roiAnalysis.total_value.toLocaleString()} total value)`);
       console.log(`  💡 Value components: ${roiAnalysis.value_components?.length || 0} categories analyzed`);
 
-      // MODIFIED: Insert project with company_profile_id and generation_run_id if available
+      // MODIFIED: Insert project with MANDATORY company_profile_id linking
       const projectInsert: any = {
         course_id: courseId,
         title: proposal.title,
@@ -1872,14 +1876,34 @@ serve(async (req) => {
         needs_review: false,
       };
 
-      // Link to company profile if ID exists
+      // CRITICAL: Link to company profile - First try direct ID, then fallback to name matching
       if (company.id) {
         projectInsert.company_profile_id = company.id;
+        console.log(`  ✅ Linking project to company_profile_id: ${company.id}`);
+      } else if (apolloFetchSuccess && generationRunId) {
+        // Fallback: Try to find company by name in the same generation run
+        console.log(`  ⚠ No direct company.id, attempting name match for: ${company.name}`);
+        const { data: matchedProfile } = await serviceRoleClient
+          .from('company_profiles')
+          .select('id')
+          .eq('generation_run_id', generationRunId)
+          .ilike('name', company.name)
+          .maybeSingle();
+        
+        if (matchedProfile) {
+          projectInsert.company_profile_id = matchedProfile.id;
+          console.log(`  ✅ Matched by name to company_profile_id: ${matchedProfile.id}`);
+        } else {
+          console.warn(`  ❌ CRITICAL: Could not link project to any company_profile for: ${company.name}`);
+        }
+      } else {
+        console.warn(`  ⚠ No Apollo data available - project will have no company_profile_id`);
       }
       
       // Link to generation run if exists
       if (generationRunId) {
         projectInsert.generation_run_id = generationRunId;
+        console.log(`  ✅ Linking project to generation_run_id: ${generationRunId}`);
       }
 
       const { data: projectData, error: projectError } = await supabaseClient
