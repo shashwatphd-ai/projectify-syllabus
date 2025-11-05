@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Navigation } from "@/components/Navigation";
 import { SyllabusReview } from "@/components/SyllabusReview";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function ReviewSyllabus() {
   const [searchParams] = useSearchParams();
@@ -14,6 +15,8 @@ export default function ReviewSyllabus() {
   const [parsedData, setParsedData] = useState<any>(null);
   const [rawText, setRawText] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const courseId = searchParams.get('courseId');
   const parsedDataParam = searchParams.get('parsed');
@@ -27,6 +30,7 @@ export default function ReviewSyllabus() {
 
     const loadCourse = async () => {
       try {
+        setError(null);
         const { data, error } = await supabase
           .from('course_profiles')
           .select('*')
@@ -34,6 +38,11 @@ export default function ReviewSyllabus() {
           .single();
 
         if (error) throw error;
+        
+        if (!data) {
+          throw new Error('Course not found');
+        }
+        
         setCourse(data);
 
         // Get parsed data from URL or construct from DB
@@ -54,17 +63,30 @@ export default function ReviewSyllabus() {
         if (rawTextParam) {
           setRawText(decodeURIComponent(rawTextParam));
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error loading course:', error);
-        toast.error('Failed to load course data');
-        navigate('/upload');
+        const errorMessage = error.message || 'Failed to load course data';
+        setError(errorMessage);
+        
+        // Only navigate away if it's a critical error after retries
+        if (retryCount >= 2) {
+          toast.error('Unable to load course data. Please try uploading again.');
+          setTimeout(() => navigate('/upload'), 2000);
+        } else {
+          toast.error('Connection issue. Retrying...');
+        }
       } finally {
         setLoading(false);
       }
     };
 
     loadCourse();
-  }, [courseId, parsedDataParam, rawTextParam, navigate]);
+  }, [courseId, parsedDataParam, rawTextParam, navigate, retryCount]);
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+    setLoading(true);
+  };
 
   const handleContinue = () => {
     // Auto-navigate to configure with minimal friction
@@ -81,8 +103,37 @@ export default function ReviewSyllabus() {
       <div className="min-h-screen bg-background">
         <Navigation />
         <div className="flex items-center justify-center h-[80vh]">
-          <Loader2 className="h-8 w-8 animate-spin" />
+          <div className="text-center space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+            <p className="text-muted-foreground">Loading course data...</p>
+            {retryCount > 0 && (
+              <p className="text-sm text-muted-foreground">Retry attempt {retryCount}</p>
+            )}
+          </div>
         </div>
+      </div>
+    );
+  }
+
+  if (error && !course) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <main className="container mx-auto px-4 py-8 max-w-4xl">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Connection Error</AlertTitle>
+            <AlertDescription className="space-y-4">
+              <p>{error}</p>
+              {retryCount < 2 && (
+                <Button onClick={handleRetry} variant="outline" size="sm">
+                  <ArrowRight className="mr-2 h-4 w-4" />
+                  Retry
+                </Button>
+              )}
+            </AlertDescription>
+          </Alert>
+        </main>
       </div>
     );
   }
