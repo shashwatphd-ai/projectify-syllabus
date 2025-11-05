@@ -300,15 +300,16 @@ Return JSON:
     const contact = peopleData.people[0];
     if (!contact.email || !contact.name) return null;
 
-    // Fetch job postings
+    // Fetch job postings using correct Apollo endpoint
     let jobPostings: any[] = [];
     try {
       const jobResponse = await fetch(
-        `https://api.apollo.io/api/v1/organizations/${org.id}/job_postings`,
+        `https://api.apollo.io/api/v1/organizations/${org.id}/job_postings?page=1&per_page=25`,
         {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
             'X-Api-Key': this.apolloApiKey!
           }
         }
@@ -316,16 +317,30 @@ Return JSON:
 
       if (jobResponse.ok) {
         const jobData = await jobResponse.json();
-        if (jobData.job_postings) {
-          jobPostings = jobData.job_postings.slice(0, 10);
+        // CRITICAL: Apollo returns "organization_job_postings", not "job_postings"
+        if (jobData.organization_job_postings && Array.isArray(jobData.organization_job_postings)) {
+          jobPostings = jobData.organization_job_postings.slice(0, 25);
+          console.log(`  ✓ Found ${jobPostings.length} job postings for ${org.name}`);
+        } else {
+          console.log(`  ℹ No job postings found for ${org.name}`);
         }
+      } else {
+        console.log(`  ⚠ Job postings API returned ${jobResponse.status} for ${org.name}`);
       }
     } catch (error) {
-      console.log(`  ⚠ Could not fetch job postings for ${org.name}`);
+      console.error(`  ❌ Job postings fetch error for ${org.name}:`, error);
     }
 
     // Calculate buying intent signals
     const buyingIntentSignals = this.calculateBuyingIntent(org, jobPostings);
+    
+    // CRITICAL: Calculate actual data completeness (not hardcoded)
+    const completeness = this.calculateDataCompleteness({
+      contact,
+      org,
+      jobPostings,
+      technologies: org.current_technologies || []
+    });
 
     return {
       name: org.name,
@@ -371,11 +386,100 @@ Return JSON:
       totalFundingUsd: org.total_funding,
       
       discoverySource: 'apollo_discovery',
-      enrichmentLevel: 'fully_enriched',
-      dataCompletenessScore: 95,
+      enrichmentLevel: completeness.level,
+      dataCompletenessScore: completeness.score,
       lastEnrichedAt: new Date().toISOString(),
       lastVerifiedAt: new Date().toISOString()
     };
+  }
+  
+  // CRITICAL: Calculate actual data completeness instead of hardcoding
+  private calculateDataCompleteness(data: {
+    contact: any;
+    org: ApolloOrganization;
+    jobPostings: any[];
+    technologies: string[];
+  }): { score: number; level: 'basic' | 'apollo_verified' | 'fully_enriched' } {
+    let score = 0;
+    let maxScore = 0;
+    
+    // Contact data (40 points max)
+    const contactFields = [
+      { field: data.contact.email, points: 10, name: 'email' },
+      { field: data.contact.name, points: 8, name: 'name' },
+      { field: data.contact.title, points: 6, name: 'title' },
+      { field: data.contact.phone_numbers?.length, points: 6, name: 'phone' },
+      { field: data.contact.linkedin_url, points: 5, name: 'linkedin' },
+      { field: data.contact.headline, points: 5, name: 'headline' }
+    ];
+    
+    contactFields.forEach(({ field, points, name }) => {
+      maxScore += points;
+      if (field) {
+        score += points;
+        console.log(`    ✓ ${name}: +${points}`);
+      }
+    });
+    
+    // Organization data (30 points max)
+    const orgFields = [
+      { field: data.org.website_url, points: 5, name: 'website' },
+      { field: data.org.industry, points: 5, name: 'industry' },
+      { field: data.org.estimated_num_employees, points: 5, name: 'employee_count' },
+      { field: data.org.annual_revenue, points: 5, name: 'revenue' },
+      { field: data.org.founded_year, points: 3, name: 'founded_year' },
+      { field: data.org.linkedin_url, points: 3, name: 'org_linkedin' },
+      { field: data.org.city, points: 2, name: 'location' },
+      { field: data.org.logo_url, points: 2, name: 'logo' }
+    ];
+    
+    orgFields.forEach(({ field, points, name }) => {
+      maxScore += points;
+      if (field) {
+        score += points;
+        console.log(`    ✓ ${name}: +${points}`);
+      }
+    });
+    
+    // Market intelligence (30 points max) - CRITICAL for project quality
+    maxScore += 15; // Job postings
+    if (data.jobPostings.length > 0) {
+      const jobScore = Math.min(15, data.jobPostings.length);
+      score += jobScore;
+      console.log(`    ✓ job_postings (${data.jobPostings.length}): +${jobScore}`);
+    } else {
+      console.log(`    ✗ job_postings: 0 (missing critical intelligence)`);
+    }
+    
+    maxScore += 10; // Technologies
+    if (data.technologies.length > 0) {
+      const techScore = Math.min(10, data.technologies.length);
+      score += techScore;
+      console.log(`    ✓ technologies (${data.technologies.length}): +${techScore}`);
+    } else {
+      console.log(`    ✗ technologies: 0 (missing critical intelligence)`);
+    }
+    
+    maxScore += 5; // Funding
+    if (data.org.latest_funding_stage) {
+      score += 5;
+      console.log(`    ✓ funding_stage: +5`);
+    }
+    
+    const percentage = Math.round((score / maxScore) * 100);
+    
+    let level: 'basic' | 'apollo_verified' | 'fully_enriched';
+    if (percentage >= 80 && data.jobPostings.length >= 3) {
+      level = 'fully_enriched';
+    } else if (percentage >= 60 || data.jobPostings.length >= 1) {
+      level = 'apollo_verified'; // Verified but not fully enriched
+    } else {
+      level = 'basic';
+    }
+    
+    console.log(`  📊 Data Completeness: ${percentage}% (${score}/${maxScore}) - Level: ${level}`);
+    
+    return { score: percentage, level };
   }
   
   private calculateBuyingIntent(org: ApolloOrganization, jobPostings: any[]) {
