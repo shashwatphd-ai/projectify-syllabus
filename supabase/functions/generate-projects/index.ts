@@ -414,7 +414,8 @@ Return ONLY valid JSON:
   "publication_opportunity": "Yes or No - realistic assessment of whether this work could lead to academic publication"
 }`;
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+  // Try Gemini API first (higher quota)
+  let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -432,15 +433,56 @@ Return ONLY valid JSON:
     }),
   });
 
+  // Fallback to Lovable AI if Gemini fails (quota, rate limit, etc)
   if (!response.ok) {
-    const error = await response.text();
-    console.error('AI proposal error:', response.status, error);
+    const geminiError = await response.text();
+    console.error('Gemini API error:', response.status, geminiError);
+    
+    if (response.status === 429 || response.status === 503) {
+      console.log('⚠️ Gemini quota/unavailable, falling back to Lovable AI...');
+      
+      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+      if (LOVABLE_API_KEY) {
+        response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0.7,
+          }),
+        });
+
+        if (!response.ok) {
+          const lovableError = await response.text();
+          console.error('Lovable AI fallback also failed:', response.status, lovableError);
+          throw new Error(`Both Gemini and Lovable AI failed. Last error: ${lovableError}`);
+        }
+
+        // Parse Lovable AI response (different format)
+        const lovableData = await response.json();
+        const content = lovableData.choices[0].message.content;
+        
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('No valid JSON in Lovable AI response');
+        
+        return JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('Lovable AI key not configured for fallback');
+      }
+    }
     
     if (response.status === 403) {
       throw new Error('Gemini API key is blocked. Please enable the Generative Language API in your Google Cloud Console: https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com');
     }
     
-    throw new Error(`Gemini API error: ${response.status} - ${error}`);
+    throw new Error(`Gemini API error: ${response.status} - ${geminiError}`);
   }
 
   const data = await response.json();

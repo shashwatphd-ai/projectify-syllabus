@@ -267,6 +267,57 @@ serve(async (req) => {
           const domain = new URL(placeDetails.website).hostname.replace('www.', '');
           console.log(`  🚀 Searching Apollo.io for contacts at ${discovery.name} (domain: ${domain})...`);
           
+          // Try Apollo.io Organization Search first for better matching
+          const orgSearchResponse = await fetch(
+            'https://api.apollo.io/v1/organizations/search',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache',
+                'X-Api-Key': APOLLO_API_KEY
+              },
+              body: JSON.stringify({
+                organization_domains: [domain],
+                page: 1,
+                per_page: 1
+              })
+            }
+          );
+
+          let apolloOrgId = null;
+          if (orgSearchResponse.ok) {
+            const orgData = await orgSearchResponse.json();
+            if (orgData.organizations && orgData.organizations.length > 0) {
+              apolloOrgId = orgData.organizations[0].id;
+              console.log(`    ✓ Found org in Apollo: ${orgData.organizations[0].name} (ID: ${apolloOrgId})`);
+            }
+          }
+
+          // If org found, search for people within that specific org
+          const searchBody: any = {
+            person_titles: [
+              'Director of Partnerships',
+              'VP of Partnerships', 
+              'Director of Operations',
+              'COO',
+              'President',
+              'CEO',
+              'Owner',
+              'General Manager'
+            ],
+            person_seniorities: ['c_suite', 'vp', 'director', 'owner'],
+            page: 1,
+            per_page: 5  // Get more results to find best match
+          };
+
+          // Add organization filter
+          if (apolloOrgId) {
+            searchBody.organization_ids = [apolloOrgId];
+          } else {
+            searchBody.organization_domains = [domain];
+          }
+
           const apolloResponse = await fetch(
             'https://api.apollo.io/v1/mixed_people/search',
             {
@@ -276,25 +327,7 @@ serve(async (req) => {
                 'Cache-Control': 'no-cache',
                 'X-Api-Key': APOLLO_API_KEY
               },
-              body: JSON.stringify({
-                // Primary filter: organization domain
-                organization_domains: [domain],
-                // Prioritize decision makers who handle partnerships
-                person_titles: [
-                  'Director of Partnerships',
-                  'VP of Partnerships', 
-                  'Director of Operations',
-                  'COO',
-                  'President',
-                  'CEO',
-                  'Owner',
-                  'General Manager'
-                ],
-                person_seniorities: ['c_suite', 'vp', 'director', 'owner'],
-                // Only get top result
-                page: 1,
-                per_page: 1
-              })
+              body: JSON.stringify(searchBody)
             }
           );
 
@@ -302,22 +335,33 @@ serve(async (req) => {
             const apolloData = await apolloResponse.json();
             
             if (apolloData.people && apolloData.people.length > 0) {
-              const contact = apolloData.people[0];
+              // Find best matching contact from results
+              let contact = null;
               
-              // CRITICAL: Verify the contact actually belongs to this organization
-              const contactDomain = contact.organization?.website_url 
-                ? new URL(contact.organization.website_url).hostname.replace('www.', '')
-                : null;
+              for (const person of apolloData.people) {
+                const contactDomain = person.organization?.website_url 
+                  ? new URL(person.organization.website_url).hostname.replace('www.', '')
+                  : null;
+                
+                const contactOrgName = person.organization?.name?.toLowerCase() || '';
+                const searchOrgName = discovery.name.toLowerCase();
+                
+                // Strict validation: domain must match OR very close name match
+                const isDomainMatch = contactDomain === domain;
+                const baseSearchName = searchOrgName.split(/[\s&,.-]+/)[0];
+                const baseContactName = contactOrgName.split(/[\s&,.-]+/)[0];
+                const isNameMatch = baseSearchName.length > 3 && 
+                                   (contactOrgName.includes(baseSearchName) || 
+                                    searchOrgName.includes(baseContactName));
+                
+                if (isDomainMatch || isNameMatch) {
+                  contact = person;
+                  console.log(`    ✓ Matched contact: ${person.name} at ${person.organization?.name || 'N/A'}`);
+                  break;
+                }
+              }
               
-              const contactOrgName = contact.organization?.name?.toLowerCase() || '';
-              const searchOrgName = discovery.name.toLowerCase();
-              
-              // Validate: domain match OR organization name similarity
-              const isDomainMatch = contactDomain === domain;
-              const isNameMatch = contactOrgName.includes(searchOrgName.split(' ')[0]) || 
-                                  searchOrgName.includes(contactOrgName.split(' ')[0]);
-              
-              if (isDomainMatch || isNameMatch) {
+              if (contact) {
                 // ====================================
                 // VALIDATION: Ensure COMPLETE data from Apollo
                 // ====================================
@@ -465,9 +509,16 @@ serve(async (req) => {
                   console.log(`    Technologies: ${technologiesUsed.length}`);
                 }
               } else {
-                console.log(`  ⚠ Apollo contact organization mismatch:`);
+                console.log(`  ⚠ Apollo contact organization mismatch for all ${apolloData.people.length} results`);
                 console.log(`    Expected: ${discovery.name} (${domain})`);
-                console.log(`    Got: ${contact.organization?.name || 'N/A'} (${contactDomain || 'N/A'})`);
+                if (apolloData.people[0]) {
+                  const firstContact = apolloData.people[0];
+                  const firstDomain = firstContact.organization?.website_url 
+                    ? new URL(firstContact.organization.website_url).hostname.replace('www.', '')
+                    : null;
+                  console.log(`    Got: ${firstContact.organization?.name || 'N/A'} (${firstDomain || 'N/A'})`);
+                }
+                shouldSkipCompany = true;
               }
             } else {
               console.log(`  ❌ SKIPPING ${discovery.name}: No contacts found in Apollo.io`);
