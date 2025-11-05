@@ -17,6 +17,7 @@ export type Database = {
       company_profiles: {
         Row: {
           apollo_enrichment_date: string | null
+          buying_intent_signals: Json | null
           city: string | null
           contact_city: string | null
           contact_country: string | null
@@ -35,9 +36,14 @@ export type Database = {
           contact_twitter_url: string | null
           data_completeness_score: number | null
           data_enrichment_level: string | null
+          discovery_source: string | null
           full_address: string | null
+          funding_stage: string | null
+          generation_run_id: string | null
           id: string
           inferred_needs: Json | null
+          job_postings: Json | null
+          job_postings_last_fetched: string | null
           last_enriched_at: string
           last_verified_at: string | null
           linkedin_profile: string | null
@@ -56,11 +62,14 @@ export type Database = {
           size: string | null
           source: string | null
           technologies: Json | null
+          technologies_used: Json | null
+          total_funding_usd: number | null
           website: string | null
           zip: string | null
         }
         Insert: {
           apollo_enrichment_date?: string | null
+          buying_intent_signals?: Json | null
           city?: string | null
           contact_city?: string | null
           contact_country?: string | null
@@ -79,9 +88,14 @@ export type Database = {
           contact_twitter_url?: string | null
           data_completeness_score?: number | null
           data_enrichment_level?: string | null
+          discovery_source?: string | null
           full_address?: string | null
+          funding_stage?: string | null
+          generation_run_id?: string | null
           id?: string
           inferred_needs?: Json | null
+          job_postings?: Json | null
+          job_postings_last_fetched?: string | null
           last_enriched_at?: string
           last_verified_at?: string | null
           linkedin_profile?: string | null
@@ -100,11 +114,14 @@ export type Database = {
           size?: string | null
           source?: string | null
           technologies?: Json | null
+          technologies_used?: Json | null
+          total_funding_usd?: number | null
           website?: string | null
           zip?: string | null
         }
         Update: {
           apollo_enrichment_date?: string | null
+          buying_intent_signals?: Json | null
           city?: string | null
           contact_city?: string | null
           contact_country?: string | null
@@ -123,9 +140,14 @@ export type Database = {
           contact_twitter_url?: string | null
           data_completeness_score?: number | null
           data_enrichment_level?: string | null
+          discovery_source?: string | null
           full_address?: string | null
+          funding_stage?: string | null
+          generation_run_id?: string | null
           id?: string
           inferred_needs?: Json | null
+          job_postings?: Json | null
+          job_postings_last_fetched?: string | null
           last_enriched_at?: string
           last_verified_at?: string | null
           linkedin_profile?: string | null
@@ -144,10 +166,20 @@ export type Database = {
           size?: string | null
           source?: string | null
           technologies?: Json | null
+          technologies_used?: Json | null
+          total_funding_usd?: number | null
           website?: string | null
           zip?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "company_profiles_generation_run_id_fkey"
+            columns: ["generation_run_id"]
+            isOneToOne: false
+            referencedRelation: "generation_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       course_profiles: {
         Row: {
@@ -252,6 +284,80 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      generation_runs: {
+        Row: {
+          ai_models_used: Json | null
+          ai_tokens_consumed: number | null
+          apollo_credits_used: number | null
+          companies_discovered: number | null
+          companies_enriched: number | null
+          completed_at: string | null
+          course_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          industries: Json | null
+          location: string | null
+          num_teams: number
+          processing_time_seconds: number | null
+          projects_generated: number | null
+          specific_companies: Json | null
+          started_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ai_models_used?: Json | null
+          ai_tokens_consumed?: number | null
+          apollo_credits_used?: number | null
+          companies_discovered?: number | null
+          companies_enriched?: number | null
+          completed_at?: string | null
+          course_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          industries?: Json | null
+          location?: string | null
+          num_teams: number
+          processing_time_seconds?: number | null
+          projects_generated?: number | null
+          specific_companies?: Json | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_models_used?: Json | null
+          ai_tokens_consumed?: number | null
+          apollo_credits_used?: number | null
+          companies_discovered?: number | null
+          companies_enriched?: number | null
+          completed_at?: string | null
+          course_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          industries?: Json | null
+          location?: string | null
+          num_teams?: number
+          processing_time_seconds?: number | null
+          projects_generated?: number | null
+          specific_companies?: Json | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generation_runs_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -387,6 +493,7 @@ export type Database = {
           lo_alignment_detail: Json | null
           lo_mapping_deliverables: Json | null
           lo_mapping_tasks: Json | null
+          market_signals_used: Json | null
           project_id: string
           scoring_rationale: Json | null
           selection_criteria: Json | null
@@ -402,6 +509,7 @@ export type Database = {
           lo_alignment_detail?: Json | null
           lo_mapping_deliverables?: Json | null
           lo_mapping_tasks?: Json | null
+          market_signals_used?: Json | null
           project_id: string
           scoring_rationale?: Json | null
           selection_criteria?: Json | null
@@ -417,6 +525,7 @@ export type Database = {
           lo_alignment_detail?: Json | null
           lo_mapping_deliverables?: Json | null
           lo_mapping_tasks?: Json | null
+          market_signals_used?: Json | null
           project_id?: string
           scoring_rationale?: Json | null
           selection_criteria?: Json | null
@@ -441,6 +550,7 @@ export type Database = {
           duration_weeks: number
           feasibility_score: number
           final_score: number
+          generation_run_id: string | null
           id: string
           lo_score: number
           mutual_benefit_score: number
@@ -461,6 +571,7 @@ export type Database = {
           duration_weeks: number
           feasibility_score: number
           final_score: number
+          generation_run_id?: string | null
           id?: string
           lo_score: number
           mutual_benefit_score: number
@@ -481,6 +592,7 @@ export type Database = {
           duration_weeks?: number
           feasibility_score?: number
           final_score?: number
+          generation_run_id?: string | null
           id?: string
           lo_score?: number
           mutual_benefit_score?: number
@@ -505,6 +617,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "course_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_generation_run_id_fkey"
+            columns: ["generation_run_id"]
+            isOneToOne: false
+            referencedRelation: "generation_runs"
             referencedColumns: ["id"]
           },
         ]

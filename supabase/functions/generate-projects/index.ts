@@ -20,6 +20,10 @@ interface CompanyInfo {
   contact_person?: string | null;
   full_address?: string | null;
   linkedin_profile?: string | null;
+  // NEW: Market Intelligence
+  job_postings?: any[];
+  technologies_used?: string[];
+  funding_stage?: string | null;
 }
 
 interface ProjectProposal {
@@ -298,6 +302,23 @@ async function generateProjectProposal(
     console.warn(`⚠ WARNING: ${company.name} has generic/missing needs. Project may lack specificity.`);
   }
   
+  // Build market intelligence context
+  const marketContext = [];
+  if (company.job_postings && company.job_postings.length > 0) {
+    const skills = company.job_postings.flatMap((jp: any) => jp.skills_needed || []);
+    const uniqueSkills = [...new Set(skills)].slice(0, 10);
+    marketContext.push(`Active Job Postings: ${company.job_postings.length} openings`);
+    if (uniqueSkills.length > 0) {
+      marketContext.push(`Skills They're Hiring For: ${uniqueSkills.join(', ')}`);
+    }
+  }
+  if (company.technologies_used && company.technologies_used.length > 0) {
+    marketContext.push(`Technologies Used: ${company.technologies_used.slice(0, 8).join(', ')}`);
+  }
+  if (company.funding_stage) {
+    marketContext.push(`Funding Stage: ${company.funding_stage}`);
+  }
+  
   const prompt = `Design an experiential learning project for ${level} students working with ${company.name}.
 
 🎯 CRITICAL CONTEXT - USE THIS REAL DATA:
@@ -308,6 +329,13 @@ Company Profile:
 - Size: ${company.size}
 - Description: ${company.description}
 ${company.website ? `- Website: ${company.website}` : ''}
+
+${marketContext.length > 0 ? `
+📊 MARKET INTELLIGENCE (Real-time data from Apollo.io):
+${marketContext.map(m => `- ${m}`).join('\n')}
+
+USE THIS DATA: Design a project that addresses their hiring needs OR leverages their technology stack.
+` : ''}
 
 REAL Business Challenges (from customer reviews & market analysis):
 ${company.needs.map((need, i) => `${i + 1}. ${need}`).join('\n')}
@@ -893,6 +921,7 @@ serve(async (req) => {
     
     // MODIFIED: Try intelligent discovery first, then DB, then AI fallback
     let companiesFound: CompanyInfo[] = [];
+    let generationRunId: string | null = null;
     
     // Step 1: Try intelligent discovery using Google Search
     console.log('🔍 Step 1: Intelligent company discovery via Google Search...');
@@ -908,6 +937,7 @@ serve(async (req) => {
           body: JSON.stringify({
             courseId,
             location: cityZip,
+            industries,
             count: numTeams
           })
         }
@@ -915,8 +945,11 @@ serve(async (req) => {
 
       if (discoveryResponse.ok) {
         const discoveryData = await discoveryResponse.json();
+        generationRunId = discoveryData.generation_run_id || null;
+        
         if (discoveryData.success && discoveryData.companies.length > 0) {
           console.log(`✓ Discovered ${discoveryData.companies.length} companies via Google Search`);
+          console.log(`✓ Generation run ID: ${generationRunId}`);
           
           // Convert discoveries to CompanyInfo format with company_profile_id
           companiesFound = discoveryData.companies.map((d: any) => ({
@@ -932,6 +965,10 @@ serve(async (req) => {
             contactPerson: d.contactPerson,
             contactEmail: d.contactEmail,
             linkedinProfile: d.linkedinProfile,
+            // NEW: Market intelligence from Apollo
+            job_postings: d.jobPostings || [],
+            technologies_used: d.technologiesUsed || [],
+            funding_stage: d.fundingStage || null,
             // Store relevance data for linking
             _discoveryData: {
               relevanceScore: d.relevanceScore,
@@ -1080,7 +1117,7 @@ serve(async (req) => {
       const milestones = generateMilestones(course.weeks, proposal.deliverables);
       const forms = createForms(company, proposal, course);
 
-      // MODIFIED: Insert project with company_profile_id if available
+      // MODIFIED: Insert project with company_profile_id and generation_run_id if available
       const projectInsert: any = {
         course_id: courseId,
         title: proposal.title,
@@ -1102,6 +1139,11 @@ serve(async (req) => {
       // Link to company profile if ID exists
       if (company.id) {
         projectInsert.company_profile_id = company.id;
+      }
+      
+      // Link to generation run if exists
+      if (generationRunId) {
+        projectInsert.generation_run_id = generationRunId;
       }
 
       const { data: projectData, error: projectError } = await supabaseClient
@@ -1171,6 +1213,17 @@ serve(async (req) => {
         metadataInsert.lo_mapping_tasks = loAlignmentDetail.task_mappings;
         metadataInsert.lo_mapping_deliverables = loAlignmentDetail.deliverable_mappings;
       }
+      
+      // Add market signals used
+      if (company.job_postings || company.technologies_used || company.funding_stage) {
+        metadataInsert.market_signals_used = {
+          job_postings_matched: company.job_postings?.length || 0,
+          technologies_aligned: company.technologies_used || [],
+          funding_stage: company.funding_stage || null,
+          hiring_urgency: company.job_postings && company.job_postings.length > 5 ? 'high' : 'medium',
+          needs_identified: company.needs || []
+        };
+      }
 
       const { error: metadataError } = await serviceRoleClient
         .from('project_metadata')
@@ -1184,12 +1237,27 @@ serve(async (req) => {
       console.log(`✓ Project ${i + 1} created successfully`);
     }
 
+    // Update generation run with final project count
+    if (generationRunId) {
+      await serviceRoleClient
+        .from('generation_runs')
+        .update({
+          projects_generated: projectIds.length,
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', generationRunId);
+      
+      console.log(`✅ Updated generation run ${generationRunId} with ${projectIds.length} projects`);
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true,
         projectIds,
         message: `Successfully generated ${projectIds.length} projects`,
-        using_real_data: companiesFound.some(c => c.id !== undefined)
+        using_real_data: companiesFound.some(c => c.id !== undefined),
+        generation_run_id: generationRunId
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

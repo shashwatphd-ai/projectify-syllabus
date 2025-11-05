@@ -144,13 +144,15 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const { courseId, location, count = 4 } = await req.json();
+    const { courseId, location, industries = [], count = 4 } = await req.json();
 
     // Get course data
     const { data: course, error: courseError } = await supabase
@@ -167,6 +169,30 @@ serve(async (req) => {
     console.log(`🎓 Discovering companies for: ${course.title}`);
     console.log(`📍 Location: ${location}`);
     console.log(`🎯 Finding ${count} companies that need these skills...`);
+
+    // ====================================
+    // Step 1: Create generation run record
+    // ====================================
+    const { data: generationRun, error: runError } = await supabase
+      .from('generation_runs')
+      .insert({
+        course_id: courseId,
+        location: location,
+        industries: industries,
+        num_teams: count,
+        status: 'in_progress',
+        ai_models_used: { discovery: 'google/gemini-2.5-pro' }
+      })
+      .select()
+      .single();
+
+    if (runError) {
+      console.error('Failed to create generation run:', runError);
+      throw runError;
+    }
+
+    const generationRunId = generationRun.id;
+    console.log(`📊 Generation run created: ${generationRunId}`);
 
     // Discover companies using Google Search
     const discoveries = await discoverCompaniesForCourse(
@@ -314,6 +340,74 @@ serve(async (req) => {
                   console.log(`    Org data complete: ${hasCompleteOrgData}`);
                   shouldSkipCompany = true;
                 } else {
+                  // ====================================
+                  // MARKET INTELLIGENCE: Fetch job postings and technologies
+                  // ====================================
+                  let jobPostings: any[] = [];
+                  let technologiesUsed: string[] = [];
+                  let fundingStage: string | null = null;
+                  let totalFundingUsd: number | null = null;
+                  let buyingIntentSignals: any[] = [];
+                  
+                  // Get organization ID for job postings API
+                  const apolloOrgId = contact.organization?.id;
+                  
+                  if (apolloOrgId) {
+                    try {
+                      console.log(`  🔍 Fetching job postings for org ID: ${apolloOrgId}...`);
+                      
+                      // Fetch job postings
+                      const jobPostingsResponse = await fetch(
+                        `https://api.apollo.io/api/v1/organizations/${apolloOrgId}/job_postings`,
+                        {
+                          method: 'GET',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Cache-Control': 'no-cache',
+                            'X-Api-Key': APOLLO_API_KEY
+                          }
+                        }
+                      );
+                      
+                      if (jobPostingsResponse.ok) {
+                        const jobData = await jobPostingsResponse.json();
+                        if (jobData.job_postings && jobData.job_postings.length > 0) {
+                          jobPostings = jobData.job_postings.map((jp: any) => ({
+                            id: jp.id,
+                            title: jp.title,
+                            url: jp.url,
+                            city: jp.city,
+                            state: jp.state,
+                            posted_at: jp.posted_at,
+                            last_seen_at: jp.last_seen_at,
+                            skills_needed: jp.tags || []
+                          })).slice(0, 10); // Limit to 10 most recent
+                          
+                          console.log(`    ✓ Found ${jobPostings.length} job postings`);
+                        } else {
+                          console.log(`    ℹ No job postings found`);
+                        }
+                      } else {
+                        console.log(`    ⚠ Job postings fetch failed: ${jobPostingsResponse.status}`);
+                      }
+                    } catch (jobError) {
+                      console.error(`    ⚠ Error fetching job postings:`, jobError);
+                    }
+                  }
+                  
+                  // Extract technologies from organization data
+                  if (contact.organization?.current_technologies) {
+                    technologiesUsed = contact.organization.current_technologies;
+                  }
+                  
+                  // Extract funding data
+                  if (contact.organization?.latest_funding_stage) {
+                    fundingStage = contact.organization.latest_funding_stage;
+                  }
+                  if (contact.organization?.total_funding) {
+                    totalFundingUsd = contact.organization.total_funding;
+                  }
+                  
                   // Extract comprehensive contact and organization data
                   contactDetails = {
                     // Basic contact info (existing)
@@ -351,6 +445,13 @@ serve(async (req) => {
                       : null,
                     organizationIndustryKeywords: contact.organization?.industry_tag_list || null,
                     
+                    // NEW: Market Intelligence
+                    jobPostings: jobPostings,
+                    technologiesUsed: technologiesUsed,
+                    fundingStage: fundingStage,
+                    totalFundingUsd: totalFundingUsd,
+                    buyingIntentSignals: buyingIntentSignals,
+                    
                     // Data quality tracking
                     apolloEnrichmentDate: new Date().toISOString()
                   };
@@ -360,6 +461,8 @@ serve(async (req) => {
                   console.log(`    Email Status: ${contactDetails.contactEmailStatus || 'N/A'}`);
                   console.log(`    Org LinkedIn: ${contactDetails.organizationLinkedinUrl ? '✓' : '✗'}`);
                   console.log(`    Org Logo: ${contactDetails.organizationLogoUrl ? '✓' : '✗'}`);
+                  console.log(`    Job Postings: ${jobPostings.length}`);
+                  console.log(`    Technologies: ${technologiesUsed.length}`);
                 }
               } else {
                 console.log(`  ⚠ Apollo contact organization mismatch:`);
@@ -466,11 +569,21 @@ serve(async (req) => {
         organization_revenue_range: contactDetails?.organizationRevenueRange || null,
         organization_industry_keywords: contactDetails?.organizationIndustryKeywords || null,
         
+        // NEW: Market Intelligence Fields
+        job_postings: contactDetails?.jobPostings || [],
+        job_postings_last_fetched: contactDetails?.jobPostings?.length > 0 ? new Date().toISOString() : null,
+        technologies_used: contactDetails?.technologiesUsed || [],
+        buying_intent_signals: contactDetails?.buyingIntentSignals || [],
+        funding_stage: contactDetails?.fundingStage || null,
+        total_funding_usd: contactDetails?.totalFundingUsd || null,
+        
         // Metadata
         source: contactDetails?.source || 'google_discovery',
         inferred_needs: discovery.currentChallenges,
         technologies: null,
         open_roles: null,
+        discovery_source: 'syllabus_generation',
+        generation_run_id: generationRunId,
         
         // Data quality tracking
         apollo_enrichment_date: contactDetails?.apolloEnrichmentDate || null,
@@ -535,11 +648,42 @@ serve(async (req) => {
       });
     }
 
+    // ====================================
+    // Update generation run with statistics
+    // ====================================
+    const processingTimeSeconds = (Date.now() - startTime) / 1000;
+    const apolloCreditsUsed = enrichedDiscoveries.length; // 1 credit per company enriched
+    
+    await supabase
+      .from('generation_runs')
+      .update({
+        companies_discovered: discoveries.length,
+        companies_enriched: enrichedDiscoveries.length,
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        processing_time_seconds: processingTimeSeconds,
+        apollo_credits_used: apolloCreditsUsed
+      })
+      .eq('id', generationRunId);
+
+    console.log(`\n✅ Discovery Complete:`);
+    console.log(`   Discovered: ${discoveries.length} companies`);
+    console.log(`   Enriched: ${enrichedDiscoveries.length} companies`);
+    console.log(`   Processing Time: ${processingTimeSeconds.toFixed(2)}s`);
+    console.log(`   Apollo Credits Used: ${apolloCreditsUsed}`);
+
     return new Response(
       JSON.stringify({ 
         success: true,
         companies: enrichedDiscoveries,
-        count: enrichedDiscoveries.length
+        count: enrichedDiscoveries.length,
+        generation_run_id: generationRunId,
+        stats: {
+          discovered: discoveries.length,
+          enriched: enrichedDiscoveries.length,
+          processing_time_seconds: processingTimeSeconds,
+          apollo_credits_used: apolloCreditsUsed
+        }
       }),
       { 
         status: 200,
@@ -549,6 +693,39 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Discovery error:', error);
+    
+    // Update generation run with error status
+    try {
+      const { courseId } = await req.json();
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      
+      // Find most recent in_progress run for this course
+      const { data: failedRun } = await supabase
+        .from('generation_runs')
+        .select('id')
+        .eq('course_id', courseId)
+        .eq('status', 'in_progress')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (failedRun) {
+        await supabase
+          .from('generation_runs')
+          .update({
+            status: 'failed',
+            error_message: error instanceof Error ? error.message : 'Unknown error',
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', failedRun.id);
+      }
+    } catch (updateError) {
+      console.error('Failed to update generation run status:', updateError);
+    }
+    
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : 'Unknown error',
