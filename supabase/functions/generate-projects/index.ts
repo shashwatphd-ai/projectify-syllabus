@@ -18,12 +18,17 @@ interface CompanyInfo {
   contact_email?: string | null;
   contact_phone?: string | null;
   contact_person?: string | null;
+  contact_title?: string | null;
+  contact_first_name?: string | null;
+  contact_last_name?: string | null;
   full_address?: string | null;
   linkedin_profile?: string | null;
-  // NEW: Market Intelligence
+  // Market Intelligence
   job_postings?: any[];
   technologies_used?: string[];
   funding_stage?: string | null;
+  data_completeness_score?: number;
+  enrichment_level?: string;
 }
 
 interface ProjectProposal {
@@ -1258,7 +1263,7 @@ function createForms(company: CompanyInfo, proposal: ProjectProposal, course: an
       company: company.name,
       contact_name: company.contact_person || 'TBD',
       contact_email: company.contact_email || '',
-      contact_title: company.contact_person || '',
+      contact_title: company.contact_title || 'TBD',
       contact_phone: company.contact_phone || '',
       website: company.website || '',
       description: proposal.company_description,
