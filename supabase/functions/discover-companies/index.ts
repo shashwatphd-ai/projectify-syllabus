@@ -269,7 +269,7 @@ serve(async (req) => {
           let apolloOrgData = null;
           
           // STRATEGY 1: Organization Search by domain (most accurate)
-          console.log(`    Step 1: Searching organizations by domain...`);
+          console.log(`    Step 1: Searching organizations by domain: ${domain}...`);
           const orgSearchResponse = await fetch(
             'https://api.apollo.io/v1/organizations/search',
             {
@@ -282,18 +282,41 @@ serve(async (req) => {
               body: JSON.stringify({
                 organization_domains: [domain],
                 page: 1,
-                per_page: 1
+                per_page: 5  // Get multiple results to find best match
               })
             }
           );
 
           if (orgSearchResponse.ok) {
             const orgData = await orgSearchResponse.json();
+            console.log(`    📊 Apollo returned ${orgData.organizations?.length || 0} orgs for domain ${domain}`);
+            
             if (orgData.organizations && orgData.organizations.length > 0) {
-              apolloOrgData = orgData.organizations[0];
-              apolloOrgId = apolloOrgData.id;
-              console.log(`    ✓ Org found: ${apolloOrgData.name} (ID: ${apolloOrgId})`);
+              // Find organization that actually matches the domain
+              for (const org of orgData.organizations) {
+                const orgDomain = org.primary_domain || org.website_url?.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
+                console.log(`      Checking org: ${org.name} (domain: ${orgDomain})`);
+                
+                if (orgDomain === domain || orgDomain?.includes(domain) || domain?.includes(orgDomain)) {
+                  apolloOrgData = org;
+                  apolloOrgId = org.id;
+                  console.log(`    ✅ MATCHED Org: ${apolloOrgData.name} (ID: ${apolloOrgId}, domain: ${orgDomain})`);
+                  break;
+                }
+              }
+              
+              // If no exact match, use first result but log warning
+              if (!apolloOrgId && orgData.organizations.length > 0) {
+                apolloOrgData = orgData.organizations[0];
+                apolloOrgId = apolloOrgData.id;
+                const orgDomain = apolloOrgData.primary_domain || apolloOrgData.website_url;
+                console.log(`    ⚠️ FALLBACK to first org: ${apolloOrgData.name} (ID: ${apolloOrgId}, domain: ${orgDomain}) - domain mismatch!`);
+              }
+            } else {
+              console.log(`    ❌ No organizations found for domain: ${domain}`);
             }
+          } else {
+            console.error(`    ❌ Org search failed: ${orgSearchResponse.status}`);
           }
           
           // STRATEGY 2: If no org found by domain, try name search
