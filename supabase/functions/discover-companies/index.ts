@@ -222,14 +222,16 @@ serve(async (req) => {
       }
 
       // ============================================
-      // APOLLO.IO INTEGRATION - Phase 1
+      // APOLLO.IO ENRICHMENT - PRIMARY FILTER
       // ============================================
-      // TODO: Add APOLLO_API_KEY secret before deployment
-      // Required for: Apollo.io People Search API
-      // Cost: $99/month Professional plan
+      // CRITICAL: Only accept companies where Apollo provides:
+      //   ✅ Complete organization data (LinkedIn, logo, employees, revenue)
+      //   ✅ Verified contact person (name, email, title)
+      // If Apollo can't provide both, SKIP this company entirely
       // ============================================
       
       let contactDetails = null;
+      let shouldSkipCompany = false;
       const APOLLO_API_KEY = Deno.env.get('APOLLO_API_KEY');
       
       if (APOLLO_API_KEY && placeDetails?.website) {
@@ -290,136 +292,115 @@ serve(async (req) => {
                                   searchOrgName.includes(contactOrgName.split(' ')[0]);
               
               if (isDomainMatch || isNameMatch) {
-                // Extract comprehensive contact and organization data
-                contactDetails = {
-                  // Basic contact info (existing)
-                  contactPerson: contact.name || null,
-                  contactEmail: contact.email || null,
-                  contactPhone: contact.phone_numbers?.[0]?.sanitized_number || null,
-                  linkedinProfile: contact.linkedin_url || null,
-                  title: contact.title || null,
-                  source: 'apollo_verified',
-                  
-                  // New: Detailed contact fields
-                  contactFirstName: contact.first_name || null,
-                  contactLastName: contact.last_name || null,
-                  contactHeadline: contact.headline || null,
-                  contactPhotoUrl: contact.photo_url || null,
-                  contactCity: contact.city || null,
-                  contactState: contact.state || null,
-                  contactCountry: contact.country || null,
-                  contactTwitterUrl: contact.twitter_url || null,
-                  contactEmailStatus: contact.email_status || null,
-                  contactEmploymentHistory: contact.employment_history || null,
-                  contactPhoneNumbers: contact.phone_numbers || null,
-                  
-                  // New: Organization enrichment fields
-                  organizationLinkedinUrl: contact.organization?.linkedin_url || null,
-                  organizationTwitterUrl: contact.organization?.twitter_url || null,
-                  organizationFacebookUrl: contact.organization?.facebook_url || null,
-                  organizationFoundedYear: contact.organization?.founded_year || null,
-                  organizationLogoUrl: contact.organization?.logo_url || null,
-                  organizationEmployeeCount: contact.organization?.estimated_num_employees 
-                    ? `${contact.organization.estimated_num_employees}` 
-                    : null,
-                  organizationRevenueRange: contact.organization?.annual_revenue 
-                    ? `$${contact.organization.annual_revenue}` 
-                    : null,
-                  organizationIndustryKeywords: contact.organization?.industry_tag_list || null,
-                  
-                  // Data quality tracking
-                  apolloEnrichmentDate: new Date().toISOString()
-                };
+                // ====================================
+                // VALIDATION: Ensure COMPLETE data from Apollo
+                // ====================================
+                const hasCompletePersonData = 
+                  contact.name && 
+                  contact.email && 
+                  contact.title &&
+                  contact.first_name &&
+                  contact.last_name;
                 
-                console.log(`  ✓ Apollo.io verified contact: ${contactDetails.contactPerson} (${contactDetails.title})`);
-                console.log(`    Organization: ${contact.organization?.name || 'N/A'}`);
-                console.log(`    Email Status: ${contactDetails.contactEmailStatus || 'N/A'}`);
+                const hasCompleteOrgData = 
+                  contact.organization?.name &&
+                  contact.organization?.linkedin_url &&
+                  contact.organization?.logo_url &&
+                  (contact.organization?.estimated_num_employees || contact.organization?.annual_revenue);
+                
+                if (!hasCompletePersonData || !hasCompleteOrgData) {
+                  console.log(`  ❌ SKIPPING ${discovery.name}: Incomplete Apollo data`);
+                  console.log(`    Person data complete: ${hasCompletePersonData}`);
+                  console.log(`    Org data complete: ${hasCompleteOrgData}`);
+                  shouldSkipCompany = true;
+                } else {
+                  // Extract comprehensive contact and organization data
+                  contactDetails = {
+                    // Basic contact info (existing)
+                    contactPerson: contact.name || null,
+                    contactEmail: contact.email || null,
+                    contactPhone: contact.phone_numbers?.[0]?.sanitized_number || null,
+                    linkedinProfile: contact.linkedin_url || null,
+                    title: contact.title || null,
+                    source: 'apollo_verified',
+                    
+                    // New: Detailed contact fields
+                    contactFirstName: contact.first_name || null,
+                    contactLastName: contact.last_name || null,
+                    contactHeadline: contact.headline || null,
+                    contactPhotoUrl: contact.photo_url || null,
+                    contactCity: contact.city || null,
+                    contactState: contact.state || null,
+                    contactCountry: contact.country || null,
+                    contactTwitterUrl: contact.twitter_url || null,
+                    contactEmailStatus: contact.email_status || null,
+                    contactEmploymentHistory: contact.employment_history || null,
+                    contactPhoneNumbers: contact.phone_numbers || null,
+                    
+                    // New: Organization enrichment fields
+                    organizationLinkedinUrl: contact.organization?.linkedin_url || null,
+                    organizationTwitterUrl: contact.organization?.twitter_url || null,
+                    organizationFacebookUrl: contact.organization?.facebook_url || null,
+                    organizationFoundedYear: contact.organization?.founded_year || null,
+                    organizationLogoUrl: contact.organization?.logo_url || null,
+                    organizationEmployeeCount: contact.organization?.estimated_num_employees 
+                      ? `${contact.organization.estimated_num_employees}` 
+                      : null,
+                    organizationRevenueRange: contact.organization?.annual_revenue 
+                      ? `$${contact.organization.annual_revenue}` 
+                      : null,
+                    organizationIndustryKeywords: contact.organization?.industry_tag_list || null,
+                    
+                    // Data quality tracking
+                    apolloEnrichmentDate: new Date().toISOString()
+                  };
+                  
+                  console.log(`  ✅ Apollo.io COMPLETE data: ${contactDetails.contactPerson} (${contactDetails.title})`);
+                  console.log(`    Organization: ${contact.organization?.name || 'N/A'}`);
+                  console.log(`    Email Status: ${contactDetails.contactEmailStatus || 'N/A'}`);
+                  console.log(`    Org LinkedIn: ${contactDetails.organizationLinkedinUrl ? '✓' : '✗'}`);
+                  console.log(`    Org Logo: ${contactDetails.organizationLogoUrl ? '✓' : '✗'}`);
+                }
               } else {
                 console.log(`  ⚠ Apollo contact organization mismatch:`);
                 console.log(`    Expected: ${discovery.name} (${domain})`);
                 console.log(`    Got: ${contact.organization?.name || 'N/A'} (${contactDomain || 'N/A'})`);
               }
             } else {
-              console.log(`  ⚠ No contacts found in Apollo.io for ${discovery.name}`);
+              console.log(`  ❌ SKIPPING ${discovery.name}: No contacts found in Apollo.io`);
+              shouldSkipCompany = true;
             }
           } else {
             const errorText = await apolloResponse.text();
-            console.error(`  ⚠ Apollo.io API error (${apolloResponse.status}):`, errorText);
+            console.error(`  ❌ SKIPPING ${discovery.name}: Apollo.io API error (${apolloResponse.status}):`, errorText);
+            shouldSkipCompany = true;
           }
         } catch (error) {
-          console.error(`  ⚠ Apollo.io search failed for ${discovery.name}:`, error);
+          console.error(`  ❌ SKIPPING ${discovery.name}: Apollo.io search failed:`, error);
+          shouldSkipCompany = true;
         }
+      } else if (!APOLLO_API_KEY) {
+        console.log(`  ⚠️ Apollo API key not configured, cannot validate company data`);
+        shouldSkipCompany = true;
+      } else if (!placeDetails?.website) {
+        console.log(`  ❌ SKIPPING ${discovery.name}: No website available for Apollo enrichment`);
+        shouldSkipCompany = true;
       }
       
-      // FALLBACK: Use Lovable AI if Apollo.io not configured or found nothing
-      if (!contactDetails && placeDetails?.address) {
-        const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-        if (LOVABLE_API_KEY) {
-          try {
-            console.log(`  🔍 Fallback: Using Lovable AI for ${discovery.name}...`);
-            
-            const contactPrompt = `Find the key decision-maker at "${discovery.name}" located at "${placeDetails.address}".
-
-Search for:
-- CEO, President, Owner, General Manager, or Director
-- Their professional email (firstname@company.com format, not info@)
-- Their LinkedIn profile URL
-
-Focus on someone who would handle educational partnerships or hiring.
-
-Return ONLY valid JSON (no markdown):
-{
-  "contactPerson": "Full Name or null",
-  "contactEmail": "professional email or null", 
-  "linkedinProfile": "LinkedIn URL or null"
-}`;
-
-            const contactResponse = await fetch(
-              'https://ai.gateway.lovable.dev/v1/chat/completions',
-              {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  model: 'google/gemini-2.5-flash',
-                  messages: [
-                    { role: 'system', content: 'You are a research assistant. Return only valid JSON.' },
-                    { role: 'user', content: contactPrompt }
-                  ],
-                  temperature: 0.1,
-                }),
-              }
-            );
-
-            if (contactResponse.ok) {
-              const contactData = await contactResponse.json();
-              const contactText = contactData.choices?.[0]?.message?.content;
-              if (contactText) {
-                let jsonText = contactText;
-                const codeBlockMatch = contactText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-                if (codeBlockMatch) {
-                  jsonText = codeBlockMatch[1];
-                }
-                
-                const jsonMatch = jsonText.match(/\{[\s\S]*?\}/);
-                if (jsonMatch) {
-                  const fallbackContact = JSON.parse(jsonMatch[0]);
-                  contactDetails = {
-                    ...fallbackContact,
-                    source: 'ai_inferred'
-                  };
-                  if (contactDetails?.contactPerson && contactDetails.contactPerson !== 'null') {
-                    console.log(`  ✓ AI found contact: ${contactDetails.contactPerson}`);
-                  }
-                }
-              }
-            }
-          } catch (error) {
-            console.error(`  ⚠ Fallback contact search failed for ${discovery.name}:`, error);
-          }
-        }
+      // ====================================
+      // PRIMARY FILTER: Skip if Apollo couldn't provide complete data
+      // ====================================
+      if (shouldSkipCompany) {
+        console.log(`  ⏭️ Skipping ${discovery.name} - does not meet Apollo data quality requirements\n`);
+        continue; // Skip to next company
+      }
+      
+      // REMOVED: AI fallback (we only want Apollo-verified companies)
+      // No longer using Lovable AI for contact discovery
+      if (!contactDetails) {
+        // This should never happen due to shouldSkipCompany check above
+        console.log(`  ❌ ERROR: No contact details despite passing filter - skipping ${discovery.name}\n`);
+        continue;
       }
 
       // Calculate data completeness score (0-100)
