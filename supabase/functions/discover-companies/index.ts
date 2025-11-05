@@ -40,40 +40,46 @@ async function discoverCompaniesForCourse(
   
   const uniqueSkills = [...new Set(skillKeywords)].slice(0, 5);
 
-  const systemPrompt = `You are a market research expert. Use web search to find real companies that currently need the skills from this course. Return ONLY valid JSON array with no markdown formatting.`;
+  const systemPrompt = `You are a market research expert. Use web search to find real LOCAL companies in the SPECIFIED LOCATION that currently need the skills from this course. 
 
-  const userPrompt = `Find ${count} companies in ${location} that currently need these skills:
+CRITICAL RULES:
+1. Companies MUST have offices/facilities in or near the specified city
+2. NO national companies unless they have a confirmed local presence in that city
+3. Verify location through company websites, news articles, or job postings
+4. Return ONLY valid JSON array with no markdown formatting.`;
+
+  const userPrompt = `Find ${count} companies PHYSICALLY LOCATED IN ${location} that currently need these skills:
 
 COURSE LEARNING OUTCOMES:
 ${courseOutcomes.map((o, i) => `${i + 1}. ${o}`).join('\n')}
 
 KEY TOPICS: ${courseTopics.join(', ')}
 
-Search for companies that:
-1. Have recent job postings for these skills
-2. Are working on projects aligned with course topics
-3. Have announced initiatives students could help with
-4. Are in industries naturally needing these technical skills
+Search for LOCAL companies in ${location} that:
+1. Have offices, facilities, or headquarters IN OR NEAR ${location}
+2. Have recent job postings for these skills IN ${location}
+3. Are working on projects aligned with course topics
+4. Have announced initiatives students could help with
 5. Have track record of university partnerships
 
-Look for evidence in: job postings, news articles, press releases, industry reports, company websites.
+Look for evidence in: job postings WITH LOCATION, news articles about LOCAL operations, company websites showing ${location} address, industry reports.
 
 Return ONLY this JSON array (no markdown, no explanation):
 [
   {
     "name": "Company Name",
     "sector": "Industry",
-    "location": "City, State",
+    "location": "City, State (MUST match ${location})",
     "relevanceScore": 95,
     "skillsNeeded": ["skill 1", "skill 2"],
     "currentChallenges": ["specific challenge"],
-    "whyRelevant": "Evidence of need with sources",
+    "whyRelevant": "Evidence of need with sources AND proof of local presence in ${location}",
     "website": "https://example.com",
     "estimatedSize": "Small/Medium/Large/Enterprise"
   }
 ]
 
-CRITICAL: Only include companies with REAL EVIDENCE of current need. Cite sources in whyRelevant.`;
+CRITICAL: Only include companies with CONFIRMED PHYSICAL PRESENCE in ${location}. NO companies just because they're well-known. Cite location proof in whyRelevant.`;
 
   console.log(`🔍 Discovering companies that need: ${uniqueSkills.join(', ')}`);
 
@@ -136,6 +142,33 @@ CRITICAL: Only include companies with REAL EVIDENCE of current need. Cite source
     console.error('❌ Failed to parse discovery JSON:', error);
     console.error('Response content:', content.substring(0, 500));
     throw new Error('Failed to parse company discovery response');
+  }
+}
+
+// Geocode location to lat/lng for radius filtering
+async function geocodeLocation(location: string, apiKey: string): Promise<{ latitude: number, longitude: number }> {
+  try {
+    const geocodeResponse = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${apiKey}`
+    );
+    
+    if (!geocodeResponse.ok) {
+      console.error('Geocoding failed, using default coordinates');
+      return { latitude: 39.0997, longitude: -94.5786 }; // Kansas City default
+    }
+    
+    const geocodeData = await geocodeResponse.json();
+    if (geocodeData.results && geocodeData.results.length > 0) {
+      const coords = geocodeData.results[0].geometry.location;
+      console.log(`📍 Geocoded ${location} to: ${coords.lat}, ${coords.lng}`);
+      return { latitude: coords.lat, longitude: coords.lng };
+    }
+    
+    console.error('No geocoding results, using default coordinates');
+    return { latitude: 39.0997, longitude: -94.5786 };
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    return { latitude: 39.0997, longitude: -94.5786 };
   }
 }
 
@@ -208,11 +241,12 @@ serve(async (req) => {
     const enrichedDiscoveries = [];
 
     for (const discovery of discoveries) {
-      console.log(`\n📍 Looking up ${discovery.name} in Google Places...`);
+      console.log(`\n📍 Validating ${discovery.name} location in ${location}...`);
       
       let placeDetails = null;
       if (GOOGLE_API_KEY) {
         try {
+          // More restrictive search - include location in query to validate local presence
           const searchResponse = await fetch(
             'https://places.googleapis.com/v1/places:searchText',
             {
@@ -220,10 +254,16 @@ serve(async (req) => {
               headers: {
                 'Content-Type': 'application/json',
                 'X-Goog-Api-Key': GOOGLE_API_KEY,
-                'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.id'
+                'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.id,places.location'
               },
               body: JSON.stringify({
-                textQuery: `${discovery.name} ${location}`,
+                textQuery: `${discovery.name} in ${location}`,
+                locationBias: {
+                  circle: {
+                    center: await geocodeLocation(location, GOOGLE_API_KEY),
+                    radius: 80467.0  // 50 miles in meters
+                  }
+                },
                 maxResultCount: 1
               })
             }
