@@ -58,43 +58,71 @@ serve(async (req) => {
     };
 
     // AI-Powered Value Analysis using Lovable AI
-    const systemPrompt = `You are an expert in academic-industry partnership value analysis. Analyze the provided project data and generate stakeholder-specific value assessments with deep market insights.
+    const systemPrompt = `You are an elite academic-industry partnership strategist with expertise in market validation and value synthesis. 
 
-Focus on:
-1. STUDENT VALUE: Career opportunities, skill development aligned with market demand, portfolio building, networking potential
-2. UNIVERSITY VALUE: Partnership quality, student placement potential, research collaboration, institutional reputation
-3. INDUSTRY VALUE: Deliverable ROI, talent pipeline access, innovation infusion, cost efficiency
-4. SYNERGISTIC VALUE: Knowledge transfer multipliers, long-term partnership potential, innovation ecosystem benefits
+YOUR CORE MISSION:
+1. Cross-validate company challenges against ALL data sources (job postings, technologies, funding, news, inferred needs)
+2. Synthesize evidence into crisp, validated insights
+3. Present data-driven value narratives for each stakeholder
+4. Provide visual-first metrics (scores represent real-world impact, not abstract ratings)
 
-Provide specific, data-driven insights based on the actual market signals (job postings, funding, technologies, needs).`;
+VALIDATION FRAMEWORK:
+- Job postings → hiring priorities & skill gaps
+- Technologies → technical capabilities & modernization needs
+- Funding + stage → growth trajectory & investment areas
+- Recent news → strategic pivots & market positioning
+- Inferred needs → operational challenges & opportunities
 
-    const userPrompt = `Analyze this academic-industry partnership project and provide stakeholder-specific value assessments:
+OUTPUT STYLE:
+- Be crisp, evidence-backed, and visual-ready
+- Each insight must trace back to specific data points
+- Scores reflect measurable real-world value (career prospects, hiring likelihood, ROI potential)
+- Use marketing-subtle language that's tech-driven and professional`;
 
-COMPANY PROFILE:
-- Name: ${analysisContext.company.name}
-- Sector: ${analysisContext.company.sector}
-- Size: ${analysisContext.company.size}
-- Funding: ${analysisContext.company.funding_stage || 'Unknown'} ${analysisContext.company.total_funding ? `($${(analysisContext.company.total_funding / 1000000).toFixed(1)}M total)` : ''}
-- Active Job Postings: ${analysisContext.company.job_postings.length} open roles
-  ${analysisContext.company.job_postings.slice(0, 3).map((jp: any) => `  • ${jp.title}`).join('\n')}
-- Technologies: ${analysisContext.company.technologies_used.slice(0, 8).join(', ')}
-- Identified Needs: ${analysisContext.company.inferred_needs.join('; ')}
-${analysisContext.company.recent_news ? `- Recent Activity: ${analysisContext.company.recent_news}` : ''}
+    const userPrompt = `SYNTHESIZE & VALIDATE the true partnership value by cross-referencing ALL available data:
 
-PROJECT DETAILS:
-- Title: ${analysisContext.project.title}
-- Duration: ${analysisContext.project.duration_weeks} weeks
-- Team: ${analysisContext.project.team_size} students
-- Tier: ${analysisContext.project.tier}
-- Tasks: ${analysisContext.project.tasks.join('; ')}
-- Deliverables: ${analysisContext.project.deliverables.join('; ')}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 COMPANY INTELLIGENCE SYNTHESIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-COURSE CONTEXT:
-- Title: ${analysisContext.course.title}
-- Level: ${analysisContext.course.level}
-- Learning Outcomes: ${analysisContext.course.outcomes.join('; ')}
+Organization: ${analysisContext.company.name}
+Sector: ${analysisContext.company.sector}
+Scale: ${analysisContext.company.size} | ${analysisContext.company.funding_stage || 'Private'} ${analysisContext.company.total_funding ? `($${(analysisContext.company.total_funding / 1000000).toFixed(1)}M raised)` : ''}
 
-Return a comprehensive value analysis with specific scores (0-100) and detailed reasoning.`;
+MARKET SIGNALS (Cross-validate these):
+└─ Active Hiring (${analysisContext.company.job_postings.length} roles):
+${analysisContext.company.job_postings.slice(0, 5).map((jp: any) => `   • ${jp.title}${jp.department ? ` (${jp.department})` : ''}`).join('\n')}
+
+└─ Tech Stack (${analysisContext.company.technologies_used.length} technologies):
+   ${analysisContext.company.technologies_used.slice(0, 10).join(', ')}
+
+└─ Validated Challenges:
+   ${analysisContext.company.inferred_needs.map((need: string) => `• ${need}`).join('\n   ')}
+
+${analysisContext.company.recent_news ? `└─ Recent Context:\n   ${analysisContext.company.recent_news}` : ''}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎓 PROJECT-COURSE ALIGNMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Project: ${analysisContext.project.title}
+Scope: ${analysisContext.project.duration_weeks} weeks | ${analysisContext.project.team_size} students | ${analysisContext.project.tier} tier
+
+Deliverables:
+${analysisContext.project.deliverables.map((d: string) => `  • ${d}`).join('\n')}
+
+Course Context: ${analysisContext.course.title} (${analysisContext.course.level})
+Learning Outcomes: ${analysisContext.course.outcomes.join(' | ')}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ANALYSIS REQUIREMENTS:
+1. VALIDATE: Does this project address the company's ACTUAL challenges (based on hiring + tech + needs)?
+2. QUANTIFY: Scores must reflect real-world outcomes (e.g., "80 career score" = high hiring likelihood based on job postings)
+3. SYNTHESIZE: Combine all data points into crisp, evidence-backed narratives
+4. VISUAL-READY: All text should be concise enough to display in visual dashboards
+
+Return comprehensive analysis with validated insights.`;
 
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -119,60 +147,83 @@ Return a comprehensive value analysis with specific scores (0-100) and detailed 
                 student_value: {
                   type: 'object',
                   properties: {
-                    score: { type: 'number', description: 'Overall student value score 0-100' },
-                    career_opportunities_score: { type: 'number' },
-                    skill_development_score: { type: 'number' },
-                    portfolio_value_score: { type: 'number' },
-                    networking_score: { type: 'number' },
+                    score: { type: 'number', description: 'Overall student value score 0-100 based on real career outcomes' },
+                    career_opportunities_score: { type: 'number', description: 'Based on company hiring signals & job market alignment' },
+                    skill_development_score: { type: 'number', description: 'Based on tech stack relevance & industry demand' },
+                    portfolio_value_score: { type: 'number', description: 'Based on deliverable quality & market visibility' },
+                    networking_score: { type: 'number', description: 'Based on company growth stage & industry connections' },
                     key_benefits: { 
                       type: 'array', 
                       items: { type: 'string' },
-                      description: 'Specific benefits for students based on market data'
+                      description: '3-4 crisp benefits (max 12 words each). Evidence-based from job postings/tech stack.',
+                      maxItems: 4
                     },
                     insights: {
                       type: 'string',
-                      description: 'Deep analysis of why this project is valuable for students'
+                      description: 'Single concise statement (max 25 words) connecting project to validated career outcomes',
+                      maxLength: 150
+                    },
+                    evidence_summary: {
+                      type: 'string',
+                      description: 'One-liner (max 20 words) citing specific data points that validate the value',
+                      maxLength: 120
                     }
                   },
-                  required: ['score', 'career_opportunities_score', 'skill_development_score', 'portfolio_value_score', 'networking_score', 'key_benefits', 'insights']
+                  required: ['score', 'career_opportunities_score', 'skill_development_score', 'portfolio_value_score', 'networking_score', 'key_benefits', 'insights', 'evidence_summary']
                 },
                 university_value: {
                   type: 'object',
                   properties: {
                     score: { type: 'number', description: 'Overall university value score 0-100' },
-                    partnership_quality_score: { type: 'number' },
-                    placement_potential_score: { type: 'number' },
-                    research_collaboration_score: { type: 'number' },
-                    reputation_score: { type: 'number' },
+                    partnership_quality_score: { type: 'number', description: 'Based on company credibility & growth trajectory' },
+                    placement_potential_score: { type: 'number', description: 'Based on active hiring & job posting alignment' },
+                    research_collaboration_score: { type: 'number', description: 'Based on company tech sophistication & innovation needs' },
+                    reputation_score: { type: 'number', description: 'Based on company profile & industry standing' },
                     key_benefits: { 
                       type: 'array', 
-                      items: { type: 'string' }
+                      items: { type: 'string' },
+                      description: '3-4 crisp benefits (max 12 words each). Focus on institutional strategic value.',
+                      maxItems: 4
                     },
                     insights: {
                       type: 'string',
-                      description: 'Deep analysis of strategic value for the university'
+                      description: 'Single concise statement (max 25 words) on institutional strategic value',
+                      maxLength: 150
+                    },
+                    evidence_summary: {
+                      type: 'string',
+                      description: 'One-liner (max 20 words) citing specific validation data',
+                      maxLength: 120
                     }
                   },
-                  required: ['score', 'partnership_quality_score', 'placement_potential_score', 'research_collaboration_score', 'reputation_score', 'key_benefits', 'insights']
+                  required: ['score', 'partnership_quality_score', 'placement_potential_score', 'research_collaboration_score', 'reputation_score', 'key_benefits', 'insights', 'evidence_summary']
                 },
                 industry_value: {
                   type: 'object',
                   properties: {
                     score: { type: 'number', description: 'Overall industry partner value score 0-100' },
-                    deliverable_roi_score: { type: 'number' },
-                    talent_pipeline_score: { type: 'number' },
-                    innovation_score: { type: 'number' },
-                    cost_efficiency_score: { type: 'number' },
+                    deliverable_roi_score: { type: 'number', description: 'Based on deliverable-need alignment & project scope' },
+                    talent_pipeline_score: { type: 'number', description: 'Based on skill alignment with job postings' },
+                    innovation_score: { type: 'number', description: 'Based on fresh perspectives on validated challenges' },
+                    cost_efficiency_score: { type: 'number', description: 'Based on deliverable value vs. typical consulting costs' },
                     key_benefits: { 
                       type: 'array', 
-                      items: { type: 'string' }
+                      items: { type: 'string' },
+                      description: '3-4 crisp benefits (max 12 words each). Quantify business impact where possible.',
+                      maxItems: 4
                     },
                     insights: {
                       type: 'string',
-                      description: 'Deep analysis of business value for the company'
+                      description: 'Single concise statement (max 25 words) on validated business value',
+                      maxLength: 150
+                    },
+                    evidence_summary: {
+                      type: 'string',
+                      description: 'One-liner (max 20 words) citing how project addresses verified company needs',
+                      maxLength: 120
                     }
                   },
-                  required: ['score', 'deliverable_roi_score', 'talent_pipeline_score', 'innovation_score', 'cost_efficiency_score', 'key_benefits', 'insights']
+                  required: ['score', 'deliverable_roi_score', 'talent_pipeline_score', 'innovation_score', 'cost_efficiency_score', 'key_benefits', 'insights', 'evidence_summary']
                 },
                 synergistic_value: {
                   type: 'object',
@@ -194,27 +245,52 @@ Return a comprehensive value analysis with specific scores (0-100) and detailed 
                   },
                   required: ['index', 'knowledge_transfer_multiplier', 'innovation_potential_score', 'long_term_partnership_score', 'ecosystem_impact_score', 'key_synergies', 'insights']
                 },
+                problem_validation: {
+                  type: 'object',
+                  properties: {
+                    validated_challenges: {
+                      type: 'array',
+                      items: { type: 'string' },
+                      description: '2-3 specific company challenges this project addresses (verified via data)',
+                      maxItems: 3
+                    },
+                    evidence_trail: {
+                      type: 'string',
+                      description: 'Concise citation (max 30 words) of data points validating the challenges',
+                      maxLength: 180
+                    },
+                    alignment_score: {
+                      type: 'number',
+                      description: 'How well project deliverables match validated company needs (0-100)'
+                    }
+                  },
+                  required: ['validated_challenges', 'evidence_trail', 'alignment_score']
+                },
                 faculty_recommendations: {
                   type: 'array',
                   items: { type: 'string' },
-                  description: 'Actionable recommendations for faculty to maximize project success'
+                  description: '3-4 crisp action items (max 15 words each)',
+                  maxItems: 4
                 },
                 risk_factors: {
                   type: 'array',
                   items: { type: 'string' },
-                  description: 'Potential risks or challenges to be aware of'
+                  description: '2-3 key risks (max 12 words each)',
+                  maxItems: 3
                 },
                 opportunity_highlights: {
                   type: 'array',
                   items: { type: 'string' },
-                  description: 'Key opportunities this partnership presents'
+                  description: '3-4 standout opportunities (max 12 words each)',
+                  maxItems: 4
                 },
                 overall_assessment: {
                   type: 'string',
-                  description: 'Executive summary of the partnership value proposition'
+                  description: 'Executive summary (max 35 words) of the partnership value',
+                  maxLength: 210
                 }
               },
-              required: ['student_value', 'university_value', 'industry_value', 'synergistic_value', 'faculty_recommendations', 'risk_factors', 'opportunity_highlights', 'overall_assessment']
+              required: ['student_value', 'university_value', 'industry_value', 'synergistic_value', 'problem_validation', 'faculty_recommendations', 'risk_factors', 'opportunity_highlights', 'overall_assessment']
             }
           }
         }],
@@ -251,6 +327,7 @@ Return a comprehensive value analysis with specific scores (0-100) and detailed 
           university_value: valueAnalysis.university_value,
           industry_value: valueAnalysis.industry_value,
           synergistic_value: valueAnalysis.synergistic_value,
+          problem_validation: valueAnalysis.problem_validation,
           generated_at: new Date().toISOString()
         },
         stakeholder_insights: {
