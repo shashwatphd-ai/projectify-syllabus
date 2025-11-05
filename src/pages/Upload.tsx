@@ -19,8 +19,10 @@ const Upload = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    requireAuth();
-  }, [authLoading]);
+    if (!authLoading && !user) {
+      navigate("/auth");
+    }
+  }, [authLoading, user, navigate]);
 
   useEffect(() => {
     // Auto-detect location from user's email domain once when user is loaded
