@@ -85,17 +85,15 @@ export const ValueAnalysisTab = ({
                   {valueAnalysis?.message || 'Generate AI-powered contextual insights for this project'}
                 </p>
               </div>
-              {companyProfile && (
-                <div className="flex justify-center pt-2">
-                  <AnalyzeValueButton
-                    projectId={projectId}
-                    companyProfile={companyProfile}
-                    project={project}
-                    courseProfile={courseProfile}
-                    onAnalysisComplete={onAnalysisComplete}
-                  />
-                </div>
-              )}
+              <div className="flex justify-center pt-2">
+                <AnalyzeValueButton
+                  projectId={projectId}
+                  companyProfile={companyProfile}
+                  project={project}
+                  courseProfile={courseProfile}
+                  onAnalysisComplete={onAnalysisComplete}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
