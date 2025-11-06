@@ -9,9 +9,6 @@ verify_jwt = false
 [functions.discover-companies]
 verify_jwt = false
 
-[functions.enrich-apollo]
-verify_jwt = false
-
 [functions.generate-projects]
 verify_jwt = false
 
