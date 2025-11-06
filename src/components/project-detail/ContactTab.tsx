@@ -588,7 +588,7 @@ export const ContactTab = ({ forms, companyProfile, contactInfo, projectId, proj
       )}
 
       {/* Technologies Section */}
-      {companyProfile.technologies_used && companyProfile.technologies_used.length > 0 && (
+      {companyProfile?.technologies_used && companyProfile.technologies_used.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
