@@ -3,6 +3,9 @@ project_id = "wnxjeldvzjubfgzvvzov"
 [functions.analyze-project-value]
 verify_jwt = false
 
+[functions.get-project-detail]
+verify_jwt = false
+
 [functions.data-enrichment-pipeline]
 verify_jwt = false
 
