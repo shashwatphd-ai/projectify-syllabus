@@ -22,7 +22,7 @@ interface CompanyInfo {
     department?: string;
     posted_date?: string;
   }>;
-  technologies_used?: Array<string | { name?: string; technology?: string }>;
+  technologies_used?: string[];
   inferred_needs?: Array<string | { need: string }>;
   data_completeness_score?: number;
 }
@@ -181,11 +181,10 @@ export function calculateApolloEnrichedPricing(
       'Data Science', 'Big Data', 'Analytics'
     ];
     
-    const techMatches = company.technologies_used.filter(tech => {
-      // Handle both string and object formats from Apollo
-      const techName = typeof tech === 'string' ? tech : ((tech as any)?.name || (tech as any)?.technology || '');
+    const techMatches = (company.technologies_used || []).filter(tech => {
+      // 'tech' is now guaranteed to be a string by the Shield pattern
       return advancedTechnologies.some(advTech => 
-        techName.toLowerCase().includes(advTech.toLowerCase())
+        tech.toLowerCase().includes(advTech.toLowerCase())
       );
     });
     
@@ -193,7 +192,7 @@ export function calculateApolloEnrichedPricing(
       budget *= 1.25;
       breakdown.apollo_intelligence_applied.push({
         factor: "Advanced Technology Stack",
-        technologies: techMatches.map(t => typeof t === 'string' ? t : ((t as any)?.name || (t as any)?.technology || 'Unknown')),
+        technologies: techMatches,
         multiplier: 1.25,
         rationale: `Company uses ${techMatches.length} cutting-edge technologies - requires specialized expertise`
       });
@@ -201,7 +200,7 @@ export function calculateApolloEnrichedPricing(
       budget *= 1.10;
       breakdown.apollo_intelligence_applied.push({
         factor: "Modern Technology Stack",
-        technologies: techMatches.map(t => typeof t === 'string' ? t : ((t as any)?.name || (t as any)?.technology || 'Unknown')),
+        technologies: techMatches,
         multiplier: 1.10,
         rationale: "Moderate technology complexity"
       });
