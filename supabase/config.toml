@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.parse-syllabus]
 verify_jwt = false
+
+[functions.migrate-technology-format]
+verify_jwt = false

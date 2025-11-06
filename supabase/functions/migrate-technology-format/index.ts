@@ -14,6 +14,7 @@ serve(async (req) => {
   try {
     console.log('🔄 Starting technology format migration...');
     
+    // No auth required - this is a one-time migration tool
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
