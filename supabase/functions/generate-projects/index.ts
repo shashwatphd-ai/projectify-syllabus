@@ -68,159 +68,17 @@ interface ProjectProposal {
   publication_opportunity: string;
 }
 
-// NEW: Fetch Apollo-enriched companies from generation run
-async function getApolloEnrichedCompanies(
-  supabaseClient: any,
-  generationRunId: string,
-  count: number,
-  outcomes: string[],
-  level: string,
-  courseId: string
-): Promise<CompanyInfo[]> {
-  console.log(`🎯 Fetching Apollo-enriched companies from generation run: ${generationRunId}`);
-  
-  // Fetch top companies by data completeness score
-  const { data, error } = await supabaseClient
-    .from('company_profiles')
-    .select('*')
-    .eq('generation_run_id', generationRunId)
-    .order('data_completeness_score', { ascending: false })
-    .limit(count);
-  
-  if (error) {
-    console.error('❌ Error fetching Apollo companies:', error.message);
-    throw new Error('Failed to fetch Apollo-enriched companies');
-  }
-  
-  if (!data || data.length === 0) {
-    console.error('❌ No companies found for generation run:', generationRunId);
-    throw new Error('No Apollo-enriched companies available');
-  }
-  
-  console.log(`✓ Found ${data.length} Apollo-enriched companies`);
-  data.forEach((c: any, i: number) => {
-    console.log(`  ${i+1}. ${c.name} (completeness: ${c.data_completeness_score}%)`);
-  });
-  
-  // Return top N companies with all Apollo data
-  return data.map((company: any) => {
-    // Infer needs from job postings and technologies if inferred_needs is empty
-    const inferredNeeds = company.inferred_needs || [];
-    const derivedNeeds = [];
-    
-    if (company.job_postings && company.job_postings.length > 0) {
-      derivedNeeds.push(`Hiring velocity: ${company.job_postings.length} active openings`);
-    }
-    if (company.technologies_used && company.technologies_used.length > 0) {
-      derivedNeeds.push(`Technology stack optimization: ${company.technologies_used.slice(0, 3).join(', ')}`);
-    }
-    if (company.funding_stage) {
-      derivedNeeds.push(`${company.funding_stage} growth strategy and scaling`);
-    }
-    
-    const allNeeds = inferredNeeds.length > 0 ? inferredNeeds : derivedNeeds;
-    
-    return {
-      id: company.id, // CRITICAL: Include ID for linking
-      name: company.name,
-      sector: company.sector || 'Unknown',
-      size: company.size || company.organization_employee_count || 'Unknown',
-      needs: allNeeds,
-      description: company.recent_news || `${company.name} is a ${company.sector || 'business'} organization.`,
-      website: company.website,
-      
-      // CRITICAL: Apollo contact data (not placeholders)
-      contact_email: company.contact_email,
-      contact_phone: company.contact_phone,
-      contact_person: company.contact_person,
-      contact_title: company.contact_title,
-      contact_first_name: company.contact_first_name,
-      contact_last_name: company.contact_last_name,
-      full_address: company.full_address,
-      linkedin_profile: company.organization_linkedin_url,
-      
-      // CRITICAL: Market intelligence for project generation
-      job_postings: company.job_postings || [],
-      technologies_used: company.technologies_used || [],
-      funding_stage: company.funding_stage,
-      
-      // Metadata
-      data_completeness_score: company.data_completeness_score,
-      enrichment_level: company.data_enrichment_level,
-      
-      // CRITICAL: Intelligence data for display
-      match_score: company.relevance,
-      match_reason: company.reason
-    };
-  });
-}
+// REMOVED: getApolloEnrichedCompanies (Phase 3b)
+// This function is redundant with the clean data contract from discover-companies
+// Replaced with direct database query in main serve() function
 
-// REMOVED: getCompaniesFromDB - Enforcing Apollo-First architecture
-
-// NEW: Generate cache key for course filtering
-function generateCacheKey(outcomes: string[], level: string, companyIds: string[]): string {
-  const outcomesHash = outcomes.sort().join('|');
-  const companiesHash = companyIds.sort().join(',');
-  return `${level}:${outcomesHash}:${companiesHash}`;
-}
-
-// NEW: Check cache for filtered companies
-async function getCachedFilteredCompanies(
-  supabaseClient: any,
-  courseId: string,
-  cacheKey: string
-): Promise<any[] | null> {
-  try {
-    const { data, error } = await supabaseClient
-      .from('company_filter_cache')
-      .select('filtered_companies')
-      .eq('course_id', courseId)
-      .eq('cache_key', cacheKey)
-      .gt('expires_at', new Date().toISOString())
-      .single();
-
-    if (error || !data) return null;
-    
-    console.log('✅ Using cached company filtering results');
-    return data.filtered_companies;
-  } catch (error) {
-    console.log('⚠ Cache miss or error:', error);
-    return null;
-  }
-}
-
-// NEW: Save filtered companies to cache
-async function saveCachedFilteredCompanies(
-  supabaseClient: any,
-  courseId: string,
-  cacheKey: string,
-  filteredCompanies: any[]
-): Promise<void> {
-  try {
-    const { error } = await supabaseClient
-      .from('company_filter_cache')
-      .upsert({
-        course_id: courseId,
-        cache_key: cacheKey,
-        filtered_companies: filteredCompanies,
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
-      }, {
-        onConflict: 'course_id,cache_key'
-      });
-
-    if (error) {
-      console.error('⚠ Failed to cache filtering results:', error);
-    } else {
-      console.log('✅ Cached filtering results for future use');
-    }
-  } catch (error) {
-    console.error('⚠ Cache save error:', error);
-  }
-}
-
-// REMOVED: intelligentCompanyFilter - Now handled in getApolloEnrichedCompanies only
-
-// REMOVED: searchCompanies - Enforcing Apollo-First architecture (no fake data)
+// REMOVED: All caching and fallback functions (Phase 3b cleanup)
+// - getCompaniesFromDB: Removed in Phase 3a
+// - generateCacheKey: Orphaned helper, will be rebuilt in Phase 4
+// - getCachedFilteredCompanies: Orphaned caching, will be rebuilt in Phase 4
+// - saveCachedFilteredCompanies: Orphaned caching, will be rebuilt in Phase 4
+// - intelligentCompanyFilter: Removed in Phase 3a
+// - searchCompanies: Removed in Phase 3a (no fake data fallback)
 
 // NOTE: generateProjectProposal() extracted to ../_shared/generation-service.ts
 
@@ -655,23 +513,88 @@ serve(async (req) => {
     console.log('👥 Teams requested:', numTeams);
     console.log('🔗 Generation Run ID:', generationRunId);
     
-    // SINGLE PATH: Fetch Apollo-enriched companies (no fallbacks)
-    console.log('\n✅ Fetching Apollo-enriched companies...');
+    // Phase 3b: Direct database query (no intermediate functions)
+    console.log('\n✅ Querying company_profiles directly...');
     
-    const companiesFound = await getApolloEnrichedCompanies(
-      serviceRoleClient,
-      generationRunId,
-      numTeams,
-      outcomes,
-      level,
-      courseId
-    );
+    const { data: companyData, error: companyError } = await serviceRoleClient
+      .from('company_profiles')
+      .select('*')
+      .eq('generation_run_id', generationRunId)
+      .order('data_completeness_score', { ascending: false })
+      .limit(numTeams);
     
-    console.log(`✅ Loaded ${companiesFound.length} Apollo-enriched companies`);
+    if (companyError) {
+      console.error('❌ Database query error:', companyError.message);
+      throw new Error('Failed to fetch companies from database');
+    }
+    
+    if (!companyData || companyData.length === 0) {
+      console.error('❌ No companies found for generation_run_id:', generationRunId);
+      throw new Error('No companies available for this generation run');
+    }
+    
+    console.log(`✅ Retrieved ${companyData.length} companies from database`);
+    
+    // Map database records to CompanyInfo interface
+    const companiesFound: CompanyInfo[] = companyData.map((company: any) => {
+      // Derive needs from Apollo enrichment data
+      const inferredNeeds = company.inferred_needs || [];
+      const derivedNeeds = [];
+      
+      if (company.job_postings && company.job_postings.length > 0) {
+        derivedNeeds.push(`Hiring velocity: ${company.job_postings.length} active openings`);
+      }
+      if (company.technologies_used && company.technologies_used.length > 0) {
+        derivedNeeds.push(`Technology stack: ${company.technologies_used.slice(0, 3).join(', ')}`);
+      }
+      if (company.funding_stage) {
+        derivedNeeds.push(`${company.funding_stage} growth strategy`);
+      }
+      
+      const allNeeds = inferredNeeds.length > 0 ? inferredNeeds : derivedNeeds;
+      
+      return {
+        id: company.id,
+        name: company.name,
+        sector: company.sector || 'Unknown',
+        size: company.size || company.organization_employee_count || 'Unknown',
+        needs: allNeeds,
+        description: company.recent_news || `${company.name} is a ${company.sector || 'business'} organization.`,
+        website: company.website,
+        
+        // Apollo contact data
+        contact_email: company.contact_email,
+        contact_phone: company.contact_phone,
+        contact_person: company.contact_person,
+        contact_title: company.contact_title,
+        contact_first_name: company.contact_first_name,
+        contact_last_name: company.contact_last_name,
+        full_address: company.full_address,
+        linkedin_profile: company.organization_linkedin_url,
+        
+        // Market intelligence
+        job_postings: company.job_postings || [],
+        technologies_used: company.technologies_used || [],
+        funding_stage: company.funding_stage,
+        buying_intent_signals: company.buying_intent_signals || [],
+        total_funding_usd: company.total_funding_usd,
+        organization_employee_count: company.organization_employee_count,
+        organization_revenue_range: company.organization_revenue_range,
+        
+        // Metadata
+        data_completeness_score: company.data_completeness_score,
+        enrichment_level: company.data_enrichment_level,
+        
+        // Intelligence from discovery phase
+        match_score: company.relevance,
+        match_reason: company.reason
+      };
+    });
+    
     console.log('   Company IDs:', companiesFound.map(c => `${c.name}(${c.id})`).join(', '));
     
     if (companiesFound.length > 0) {
-      console.log('   Sample contact data:', {
+      console.log('   Sample contact:', {
         name: companiesFound[0]?.contact_person,
         email: companiesFound[0]?.contact_email,
         phone: companiesFound[0]?.contact_phone
