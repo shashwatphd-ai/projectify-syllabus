@@ -19,13 +19,14 @@ export const ContactTab = ({ forms, companyProfile, contactInfo, projectId, proj
   const form2 = forms.form2 || {};
   
   // ============================================================================
-  // USE SERVER-CONSOLIDATED CONTACT DATA (if available)
+  // SIMPLIFIED DATA ACCESS: Use server-consolidated data directly
   // ============================================================================
-  // The get-project-detail endpoint returns consolidated contact_info with
-  // clear priority logic already applied server-side. Use it if available.
+  // All contact person fields from contactInfo (server-consolidated)
+  // All company/organization fields from companyProfile
+  // Minimal fallback to form2 for legacy projects only
   
-  const displayData = contactInfo ? {
-    // Company data from company profile
+  const displayData = {
+    // COMPANY DATA (from companyProfile, fallback to form2)
     company: companyProfile?.name || form2.company,
     sector: companyProfile?.sector || form2.sector,
     size: companyProfile?.size || form2.size,
@@ -35,24 +36,24 @@ export const ContactTab = ({ forms, companyProfile, contactInfo, projectId, proj
     city: companyProfile?.city,
     zip: companyProfile?.zip,
     
-    // CONSOLIDATED CONTACT FIELDS (from endpoint)
-    contact_name: contactInfo.name,
-    contact_email: contactInfo.email,
-    contact_phone: contactInfo.phone,
-    contact_title: contactInfo.title,
-    contact_first_name: contactInfo.first_name,
-    contact_last_name: contactInfo.last_name,
-    contact_headline: contactInfo.headline,
-    contact_photo_url: contactInfo.photo_url,
-    contact_city: contactInfo.city,
-    contact_state: contactInfo.state,
-    contact_country: contactInfo.country,
-    contact_email_status: contactInfo.email_status,
-    contact_employment_history: contactInfo.employment_history,
-    linkedin_profile: contactInfo.linkedin,
-    contact_twitter_url: contactInfo.twitter,
+    // CONTACT PERSON DATA (from contactInfo, fallback to form2)
+    contact_name: contactInfo?.name || form2.contact_name,
+    contact_email: contactInfo?.email || form2.contact_email,
+    contact_phone: contactInfo?.phone || form2.contact_phone,
+    contact_title: contactInfo?.title || form2.contact_title,
+    contact_first_name: contactInfo?.first_name,
+    contact_last_name: contactInfo?.last_name,
+    contact_headline: contactInfo?.headline,
+    contact_photo_url: contactInfo?.photo_url,
+    contact_city: contactInfo?.city,
+    contact_state: contactInfo?.state,
+    contact_country: contactInfo?.country,
+    contact_email_status: contactInfo?.email_status,
+    contact_employment_history: contactInfo?.employment_history,
+    linkedin_profile: contactInfo?.linkedin,
+    contact_twitter_url: contactInfo?.twitter,
     
-    // Organization fields from company profile
+    // ORGANIZATION DATA (from companyProfile only)
     organization_linkedin_url: companyProfile?.organization_linkedin_url,
     organization_twitter_url: companyProfile?.organization_twitter_url,
     organization_facebook_url: companyProfile?.organization_facebook_url,
@@ -61,49 +62,11 @@ export const ContactTab = ({ forms, companyProfile, contactInfo, projectId, proj
     organization_employee_count: companyProfile?.organization_employee_count,
     organization_revenue_range: companyProfile?.organization_revenue_range,
     
-    // Data quality
+    // DATA QUALITY (from companyProfile)
     data_enrichment_level: companyProfile?.data_enrichment_level || 'basic',
     data_completeness_score: companyProfile?.data_completeness_score || 0,
     
-    preferred_communication: form2.preferred_communication
-  } : {
-    // FALLBACK: Old logic for backward compatibility (if contactInfo not available)
-    company: companyProfile?.name || form2.company,
-    sector: companyProfile?.sector || form2.sector,
-    size: companyProfile?.size || form2.size,
-    website: companyProfile?.website || form2.website,
-    description: companyProfile?.recent_news || form2.description,
-    full_address: companyProfile?.full_address,
-    city: companyProfile?.city,
-    zip: companyProfile?.zip,
-    
-    contact_name: companyProfile?.contact_person || form2.contact_name,
-    contact_email: companyProfile?.contact_email || form2.contact_email,
-    contact_phone: companyProfile?.contact_phone || form2.contact_phone,
-    contact_title: companyProfile?.contact_title || form2.contact_title,
-    contact_first_name: companyProfile?.contact_first_name,
-    contact_last_name: companyProfile?.contact_last_name,
-    contact_headline: companyProfile?.contact_headline,
-    contact_photo_url: companyProfile?.contact_photo_url,
-    contact_city: companyProfile?.contact_city,
-    contact_state: companyProfile?.contact_state,
-    contact_country: companyProfile?.contact_country,
-    contact_email_status: companyProfile?.contact_email_status,
-    contact_employment_history: companyProfile?.contact_employment_history,
-    linkedin_profile: companyProfile?.linkedin_profile,
-    contact_twitter_url: companyProfile?.contact_twitter_url,
-    
-    organization_linkedin_url: companyProfile?.organization_linkedin_url,
-    organization_twitter_url: companyProfile?.organization_twitter_url,
-    organization_facebook_url: companyProfile?.organization_facebook_url,
-    organization_founded_year: companyProfile?.organization_founded_year,
-    organization_logo_url: companyProfile?.organization_logo_url,
-    organization_employee_count: companyProfile?.organization_employee_count,
-    organization_revenue_range: companyProfile?.organization_revenue_range,
-    
-    data_enrichment_level: companyProfile?.data_enrichment_level || 'basic',
-    data_completeness_score: companyProfile?.data_completeness_score || 0,
-    
+    // PREFERENCES (from form2)
     preferred_communication: form2.preferred_communication
   };
 
