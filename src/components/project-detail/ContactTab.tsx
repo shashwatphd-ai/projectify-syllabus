@@ -9,16 +9,23 @@ import { EnrichmentPanel } from "./EnrichmentPanel";
 interface ContactTabProps {
   forms: any;
   companyProfile?: any;
+  contactInfo?: any; // Consolidated contact from endpoint
   projectId: string;
   projectTitle: string;
   onDataRefresh?: () => void;
 }
 
-export const ContactTab = ({ forms, companyProfile, projectId, projectTitle, onDataRefresh }: ContactTabProps) => {
+export const ContactTab = ({ forms, companyProfile, contactInfo, projectId, projectTitle, onDataRefresh }: ContactTabProps) => {
   const form2 = forms.form2 || {};
   
-  // Prioritize real company profile data over AI-generated form data
-  const displayData = {
+  // ============================================================================
+  // USE SERVER-CONSOLIDATED CONTACT DATA (if available)
+  // ============================================================================
+  // The get-project-detail endpoint returns consolidated contact_info with
+  // clear priority logic already applied server-side. Use it if available.
+  
+  const displayData = contactInfo ? {
+    // Company data from company profile
     company: companyProfile?.name || form2.company,
     sector: companyProfile?.sector || form2.sector,
     size: companyProfile?.size || form2.size,
@@ -28,13 +35,52 @@ export const ContactTab = ({ forms, companyProfile, projectId, projectTitle, onD
     city: companyProfile?.city,
     zip: companyProfile?.zip,
     
-    // Contact fields
+    // CONSOLIDATED CONTACT FIELDS (from endpoint)
+    contact_name: contactInfo.name,
+    contact_email: contactInfo.email,
+    contact_phone: contactInfo.phone,
+    contact_title: contactInfo.title,
+    contact_first_name: contactInfo.first_name,
+    contact_last_name: contactInfo.last_name,
+    contact_headline: contactInfo.headline,
+    contact_photo_url: contactInfo.photo_url,
+    contact_city: contactInfo.city,
+    contact_state: contactInfo.state,
+    contact_country: contactInfo.country,
+    contact_email_status: contactInfo.email_status,
+    contact_employment_history: contactInfo.employment_history,
+    linkedin_profile: contactInfo.linkedin,
+    contact_twitter_url: contactInfo.twitter,
+    
+    // Organization fields from company profile
+    organization_linkedin_url: companyProfile?.organization_linkedin_url,
+    organization_twitter_url: companyProfile?.organization_twitter_url,
+    organization_facebook_url: companyProfile?.organization_facebook_url,
+    organization_founded_year: companyProfile?.organization_founded_year,
+    organization_logo_url: companyProfile?.organization_logo_url,
+    organization_employee_count: companyProfile?.organization_employee_count,
+    organization_revenue_range: companyProfile?.organization_revenue_range,
+    
+    // Data quality
+    data_enrichment_level: companyProfile?.data_enrichment_level || 'basic',
+    data_completeness_score: companyProfile?.data_completeness_score || 0,
+    
+    preferred_communication: form2.preferred_communication
+  } : {
+    // FALLBACK: Old logic for backward compatibility (if contactInfo not available)
+    company: companyProfile?.name || form2.company,
+    sector: companyProfile?.sector || form2.sector,
+    size: companyProfile?.size || form2.size,
+    website: companyProfile?.website || form2.website,
+    description: companyProfile?.recent_news || form2.description,
+    full_address: companyProfile?.full_address,
+    city: companyProfile?.city,
+    zip: companyProfile?.zip,
+    
     contact_name: companyProfile?.contact_person || form2.contact_name,
     contact_email: companyProfile?.contact_email || form2.contact_email,
     contact_phone: companyProfile?.contact_phone || form2.contact_phone,
     contact_title: companyProfile?.contact_title || form2.contact_title,
-    
-    // Apollo enriched contact fields
     contact_first_name: companyProfile?.contact_first_name,
     contact_last_name: companyProfile?.contact_last_name,
     contact_headline: companyProfile?.contact_headline,
@@ -47,7 +93,6 @@ export const ContactTab = ({ forms, companyProfile, projectId, projectTitle, onD
     linkedin_profile: companyProfile?.linkedin_profile,
     contact_twitter_url: companyProfile?.contact_twitter_url,
     
-    // Apollo enriched organization fields
     organization_linkedin_url: companyProfile?.organization_linkedin_url,
     organization_twitter_url: companyProfile?.organization_twitter_url,
     organization_facebook_url: companyProfile?.organization_facebook_url,
@@ -56,7 +101,6 @@ export const ContactTab = ({ forms, companyProfile, projectId, projectTitle, onD
     organization_employee_count: companyProfile?.organization_employee_count,
     organization_revenue_range: companyProfile?.organization_revenue_range,
     
-    // Data quality
     data_enrichment_level: companyProfile?.data_enrichment_level || 'basic',
     data_completeness_score: companyProfile?.data_completeness_score || 0,
     

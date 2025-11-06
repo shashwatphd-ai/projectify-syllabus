@@ -26,15 +26,19 @@ const ProjectDetail = () => {
   const { id } = useParams();
   const { user, loading: authLoading, requireAuth } = useAuth();
   const navigate = useNavigate();
-  const [project, setProject] = useState<any>(null);
-  const [forms, setForms] = useState<any>(null);
-  const [courseProfile, setCourseProfile] = useState<any>(null);
-  const [metadata, setMetadata] = useState<any>(null);
-  const [companyProfile, setCompanyProfile] = useState<any>(null);
+  
+  // ============================================================================
+  // UNIFIED STATE: Single source of truth from get-project-detail endpoint
+  // ============================================================================
+  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   // Track analytics with enrichment data
-  useProjectAnalytics(id || '', project?.title || '', companyProfile);
+  useProjectAnalytics(
+    id || '', 
+    data?.project?.title || '', 
+    data?.company || null
+  );
 
   useEffect(() => {
     requireAuth();
@@ -46,58 +50,42 @@ const ProjectDetail = () => {
     }
   }, [user, id]);
 
+  /**
+   * SINGLE DATA FETCH: Replaces 5 sequential queries
+   * Uses the verified get-project-detail endpoint for guaranteed clean data
+   */
   const loadProjectData = async () => {
     try {
-      const { data: projectData, error: projectError } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('id', id)
-        .single();
+      setLoading(true);
+      
+      // Single call to unified endpoint
+      const { data: response, error } = await supabase.functions.invoke('get-project-detail', {
+        body: { projectId: id }
+      });
 
-      if (projectError) throw projectError;
-
-      const { data: formsData, error: formsError } = await supabase
-        .from('project_forms')
-        .select('*')
-        .eq('project_id', id)
-        .single();
-
-      if (formsError) throw formsError;
-
-      // Load course profile for LO mapping
-      const { data: courseData, error: courseError } = await supabase
-        .from('course_profiles')
-        .select('*')
-        .eq('id', projectData.course_id)
-        .single();
-
-      if (courseError) throw courseError;
-
-      // Load project metadata
-      const { data: metadataData, error: metadataError } = await supabase
-        .from('project_metadata')
-        .select('*')
-        .eq('project_id', id)
-        .maybeSingle();
-
-      // Load company profile if available
-      let companyData = null;
-      if (projectData.company_profile_id) {
-        const { data: companyProfileData } = await supabase
-          .from('company_profiles')
-          .select('*')
-          .eq('id', projectData.company_profile_id)
-          .single();
-        companyData = companyProfileData;
+      if (error) {
+        console.error('[ProjectDetail] Endpoint error:', error);
+        throw error;
       }
 
-      setProject(projectData);
-      setForms(formsData);
-      setCourseProfile(courseData);
-      setMetadata(metadataData);
-      setCompanyProfile(companyData);
+      if (!response) {
+        throw new Error('No data returned from endpoint');
+      }
+
+      console.log('[ProjectDetail] Received clean data:', {
+        dataQuality: response.data_quality,
+        pricingStatus: response.metadata?.pricing_breakdown?.status,
+        valueAnalysisStatus: response.metadata?.value_analysis?.status,
+        technologiesNormalized: response.data_quality?.technologies_normalized
+      });
+
+      // Set unified data state
+      setData(response);
+      
     } catch (error: any) {
-      console.error('Load error:', error);
+      console.error('[ProjectDetail] Load error:', error);
+      // Keep data as null to trigger "Not Found" UI
+      setData(null);
     } finally {
       setLoading(false);
     }
@@ -111,7 +99,7 @@ const ProjectDetail = () => {
     );
   }
 
-  if (!project || !forms) {
+  if (!data || !data.project || !data.forms) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card>
@@ -123,6 +111,9 @@ const ProjectDetail = () => {
       </div>
     );
   }
+
+  // Extract data for easier access (backward compatibility with existing components)
+  const { project, forms, course, metadata, company, contact_info } = data;
 
   return (
     <div className="min-h-screen bg-background">
@@ -153,31 +144,32 @@ const ProjectDetail = () => {
 
           <TabsContent value="value-analysis">
             <ValueAnalysisTab 
-              valueAnalysis={metadata?.value_analysis}
-              stakeholderInsights={metadata?.stakeholder_insights}
+              valueAnalysis={metadata?.value_analysis?.data || metadata?.value_analysis}
+              stakeholderInsights={metadata?.stakeholder_insights?.data || metadata?.stakeholder_insights}
               synergyIndex={metadata?.synergistic_value_index || 0}
               partnershipQuality={metadata?.partnership_quality_score || 0}
               projectId={id!}
-              companyProfile={companyProfile}
+              companyProfile={company}
               project={project}
-              courseProfile={courseProfile}
+              courseProfile={course}
               onAnalysisComplete={loadProjectData}
             />
           </TabsContent>
 
           <TabsContent value="market-insights">
             <MarketInsightsTab 
-              companyProfile={companyProfile}
+              companyProfile={company}
               projectMetadata={metadata}
               project={project}
-              courseProfile={courseProfile}
+              courseProfile={course}
             />
           </TabsContent>
 
           <TabsContent value="contact">
             <ContactTab 
               forms={forms} 
-              companyProfile={companyProfile}
+              companyProfile={company}
+              contactInfo={contact_info}
               projectId={id!}
               projectTitle={project.title}
               onDataRefresh={loadProjectData}
@@ -197,7 +189,7 @@ const ProjectDetail = () => {
           </TabsContent>
 
           <TabsContent value="lo-mapping" className="space-y-6">
-            <LearningOutcomeAlignment project={project} courseProfile={courseProfile} />
+            <LearningOutcomeAlignment project={project} courseProfile={course} />
           </TabsContent>
 
           <TabsContent value="feedback">
@@ -213,7 +205,7 @@ const ProjectDetail = () => {
           </TabsContent>
 
           <TabsContent value="verification" className="space-y-6">
-            <VerificationTab metadata={metadata} project={project} course={courseProfile} />
+            <VerificationTab metadata={metadata} project={project} course={course} />
           </TabsContent>
 
           <TabsContent value="forms" className="space-y-6">
