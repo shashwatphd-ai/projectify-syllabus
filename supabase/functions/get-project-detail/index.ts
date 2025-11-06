@@ -26,8 +26,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const url = new URL(req.url);
-    const projectId = url.searchParams.get('projectId');
+    // Read projectId from request body (not query params)
+    const { projectId } = await req.json();
 
     if (!projectId) {
       return new Response(
