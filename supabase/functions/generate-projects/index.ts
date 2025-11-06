@@ -1269,9 +1269,11 @@ function calculateMarketAlignmentScore(
   
   if (technologiesUsed && technologiesUsed.length > 0) {
     const taskText = projectTasks.join(' ').toLowerCase();
-    const matchedTech = technologiesUsed.filter(tech =>
-      taskText.includes(tech.toLowerCase())
-    );
+    const matchedTech = technologiesUsed.filter(tech => {
+      // Handle both string and object formats from Apollo
+      const techName = typeof tech === 'string' ? tech : ((tech as any)?.name || (tech as any)?.technology || '');
+      return taskText.includes(techName.toLowerCase());
+    });
     alignmentScore += (matchedTech.length / technologiesUsed.length) * 30;
   }
   
