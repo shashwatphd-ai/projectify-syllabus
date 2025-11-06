@@ -35,7 +35,11 @@ interface ApolloOrganization {
   state?: string;
   postal_code?: string;
   country?: string;
-  current_technologies?: string[];
+  current_technologies?: Array<{
+    uid: string;
+    name: string;
+    category?: string;
+  }>;
   latest_funding_stage?: string;
   total_funding?: number;
   latest_funding_stage_cd?: string;
@@ -364,15 +368,20 @@ Return JSON:
     // Calculate buying intent signals
     const buyingIntentSignals = this.calculateBuyingIntent(enrichedOrg, jobPostings);
     
-    // Extract technologies from enriched data
-    const technologies = enrichedOrg.current_technologies || [];
+    // ===== NORMALIZATION SHIELD =====
+    // Apollo returns tech as objects: [{name: "React"}, {name: "AWS"}]
+    // We MUST normalize to simple strings: ["React", "AWS"]
+    const rawTechnologies = enrichedOrg.current_technologies || [];
+    const technologies: string[] = rawTechnologies
+      .map(tech => tech.name)
+      .filter(Boolean);
     
     // CRITICAL: Calculate actual data completeness (not hardcoded)
     const completeness = this.calculateDataCompleteness({
       contact,
       org: enrichedOrg,
       jobPostings,
-      technologies
+      technologies: technologies // Now using normalized string array
     });
 
     // Format employee count into ranges
@@ -433,7 +442,7 @@ Return JSON:
       organizationIndustryKeywords: enrichedOrg.industry_tag_list,
       
       jobPostings,
-      technologiesUsed: technologies,
+      technologiesUsed: technologies, // Now guaranteed to be string[]
       buyingIntentSignals,
       fundingStage: enrichedOrg.latest_funding_stage,
       totalFundingUsd: enrichedOrg.total_funding,
