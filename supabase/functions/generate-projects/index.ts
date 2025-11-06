@@ -915,19 +915,17 @@ function calculateApolloEnrichedPricing(
       'Data Science', 'Big Data', 'Analytics'
     ];
     
-    // Handle both string arrays and object arrays from Apollo
-    const techMatches = company.technologies_used.filter(tech => {
-      const techName = typeof tech === 'string' ? tech : ((tech as any)?.name || (tech as any)?.technology || '');
-      return advancedTechnologies.some(advTech => 
-        techName.toLowerCase().includes(advTech.toLowerCase())
-      );
-    });
+    const techMatches = company.technologies_used.filter(tech => 
+      advancedTechnologies.some(advTech => 
+        tech.toLowerCase().includes(advTech.toLowerCase())
+      )
+    );
     
     if (techMatches.length >= 3) {
       budget *= 1.25;
       breakdown.apollo_intelligence_applied.push({
         factor: "Advanced Technology Stack",
-        technologies: techMatches.map(tech => typeof tech === 'string' ? tech : ((tech as any)?.name || (tech as any)?.technology || 'Unknown')),
+        technologies: techMatches,
         multiplier: 1.25,
         rationale: `Company uses ${techMatches.length} cutting-edge technologies - requires specialized expertise`
       });
@@ -935,7 +933,7 @@ function calculateApolloEnrichedPricing(
       budget *= 1.10;
       breakdown.apollo_intelligence_applied.push({
         factor: "Modern Technology Stack",
-        technologies: techMatches.map(tech => typeof tech === 'string' ? tech : ((tech as any)?.name || (tech as any)?.technology || 'Unknown')),
+        technologies: techMatches,
         multiplier: 1.10,
         rationale: "Moderate technology complexity"
       });
