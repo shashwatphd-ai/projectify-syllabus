@@ -144,10 +144,10 @@ const ProjectDetail = () => {
 
           <TabsContent value="value-analysis">
             <ValueAnalysisTab 
-              valueAnalysis={metadata?.value_analysis}
-              stakeholderInsights={metadata?.stakeholder_insights}
-              synergyIndex={metadata?.synergistic_value_index || 0}
-              partnershipQuality={metadata?.partnership_quality_score || 0}
+              valueAnalysis={data?.metadata?.value_analysis}
+              stakeholderInsights={data?.metadata?.stakeholder_insights}
+              synergyIndex={data?.metadata?.synergistic_value_index || 0}
+              partnershipQuality={data?.metadata?.partnership_quality_score || 0}
               projectId={id!}
               companyProfile={company}
               project={project}
