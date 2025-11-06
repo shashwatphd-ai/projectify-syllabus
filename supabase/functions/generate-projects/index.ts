@@ -766,6 +766,149 @@ async function calculateScores(
 // PRICING & ROI CALCULATION (extracted to ../shared/pricing-service.ts)
 // ============================================================================
 
+// NEW: Intelligent Signal Filtering - Filter company data once at the source
+function filterRelevantSignals(
+  company: CompanyInfo,
+  cityZip: string,
+  courseTopics: string[],
+  courseOutcomes: string[]
+): CompanyInfo {
+  console.log(`\n🔍 Filtering signals for ${company.name}...`);
+  
+  // Step 1: Parse location from course.city_zip
+  const zipMatch = cityZip.match(/\b\d{5}\b/);
+  const zipCode = zipMatch ? zipMatch[0] : null;
+  const cityName = cityZip.split(',')[0].trim().toLowerCase();
+  const stateMatch = cityZip.match(/,\s*([A-Z]{2})/);
+  const stateName = stateMatch ? stateMatch[1].toLowerCase() : null;
+  
+  console.log(`  📍 Course location: City="${cityName}", Zip="${zipCode}", State="${stateName}"`);
+  
+  // Step 2: Extract intelligent keywords from course data
+  const keywords = new Set<string>();
+  
+  // Extract from topics (e.g., "Fluid Dynamics" -> ["fluid", "dynamics"])
+  courseTopics.forEach(topic => {
+    topic.toLowerCase().split(/[\s,]+/).forEach(word => {
+      if (word.length > 3) keywords.add(word); // Skip short words like "and", "the"
+    });
+  });
+  
+  // Extract from outcomes (focus on technical terms)
+  courseOutcomes.forEach(outcome => {
+    // Extract technical terms (capitalized words, technical phrases)
+    const technicalTerms = outcome.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g) || [];
+    technicalTerms.forEach(term => {
+      term.toLowerCase().split(/\s+/).forEach(word => {
+        if (word.length > 3) keywords.add(word);
+      });
+    });
+    
+    // Also extract key verbs and nouns
+    const words = outcome.toLowerCase().split(/[\s,]+/);
+    words.forEach(word => {
+      if (word.length > 4 && !['about', 'using', 'their', 'these', 'which', 'where'].includes(word)) {
+        keywords.add(word);
+      }
+    });
+  });
+  
+  // Step 3: Build synonym map for intelligent matching
+  const synonymMap: Record<string, string[]> = {
+    'ai': ['artificial intelligence', 'machine learning', 'ml', 'deep learning', 'neural'],
+    'ml': ['machine learning', 'artificial intelligence', 'ai', 'predictive'],
+    'cloud': ['aws', 'azure', 'gcp', 'kubernetes', 'docker', 'serverless'],
+    'data': ['analytics', 'database', 'sql', 'nosql', 'etl', 'pipeline'],
+    'software': ['development', 'engineering', 'programming', 'coding'],
+    'fluid': ['hydraulic', 'flow', 'pressure', 'liquid', 'gas'],
+    'mechanical': ['mechanics', 'engineering', 'design', 'cad'],
+    'chemical': ['chemistry', 'process', 'reaction', 'synthesis'],
+    'simulation': ['modeling', 'cfd', 'fem', 'analysis'],
+    'optimization': ['improve', 'enhance', 'efficiency', 'performance']
+  };
+  
+  // Expand keywords with synonyms
+  const expandedKeywords = new Set(keywords);
+  keywords.forEach(keyword => {
+    if (synonymMap[keyword]) {
+      synonymMap[keyword].forEach(syn => expandedKeywords.add(syn));
+    }
+  });
+  
+  console.log(`  🔑 Keywords (${expandedKeywords.size}): ${Array.from(expandedKeywords).slice(0, 10).join(', ')}...`);
+  
+  // Step 4: Filter job postings by location AND topic relevance
+  const originalJobCount = company.job_postings?.length || 0;
+  const filteredJobs = (company.job_postings || []).filter(job => {
+    // Location filter
+    const jobLocation = (job.location || '').toLowerCase();
+    const locationMatch = 
+      (zipCode && jobLocation.includes(zipCode)) ||
+      (cityName && jobLocation.includes(cityName)) ||
+      (stateName && jobLocation.includes(stateName)) ||
+      jobLocation.includes('remote') || // Keep remote jobs
+      jobLocation.includes('hybrid'); // Keep hybrid jobs
+    
+    if (!locationMatch) return false;
+    
+    // Topic relevance filter
+    const jobText = `${job.title || ''} ${job.description || ''}`.toLowerCase();
+    const matchCount = Array.from(expandedKeywords).filter(keyword => 
+      jobText.includes(keyword)
+    ).length;
+    
+    const isRelevant = matchCount > 0;
+    
+    if (isRelevant) {
+      console.log(`    ✓ Job: "${job.title}" (${job.location}) - ${matchCount} keyword matches`);
+    }
+    
+    return isRelevant;
+  });
+  
+  console.log(`  📊 Jobs: ${originalJobCount} total → ${filteredJobs.length} relevant (${Math.round(filteredJobs.length / Math.max(originalJobCount, 1) * 100)}% match)`);
+  
+  // Step 5: Filter technologies by course relevance
+  const originalTechCount = company.technologies_used?.length || 0;
+  const filteredTech = (company.technologies_used || []).filter(tech => {
+    const techName = typeof tech === 'string' ? tech : ((tech as any)?.name || (tech as any)?.technology || '');
+    const techLower = techName.toLowerCase();
+    
+    // Check if technology matches any course keyword
+    const matches = Array.from(expandedKeywords).some(keyword => 
+      techLower.includes(keyword) || keyword.includes(techLower)
+    );
+    
+    if (matches) {
+      console.log(`    ✓ Tech: ${techName}`);
+    }
+    
+    return matches;
+  });
+  
+  console.log(`  💻 Technologies: ${originalTechCount} total → ${filteredTech.length} relevant`);
+  
+  // Step 6: Filter buying intent signals
+  const originalIntentCount = company.buying_intent_signals?.length || 0;
+  const filteredIntent = (company.buying_intent_signals || []).filter(signal => {
+    const signalText = JSON.stringify(signal).toLowerCase();
+    return Array.from(expandedKeywords).some(keyword => signalText.includes(keyword));
+  });
+  
+  console.log(`  🎯 Buying Intent: ${originalIntentCount} total → ${filteredIntent.length} relevant`);
+  
+  // Step 7: Return filtered company object
+  const filteredCompany: CompanyInfo = {
+    ...company,
+    job_postings: filteredJobs,
+    technologies_used: filteredTech,
+    buying_intent_signals: filteredIntent,
+  };
+  
+  console.log(`✅ Filtering complete: ${filteredJobs.length} jobs, ${filteredTech.length} technologies, ${filteredIntent.length} signals\n`);
+  
+  return filteredCompany;
+}
 
 
 function calculateMarketAlignmentScore(
@@ -1391,13 +1534,21 @@ serve(async (req) => {
 
       const teamSize = 3;
       
-      // Use Apollo-enriched pricing algorithm
+      // CRITICAL: Filter company signals ONCE before pricing/ROI/metadata
+      const filteredCompany = filterRelevantSignals(
+        company,
+        cityZip,
+        artifacts || [],
+        outcomes
+      );
+      
+      // Use Apollo-enriched pricing algorithm with FILTERED data
       const budgetResult = calculateApolloEnrichedPricing(
         course.weeks,
         course.hrs_per_week,
         teamSize,
         proposal.tier,
-        company
+        filteredCompany
       );
       
       console.log(`  💰 Apollo-Enriched Pricing: $${budgetResult.budget.toLocaleString()}`);
@@ -1407,11 +1558,11 @@ serve(async (req) => {
       const milestones = generateMilestones(course.weeks, proposal.deliverables);
       const forms = createForms(company, proposal, course);
       
-      // Calculate Apollo-enriched ROI
+      // Calculate Apollo-enriched ROI with FILTERED data
       const roiAnalysis = calculateApolloEnrichedROI(
         budgetResult.budget,
         proposal.deliverables,
-        company,
+        filteredCompany,
         proposal.tasks
       );
       
@@ -1542,18 +1693,24 @@ serve(async (req) => {
         proposal.tasks,
         proposal.deliverables,
         company.inferred_needs || company.needs || [],
-        company.job_postings || [],
-        company.technologies_used || []
+        filteredCompany.job_postings || [],
+        filteredCompany.technologies_used || []
       );
       
-      // Add market signals used
-      if (company.job_postings || company.technologies_used || company.funding_stage) {
+      // Add FILTERED market signals used (showing filtering effectiveness)
+      if (filteredCompany.job_postings || filteredCompany.technologies_used || filteredCompany.funding_stage) {
         metadataInsert.market_signals_used = {
-          job_postings_matched: company.job_postings?.length || 0,
-          technologies_aligned: company.technologies_used || [],
-          funding_stage: company.funding_stage || null,
-          hiring_urgency: company.job_postings && company.job_postings.length > 5 ? 'high' : 'medium',
-          needs_identified: company.needs || []
+          job_postings_matched: filteredCompany.job_postings?.length || 0,
+          job_postings_total: company.job_postings?.length || 0,
+          job_postings_filtered_out: (company.job_postings?.length || 0) - (filteredCompany.job_postings?.length || 0),
+          technologies_aligned: filteredCompany.technologies_used || [],
+          technologies_total: company.technologies_used?.length || 0,
+          technologies_filtered_out: (company.technologies_used?.length || 0) - (filteredCompany.technologies_used?.length || 0),
+          funding_stage: filteredCompany.funding_stage || null,
+          hiring_urgency: filteredCompany.job_postings && filteredCompany.job_postings.length > 5 ? 'high' : 'medium',
+          needs_identified: company.needs || [],
+          location_filter: cityZip,
+          topic_filters_applied: artifacts || []
         };
       }
       
