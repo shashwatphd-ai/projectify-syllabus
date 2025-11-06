@@ -916,41 +916,105 @@ function calculateMarketAlignmentScore(
   projectDeliverables: string[],
   inferredNeeds: string[],
   jobPostings: any[],
-  technologiesUsed: string[]
+  technologiesUsed: string[],
+  courseTopics: string[],
+  courseOutcomes: string[]
 ): number {
   let alignmentScore = 0;
   
+  console.log(`\n📊 Calculating Market Alignment Score...`);
+  
+  // Build intelligent keyword set from course data (same logic as filterRelevantSignals)
+  const keywords = new Set<string>();
+  
+  // Extract from topics
+  courseTopics.forEach(topic => {
+    topic.toLowerCase().split(/[\s,]+/).forEach(word => {
+      if (word.length > 3) keywords.add(word);
+    });
+  });
+  
+  // Extract from outcomes
+  courseOutcomes.forEach(outcome => {
+    const words = outcome.toLowerCase().split(/[\s,]+/);
+    words.forEach(word => {
+      if (word.length > 4 && !['about', 'using', 'their', 'these', 'which', 'where'].includes(word)) {
+        keywords.add(word);
+      }
+    });
+  });
+  
+  // Build synonym map for intelligent matching
+  const synonymMap: Record<string, string[]> = {
+    'ai': ['artificial intelligence', 'machine learning', 'ml', 'deep learning', 'neural'],
+    'ml': ['machine learning', 'artificial intelligence', 'ai', 'predictive'],
+    'cloud': ['aws', 'azure', 'gcp', 'kubernetes', 'docker', 'serverless'],
+    'data': ['analytics', 'database', 'sql', 'nosql', 'etl', 'pipeline'],
+    'software': ['development', 'engineering', 'programming', 'coding'],
+    'fluid': ['hydraulic', 'flow', 'pressure', 'liquid', 'gas'],
+    'mechanical': ['mechanics', 'engineering', 'design', 'cad'],
+    'chemical': ['chemistry', 'process', 'reaction', 'synthesis'],
+    'simulation': ['modeling', 'cfd', 'fem', 'analysis'],
+    'optimization': ['improve', 'enhance', 'efficiency', 'performance']
+  };
+  
+  // Expand keywords with synonyms
+  const expandedKeywords = new Set(keywords);
+  keywords.forEach(keyword => {
+    if (synonymMap[keyword]) {
+      synonymMap[keyword].forEach(syn => expandedKeywords.add(syn));
+    }
+  });
+  
+  console.log(`  🔑 Course keywords: ${Array.from(expandedKeywords).slice(0, 8).join(', ')}...`);
+  
+  // Score 1: Inferred Needs Alignment (40 points max)
   if (inferredNeeds && inferredNeeds.length > 0) {
     const taskText = projectTasks.join(' ').toLowerCase();
     const matchedNeeds = inferredNeeds.filter(need => {
       const needKeywords = need.toLowerCase().split(' ');
       return needKeywords.some(keyword => keyword.length > 3 && taskText.includes(keyword));
     });
-    alignmentScore += (matchedNeeds.length / inferredNeeds.length) * 40;
+    const needsScore = (matchedNeeds.length / inferredNeeds.length) * 40;
+    alignmentScore += needsScore;
+    console.log(`  ✓ Needs alignment: ${matchedNeeds.length}/${inferredNeeds.length} matched (+${needsScore.toFixed(0)} points)`);
   }
   
+  // Score 2: Job Postings Alignment (30 points max) - FIXED: Use titles/descriptions, not non-existent skills_needed
   if (jobPostings && jobPostings.length > 0) {
-    const jobSkills = jobPostings.flatMap(jp => jp.skills_needed || []);
-    const deliverableText = projectDeliverables.join(' ').toLowerCase();
-    const matchedSkills = jobSkills.filter(skill => 
-      deliverableText.includes(skill.toLowerCase())
-    );
-    if (jobSkills.length > 0) {
-      alignmentScore += (matchedSkills.length / jobSkills.length) * 30;
-    }
+    let matchedJobs = 0;
+    jobPostings.forEach(job => {
+      const jobText = `${job.title || ''} ${job.description || ''}`.toLowerCase();
+      const matches = Array.from(expandedKeywords).filter(keyword => jobText.includes(keyword));
+      if (matches.length > 0) {
+        matchedJobs++;
+        console.log(`  ✓ Job match: "${job.title}" - ${matches.length} keywords`);
+      }
+    });
+    const jobScore = (matchedJobs / jobPostings.length) * 30;
+    alignmentScore += jobScore;
+    console.log(`  ✓ Job alignment: ${matchedJobs}/${jobPostings.length} matched (+${jobScore.toFixed(0)} points)`);
   }
   
+  // Score 3: Technology Stack Alignment (30 points max)
   if (technologiesUsed && technologiesUsed.length > 0) {
     const taskText = projectTasks.join(' ').toLowerCase();
     const matchedTech = technologiesUsed.filter(tech => {
-      // Handle both string and object formats from Apollo
       const techName = typeof tech === 'string' ? tech : ((tech as any)?.name || (tech as any)?.technology || '');
-      return taskText.includes(techName.toLowerCase());
+      const techLower = techName.toLowerCase();
+      return Array.from(expandedKeywords).some(keyword => 
+        techLower.includes(keyword) || keyword.includes(techLower)
+      );
     });
-    alignmentScore += (matchedTech.length / technologiesUsed.length) * 30;
+    const techScore = (matchedTech.length / technologiesUsed.length) * 30;
+    alignmentScore += techScore;
+    console.log(`  ✓ Tech alignment: ${matchedTech.length}/${technologiesUsed.length} matched (+${techScore.toFixed(0)} points)`);
   }
   
-  return Math.round(alignmentScore);
+  const finalScore = Math.round(alignmentScore);
+  console.log(`  📊 Final Market Alignment Score: ${finalScore}/100\n`);
+  
+  return finalScore;
 }
 
 async function generateLOAlignmentDetail(
@@ -1692,9 +1756,11 @@ serve(async (req) => {
       metadataInsert.market_alignment_score = calculateMarketAlignmentScore(
         proposal.tasks,
         proposal.deliverables,
-        company.inferred_needs || company.needs || [],
+        filteredCompany.inferred_needs || filteredCompany.needs || [],
         filteredCompany.job_postings || [],
-        filteredCompany.technologies_used || []
+        filteredCompany.technologies_used || [],
+        artifacts || [],
+        outcomes
       );
       
       // Add FILTERED market signals used (showing filtering effectiveness)
