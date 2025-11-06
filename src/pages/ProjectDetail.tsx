@@ -143,15 +143,15 @@ const ProjectDetail = () => {
           </TabsContent>
 
           <TabsContent value="value-analysis">
-            <ValueAnalysisTab 
+            <ValueAnalysisTab
               valueAnalysis={data?.metadata?.value_analysis}
               stakeholderInsights={data?.metadata?.stakeholder_insights}
-              synergyIndex={data?.metadata?.synergistic_value_index || 0}
-              partnershipQuality={data?.metadata?.partnership_quality_score || 0}
-              projectId={id!}
-              companyProfile={company}
-              project={project}
-              courseProfile={course}
+              synergyIndex={data?.metadata?.synergistic_value_index}
+              partnershipQuality={data?.metadata?.partnership_quality_score}
+              projectId={data?.project?.id}
+              companyProfile={data?.company}
+              project={data?.project}
+              courseProfile={data?.course}
               onAnalysisComplete={loadProjectData}
             />
           </TabsContent>
