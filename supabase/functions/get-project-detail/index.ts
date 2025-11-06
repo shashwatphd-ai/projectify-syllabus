@@ -37,6 +37,7 @@ serve(async (req) => {
     }
 
     console.log(`[get-project-detail] Fetching data for project: ${projectId}`);
+    console.log(`[get-project-detail] DEBUG: Received projectId type:`, typeof projectId, 'value:', projectId);
 
     // ============================================================================
     // STEP 1: AGGREGATED QUERY (Single Database Call)
@@ -56,6 +57,10 @@ serve(async (req) => {
       .eq('id', projectId)
       .maybeSingle();
 
+    console.log(`[get-project-detail] DEBUG: Query completed`);
+    console.log(`[get-project-detail] DEBUG: Query Error:`, queryError);
+    console.log(`[get-project-detail] DEBUG: Raw Data:`, rawData ? 'Data received' : 'NULL', rawData ? `with keys: ${Object.keys(rawData).join(', ')}` : '');
+
     if (queryError) {
       console.error('[get-project-detail] Query error:', queryError);
       return new Response(
@@ -66,6 +71,7 @@ serve(async (req) => {
 
     if (!rawData) {
       console.log('[get-project-detail] Project not found:', projectId);
+      console.log('[get-project-detail] DEBUG: This likely means INNER JOIN failed - project_forms or course_profiles missing');
       return new Response(
         JSON.stringify({ error: 'Project not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
