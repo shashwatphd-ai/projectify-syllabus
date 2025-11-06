@@ -68,7 +68,7 @@ interface ProjectProposal {
   publication_opportunity: string;
 }
 
-// NEW: Fetch Apollo-enriched companies from generation run with INTELLIGENT FILTERING
+// NEW: Fetch Apollo-enriched companies from generation run
 async function getApolloEnrichedCompanies(
   supabaseClient: any,
   generationRunId: string,
@@ -79,12 +79,13 @@ async function getApolloEnrichedCompanies(
 ): Promise<CompanyInfo[]> {
   console.log(`🎯 Fetching Apollo-enriched companies from generation run: ${generationRunId}`);
   
-  // CRITICAL: Fetch ALL companies (no limit) for intelligent scoring
+  // Fetch top companies by data completeness score
   const { data, error } = await supabaseClient
     .from('company_profiles')
     .select('*')
     .eq('generation_run_id', generationRunId)
-    .order('data_completeness_score', { ascending: false });
+    .order('data_completeness_score', { ascending: false })
+    .limit(count);
   
   if (error) {
     console.error('❌ Error fetching Apollo companies:', error.message);
@@ -96,24 +97,13 @@ async function getApolloEnrichedCompanies(
     throw new Error('No Apollo-enriched companies available');
   }
   
-  console.log(`✓ Found ${data.length} Apollo-enriched companies, scoring for relevance...`);
-  
-  // CRITICAL: Use intelligent filtering to score by relevance to course
-  const scoredCompanies = await intelligentCompanyFilter(
-    data,
-    outcomes,
-    level,
-    supabaseClient,
-    courseId
-  );
-  
-  console.log(`✓ Intelligent scoring complete: Top companies by relevance:`);
-  scoredCompanies.slice(0, count).forEach((c, i) => {
-    console.log(`  ${i+1}. ${c.name}: ${c.relevance}% - ${c.reason}`);
+  console.log(`✓ Found ${data.length} Apollo-enriched companies`);
+  data.forEach((c: any, i: number) => {
+    console.log(`  ${i+1}. ${c.name} (completeness: ${c.data_completeness_score}%)`);
   });
   
-  // CRITICAL: Return top N by RELEVANCE (not data completeness)
-  return scoredCompanies.slice(0, count).map((company: any) => {
+  // Return top N companies with all Apollo data
+  return data.map((company: any) => {
     // Infer needs from job postings and technologies if inferred_needs is empty
     const inferredNeeds = company.inferred_needs || [];
     const derivedNeeds = [];
@@ -165,71 +155,7 @@ async function getApolloEnrichedCompanies(
   });
 }
 
-// LEGACY: Fallback for non-Apollo generation (location-based query)
-async function getCompaniesFromDB(
-  supabaseClient: any, 
-  cityZip: string, 
-  industries: string[], 
-  count: number,
-  outcomes: string[],
-  level: string,
-  courseId: string
-): Promise<CompanyInfo[]> {
-  console.log(`⚠ FALLBACK: Querying DB by location (Apollo data not available)`);
-  console.log(`📊 Searching for ${count} companies in ${cityZip}...`);
-
-  // Parse city_zip to extract zip code and city name
-  const zipMatch = cityZip.match(/\b\d{5}\b/);
-  const zipCode = zipMatch ? zipMatch[0] : null;
-  let cityName = cityZip.split(',')[0].trim();
-  
-  console.log(`Parsed - City: ${cityName}, Zip: ${zipCode}`);
-
-  // Build flexible query - prioritize companies with rich inferred_needs
-  let query = supabaseClient
-    .from('company_profiles')
-    .select('*')
-    .not('inferred_needs', 'is', null); // Only companies with analyzed needs
-  
-  // Search by city name
-  if (cityName) {
-    query = query.ilike('city', `%${cityName.split(',')[0].trim()}%`);
-  } else if (zipCode) {
-    query = query.eq('zip', zipCode);
-  }
-
-  query = query
-    .order('last_enriched_at', { ascending: false })
-    .limit(count * 3); // Get extra for intelligent filtering
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('❌ Error fetching companies from DB:', error.message);
-    return [];
-  }
-
-  if (!data || data.length === 0) {
-    console.log('⚠ No enriched companies found in DB for location:', cityZip);
-    return [];
-  }
-
-  console.log(`✓ Found ${data.length} enriched companies in database for ${cityName}`);
-
-  // CRITICAL: Intelligent pre-filtering before AI generation
-  const filteredCompanies = await intelligentCompanyFilter(data, outcomes, level, supabaseClient, courseId);
-  
-  console.log(`✓ Intelligent filter: ${filteredCompanies.length}/${data.length} companies relevant to course outcomes`);
-  
-  // Map database fields to expected CompanyInfo interface
-  const mappedCompanies = filteredCompanies.slice(0, count).map(company => ({
-    ...company,
-    needs: company.inferred_needs || [], // Map inferred_needs to needs
-    description: company.recent_news || company.description || 'No description available'
-  }));
-  
-  return mappedCompanies;
-}
+// REMOVED: getCompaniesFromDB - Enforcing Apollo-First architecture
 
 // NEW: Generate cache key for course filtering
 function generateCacheKey(outcomes: string[], level: string, companyIds: string[]): string {
@@ -292,191 +218,9 @@ async function saveCachedFilteredCompanies(
   }
 }
 
-// NEW: Intelligent company filtering based on course-company relevance
-async function intelligentCompanyFilter(
-  companies: any[],
-  outcomes: string[],
-  level: string,
-  supabaseClient: any,
-  courseId: string
-): Promise<any[]> {
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  if (!LOVABLE_API_KEY) {
-    console.warn('⚠ No Gemini API key, skipping intelligent filtering');
-    // Filter out generic needs only
-    const genericPatterns = ['general operations', 'sales growth', 'digital transformation'];
-    return companies.filter(company => {
-      const needs = company.inferred_needs || [];
-      const hasGenericOnly = needs.length > 0 && needs.every((need: string) => 
-        genericPatterns.some(pattern => need.toLowerCase().includes(pattern))
-      );
-      return !hasGenericOnly;
-    });
-  }
+// REMOVED: intelligentCompanyFilter - Now handled in getApolloEnrichedCompanies only
 
-  // Generate cache key and check cache
-  const companyIds = companies.map(c => c.id).filter(Boolean);
-  const cacheKey = generateCacheKey(outcomes, level, companyIds);
-  
-  const cachedResults = await getCachedFilteredCompanies(supabaseClient, courseId, cacheKey);
-  if (cachedResults) {
-    return cachedResults;
-  }
-
-  // AI-powered relevance scoring with creative thinking
-  const systemPrompt = `You are an experiential learning expert who finds creative connections between companies and academic disciplines. 
-Think broadly - many industries use chemical engineering even if not obvious (manufacturing, healthcare, construction, retail supply chains, food service, etc.).
-Return only valid JSON array.`;
-  
-  const prompt = `Evaluate which companies could provide valuable projects for this ${level} course.
-Think creatively about interdisciplinary applications.
-
-COURSE LEARNING OUTCOMES:
-${outcomes.map((o, i) => `${i + 1}. ${o}`).join('\n')}
-
-AVAILABLE COMPANIES:
-${companies.map((c, i) => `
-${i + 1}. ${c.name} (${c.sector})
-   Description: ${c.description || 'N/A'}
-   Business Needs: ${(c.inferred_needs || []).join('; ')}
-`).join('\n')}
-
-Rate each company's relevance (0-100) considering:
-1. **Direct application**: Can students directly apply course concepts? (e.g., chemical processes, materials, optimization)
-2. **Indirect value**: Could the company benefit from quantitative analysis, process improvement, or data-driven solutions?
-3. **Learning opportunity**: Would students gain practical experience relevant to their field?
-
-BE GENEROUS - if there's ANY plausible connection where students could apply engineering thinking to solve real problems, rate it 40+.
-Only rate below 30 if there's truly NO connection to engineering/technical problem-solving.
-
-Return ONLY this JSON array:
-[
-  {"index": 0, "relevance": 85, "reason": "How students can help"},
-  {"index": 1, "relevance": 40, "reason": "Indirect but valuable connection"}
-]`;
-
-  try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.3,
-      }),
-    });
-
-    if (!response.ok) throw new Error('AI filtering failed');
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    const jsonMatch = content.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) throw new Error('No valid JSON in AI response');
-    
-    const ratings = JSON.parse(jsonMatch[0]);
-    
-    // Sort by relevance with more reasonable threshold
-    const scored = companies
-      .map((company, index) => {
-        const rating = ratings.find((r: any) => r.index === index);
-        return { ...company, relevance: rating?.relevance || 0, reason: rating?.reason || '' };
-      })
-      .filter(c => c.relevance >= 35) // Keep companies with plausible connections (35%+)
-      .sort((a, b) => b.relevance - a.relevance);
-
-    scored.forEach(c => {
-      console.log(`  ✓ ${c.name}: ${c.relevance}% relevant - ${c.reason}`);
-    });
-
-    // Cache the filtered results
-    await saveCachedFilteredCompanies(supabaseClient, courseId, cacheKey, scored);
-
-    return scored;
-  } catch (error) {
-    console.error('⚠ AI filtering error:', error);
-    // Fallback: filter generic needs only
-    const genericPatterns = ['general operations', 'sales growth', 'digital transformation'];
-    return companies.filter(company => {
-      const needs = company.inferred_needs || [];
-      const hasGenericOnly = needs.length > 0 && needs.every((need: string) => 
-        genericPatterns.some(pattern => need.toLowerCase().includes(pattern))
-      );
-      return !hasGenericOnly;
-    });
-  }
-}
-
-// FALLBACK: AI company search (only used if DB is empty)
-async function searchCompanies(cityZip: string, industries: string[], count: number): Promise<CompanyInfo[]> {
-  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
-
-  const systemPrompt = 'You are a business research assistant. Return only valid JSON arrays, no markdown formatting.';
-  const prompt = `Find ${count} real companies or organizations in the ${cityZip} area that work in these industries: ${industries.join(', ')}. 
-  
-For each company, provide:
-- Company name
-- Industry sector
-- Size (Small/Medium/Large/Enterprise)
-- 3-4 current business needs or challenges they likely face
-- Brief description of what they do
-
-Focus on companies that would be good partners for university student projects - local businesses, nonprofits, government agencies, or growing companies that could benefit from student consulting work.
-
-Return ONLY valid JSON array format:
-[
-  {
-    "name": "Company Name",
-    "sector": "Industry",
-    "size": "Medium",
-    "needs": ["need1", "need2", "need3"],
-    "description": "What they do"
-  }
-]`;
-
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: `${systemPrompt}\n\n${prompt}`
-        }]
-      }],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 2048,
-      }
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('AI search error:', response.status, error);
-    
-    if (response.status === 403) {
-      throw new Error('Gemini API key is blocked. Please enable the Generative Language API in your Google Cloud Console: https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com');
-    }
-    
-    throw new Error(`Gemini API error: ${response.status} - ${error}`);
-  }
-
-  const data = await response.json();
-  const content = data.candidates[0].content.parts[0].text;
-  
-  const jsonMatch = content.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) throw new Error('No valid JSON in response');
-  
-  return JSON.parse(jsonMatch[0]);
-}
+// REMOVED: searchCompanies - Enforcing Apollo-First architecture (no fake data)
 
 // NOTE: generateProjectProposal() extracted to ../_shared/generation-service.ts
 
@@ -885,134 +629,54 @@ serve(async (req) => {
     const cityZip = course.city_zip;
     const level = course.level;
     
-    console.log('\n🚀 Starting Apollo-First Project Generation');
+    // CRITICAL: Enforce Apollo-First Architecture - generation_run_id is MANDATORY
+    const generationRunId = generation_run_id;
+    
+    if (!generationRunId || typeof generationRunId !== 'string' || generationRunId.length === 0) {
+      console.error('❌ MISSING REQUIRED PARAMETER: generation_run_id');
+      console.error('   Received value:', generationRunId, 'Type:', typeof generationRunId);
+      
+      return new Response(
+        JSON.stringify({ 
+          error: 'Bad Request: generation_run_id is required',
+          message: 'Project generation requires a valid generation_run_id from the discovery phase. Please run company discovery first.',
+          received: { generationRunId, type: typeof generationRunId }
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
+    }
+    
+    console.log('\n🚀 Apollo-First Project Generation (Enforced)');
     console.log('📍 Location:', cityZip);
     console.log('🏢 Industries:', industries);
     console.log('👥 Teams requested:', numTeams);
-    console.log('🔗 Generation Run ID:', generation_run_id || 'NONE - Will use fallback');
+    console.log('🔗 Generation Run ID:', generationRunId);
     
-    let companiesFound: CompanyInfo[] = [];
-    let generationRunId: string | null = generation_run_id || null;
-    let apolloFetchSuccess = false;
+    // SINGLE PATH: Fetch Apollo-enriched companies (no fallbacks)
+    console.log('\n✅ Fetching Apollo-enriched companies...');
     
-    // CRITICAL: STEP 1 - ALWAYS TRY APOLLO FIRST if generation_run_id exists
-    if (generation_run_id && typeof generation_run_id === 'string' && generation_run_id.length > 0) {
-      console.log('\n✅ STEP 1: Fetching Apollo-enriched companies...');
-      console.log('   Generation Run ID:', generation_run_id);
-      
-      try {
-        const apolloCompanies = await getApolloEnrichedCompanies(
-          serviceRoleClient,
-          generation_run_id,
-          numTeams,
-          outcomes,
-          level,
-          courseId
-        );
-        
-        if (apolloCompanies && apolloCompanies.length > 0) {
-          companiesFound = apolloCompanies;
-          apolloFetchSuccess = true;
-          console.log(`   ✅ SUCCESS: Loaded ${companiesFound.length} Apollo companies`);
-          console.log('   Company IDs:', companiesFound.map(c => `${c.name}(${c.id})`).join(', '));
-          console.log('   Sample contact data:', {
-            name: companiesFound[0]?.contact_person,
-            email: companiesFound[0]?.contact_email,
-            phone: companiesFound[0]?.contact_phone
-          });
-        } else {
-          console.warn('   ⚠ Apollo fetch returned 0 companies');
-        }
-      } catch (error: any) {
-        console.error('   ❌ Apollo fetch failed:', error.message);
-        console.error('   Error details:', error);
-      }
-    } else {
-      console.log('\n⚠ STEP 1 SKIPPED: No valid generation_run_id provided');
-      console.log('   Received value:', generation_run_id, 'Type:', typeof generation_run_id);
-    }
+    const companiesFound = await getApolloEnrichedCompanies(
+      serviceRoleClient,
+      generationRunId,
+      numTeams,
+      outcomes,
+      level,
+      courseId
+    );
     
-    // Step 2: FALLBACK - Only use Google Search if Apollo fetch failed completely
-    if (companiesFound.length === 0 && !apolloFetchSuccess) {
-      console.log('\n⚠ STEP 2: FALLBACK - Apollo unavailable, trying Google Search...');
-      try {
-        const discoveryResponse = await fetch(
-        `${Deno.env.get('SUPABASE_URL')}/functions/v1/discover-companies`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            courseId,
-            location: cityZip,
-            industries,
-            count: numTeams
-          })
-        }
-      );
-
-      if (discoveryResponse.ok) {
-        const discoveryData = await discoveryResponse.json();
-        generationRunId = discoveryData.generation_run_id || null;
-        
-        if (discoveryData.success && discoveryData.companies.length > 0) {
-          console.log(`   ✓ Google Search found ${discoveryData.companies.length} companies`);
-          console.log(`   ✓ New generation_run_id: ${generationRunId}`);
-          
-          companiesFound = discoveryData.companies.map((d: any) => ({
-            id: d.companyProfileId,
-            name: d.name,
-            sector: d.sector,
-            size: d.estimatedSize,
-            needs: d.currentChallenges || d.skillsNeeded || [],
-            description: d.whyRelevant,
-            website: d.website,
-            address: d.address,
-            phone: d.phone,
-            contactPerson: d.contactPerson,
-            contactEmail: d.contactEmail,
-            linkedinProfile: d.linkedinProfile,
-            job_postings: d.jobPostings || [],
-            technologies_used: d.technologiesUsed || [],
-            funding_stage: d.fundingStage || null
-          }));
-        }
-      }
-    } catch (error) {
-      console.error('   ❌ Google Search fallback failed:', error);
+    console.log(`✅ Loaded ${companiesFound.length} Apollo-enriched companies`);
+    console.log('   Company IDs:', companiesFound.map(c => `${c.name}(${c.id})`).join(', '));
+    
+    if (companiesFound.length > 0) {
+      console.log('   Sample contact data:', {
+        name: companiesFound[0]?.contact_person,
+        email: companiesFound[0]?.contact_email,
+        phone: companiesFound[0]?.contact_phone
+      });
     }
-    } else if (apolloFetchSuccess) {
-      console.log('\n✅ STEP 2: SKIPPED - Using Apollo-enriched data');
-    }
-
-    // Step 3: Fallback to DB if discovery didn't find enough
-    if (companiesFound.length < numTeams) {
-      console.log(`🗄️ Step 2: Querying enriched database (need ${numTeams - companiesFound.length} more)...`);
-      const dbCompanies = await getCompaniesFromDB(
-        supabaseClient,
-        cityZip,
-        industries.length > 0 ? industries : ["Technology", "Healthcare", "Finance", "Manufacturing"],
-        numTeams - companiesFound.length,
-        outcomes,
-        level,
-        courseId
-      );
-      companiesFound = [...companiesFound, ...dbCompanies];
-    }
-
-    // Step 3: Last resort - AI generation
-    if (companiesFound.length === 0) {
-      console.log('⚠️ Step 3: Using AI generation fallback (no real companies found)...');
-      companiesFound = await searchCompanies(
-        cityZip,
-        industries.length > 0 ? industries : ["Technology", "Healthcare", "Finance", "Manufacturing"],
-        numTeams
-      );
-    }
-
-    console.log(`✅ Final company set: ${companiesFound.length} companies ready for project generation`);
 
     const projectIds: string[] = [];
 
@@ -1148,7 +812,7 @@ serve(async (req) => {
       console.log(`  📈 Apollo-Enriched ROI: ${roiAnalysis.roi_multiplier}x ($${roiAnalysis.total_value.toLocaleString()} total value)`);
       console.log(`  💡 Value components: ${roiAnalysis.value_components?.length || 0} categories analyzed`);
 
-      // MODIFIED: Insert project with MANDATORY company_profile_id linking
+      // CRITICAL: Insert project with MANDATORY company_profile_id linking
       const projectInsert: any = {
         course_id: courseId,
         title: proposal.title,
@@ -1165,37 +829,12 @@ serve(async (req) => {
         final_score: scores.final_score,
         tier: proposal.tier,
         needs_review: false,
+        company_profile_id: company.id, // MANDATORY: Apollo-enriched companies always have IDs
+        generation_run_id: generationRunId, // MANDATORY: Always present in Apollo-First flow
       };
 
-      // CRITICAL: Link to company profile - First try direct ID, then fallback to name matching
-      if (company.id) {
-        projectInsert.company_profile_id = company.id;
-        console.log(`  ✅ Linking project to company_profile_id: ${company.id}`);
-      } else if (apolloFetchSuccess && generationRunId) {
-        // Fallback: Try to find company by name in the same generation run
-        console.log(`  ⚠ No direct company.id, attempting name match for: ${company.name}`);
-        const { data: matchedProfile } = await serviceRoleClient
-          .from('company_profiles')
-          .select('id')
-          .eq('generation_run_id', generationRunId)
-          .ilike('name', company.name)
-          .maybeSingle();
-        
-        if (matchedProfile) {
-          projectInsert.company_profile_id = matchedProfile.id;
-          console.log(`  ✅ Matched by name to company_profile_id: ${matchedProfile.id}`);
-        } else {
-          console.warn(`  ❌ CRITICAL: Could not link project to any company_profile for: ${company.name}`);
-        }
-      } else {
-        console.warn(`  ⚠ No Apollo data available - project will have no company_profile_id`);
-      }
-      
-      // Link to generation run if exists
-      if (generationRunId) {
-        projectInsert.generation_run_id = generationRunId;
-        console.log(`  ✅ Linking project to generation_run_id: ${generationRunId}`);
-      }
+      console.log(`  ✅ Linked to company_profile_id: ${company.id}`);
+      console.log(`  ✅ Linked to generation_run_id: ${generationRunId}`);
 
       const { data: projectData, error: projectError } = await supabaseClient
         .from('projects')
