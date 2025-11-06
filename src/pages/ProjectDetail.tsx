@@ -144,8 +144,8 @@ const ProjectDetail = () => {
 
           <TabsContent value="value-analysis">
             <ValueAnalysisTab 
-              valueAnalysis={metadata?.value_analysis?.data || metadata?.value_analysis}
-              stakeholderInsights={metadata?.stakeholder_insights?.data || metadata?.stakeholder_insights}
+              valueAnalysis={metadata?.value_analysis}
+              stakeholderInsights={metadata?.stakeholder_insights}
               synergyIndex={metadata?.synergistic_value_index || 0}
               partnershipQuality={metadata?.partnership_quality_score || 0}
               projectId={id!}
