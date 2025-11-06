@@ -62,9 +62,17 @@ export const ValueAnalysisTab = ({
   onAnalysisComplete
 }: ValueAnalysisTabProps) => {
   
-  const hasAnalysis = valueAnalysis && Object.keys(valueAnalysis).length > 0;
+  // ============================================================================
+  // STATUS-BASED DATA CONTRACT (from get-project-detail endpoint)
+  // ============================================================================
+  // valueAnalysis structure:
+  // { status: 'not_generated' | 'complete', data: {...}, message: "..." }
+  
+  const analysisStatus = valueAnalysis?.status;
+  const analysisData = valueAnalysis?.data;
 
-  if (!hasAnalysis) {
+  // Status: 'not_generated' → Show Generate Button
+  if (analysisStatus === 'not_generated' || !valueAnalysis) {
     return (
       <div className="space-y-4">
         <Card className="border-amber-500/50 bg-amber-500/5">
@@ -72,9 +80,9 @@ export const ValueAnalysisTab = ({
             <div className="text-center py-8 space-y-4">
               <Sparkles className="h-12 w-12 mx-auto mb-3 text-amber-600 opacity-50" />
               <div>
-                <p className="font-medium text-amber-900 dark:text-amber-100">Value Analysis Unavailable</p>
+                <p className="font-medium text-amber-900 dark:text-amber-100">Value Analysis Not Generated</p>
                 <p className="text-sm text-amber-700 dark:text-amber-200 mt-1">
-                  Generate AI-powered contextual insights for this project
+                  {valueAnalysis?.message || 'Generate AI-powered contextual insights for this project'}
                 </p>
               </div>
               {companyProfile && (
@@ -95,7 +103,13 @@ export const ValueAnalysisTab = ({
     );
   }
 
-  const { student_value, university_value, industry_value, problem_validation } = valueAnalysis;
+  // Status: 'complete' → Extract data from valueAnalysis.data
+  // Legacy fallback: If no status field, assume data is directly in valueAnalysis
+  const actualData = analysisData || valueAnalysis;
+  const { student_value, university_value, industry_value, problem_validation } = actualData;
+  
+  // Also extract stakeholder data from status wrapper if present
+  const actualStakeholderInsights = stakeholderInsights?.data || stakeholderInsights;
 
   return (
     <div className="space-y-5">
@@ -149,7 +163,7 @@ export const ValueAnalysisTab = ({
             </div>
             <Alert className="bg-primary/5 border-primary/20">
               <AlertDescription className="text-xs leading-relaxed">
-                {stakeholderInsights?.overall_assessment}
+                {actualStakeholderInsights?.overall_assessment}
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -214,9 +228,9 @@ export const ValueAnalysisTab = ({
       </div>
 
       {/* Action Intelligence */}
-      {stakeholderInsights && (
+      {actualStakeholderInsights && (
         <div className="grid gap-4 md:grid-cols-2">
-          {stakeholderInsights.recommendations && stakeholderInsights.recommendations.length > 0 && (
+          {actualStakeholderInsights.recommendations && actualStakeholderInsights.recommendations.length > 0 && (
             <Card className="border-green-500/30 bg-gradient-to-br from-green-500/5 to-background">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -225,7 +239,7 @@ export const ValueAnalysisTab = ({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {stakeholderInsights.recommendations.map((rec: string, i: number) => (
+                {actualStakeholderInsights.recommendations.map((rec: string, i: number) => (
                   <div key={i} className="flex items-start gap-2 text-xs">
                     <Badge variant="outline" className="mt-0.5 h-5 w-5 flex items-center justify-center p-0 bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30 flex-shrink-0">
                       {i + 1}
@@ -237,7 +251,7 @@ export const ValueAnalysisTab = ({
             </Card>
           )}
 
-          {stakeholderInsights.risks && stakeholderInsights.risks.length > 0 && (
+          {actualStakeholderInsights.risks && actualStakeholderInsights.risks.length > 0 && (
             <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-background">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -246,7 +260,7 @@ export const ValueAnalysisTab = ({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {stakeholderInsights.risks.map((risk: string, i: number) => (
+                {actualStakeholderInsights.risks.map((risk: string, i: number) => (
                   <div key={i} className="flex items-start gap-2 text-xs">
                     <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                     <p className="text-muted-foreground leading-relaxed">{risk}</p>
