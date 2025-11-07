@@ -223,6 +223,33 @@ Do NOT include soft skills like "communication" or "teamwork". Only include meas
 
     console.log(`Successfully inserted ${insertedCompetencies?.length || 0} competencies`);
 
+    // === TASK 4.6: CHAIN THE NEXT FUNCTION ===
+    // Now that we have the skills, asynchronously call the job-matcher
+    
+    // Get the new competency IDs to pass to the matcher
+    const competencyIds = (insertedCompetencies || []).map(c => c.id);
+
+    console.log(`Invoking job-matcher for student ${studentId}...`);
+    
+    // We use 'supabase' (service role) which we already have in this function
+    const { error: invokeError } = await supabase.functions.invoke('job-matcher', {
+      body: {
+        student_id: studentId,
+        skills: extractedSkills,
+        competency_ids: competencyIds
+      }
+    });
+
+    if (invokeError) {
+      // CRITICAL: Do NOT fail the whole step.
+      // The skills were extracted, that was a success.
+      // Log the error but still return a 200.
+      console.error('Failed to invoke job-matcher:', invokeError);
+    } else {
+      console.log('Successfully invoked job-matcher.');
+    }
+    // ======================================
+
     return new Response(
       JSON.stringify({ 
         success: true,
@@ -230,7 +257,8 @@ Do NOT include soft skills like "communication" or "teamwork". Only include meas
         student_id: studentId,
         skills_extracted: extractedSkills.length,
         skills: extractedSkills,
-        competencies_created: insertedCompetencies?.length || 0
+        competencies_created: insertedCompetencies?.length || 0,
+        job_matcher_invoked: !invokeError // Add this for our logs
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
