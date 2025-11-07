@@ -269,6 +269,166 @@ export type Database = {
           },
         ]
       }
+      dashboard_analytics: {
+        Row: {
+          demand_signal_id: string | null
+          event_timestamp: string | null
+          event_type: string
+          filters_applied: Json | null
+          id: string
+          resulted_in_submission: boolean | null
+          session_id: string | null
+          time_on_page: number | null
+        }
+        Insert: {
+          demand_signal_id?: string | null
+          event_timestamp?: string | null
+          event_type: string
+          filters_applied?: Json | null
+          id?: string
+          resulted_in_submission?: boolean | null
+          session_id?: string | null
+          time_on_page?: number | null
+        }
+        Update: {
+          demand_signal_id?: string | null
+          event_timestamp?: string | null
+          event_type?: string
+          filters_applied?: Json | null
+          id?: string
+          resulted_in_submission?: boolean | null
+          session_id?: string | null
+          time_on_page?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dashboard_analytics_demand_signal_id_fkey"
+            columns: ["demand_signal_id"]
+            isOneToOne: false
+            referencedRelation: "demand_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demand_signals: {
+        Row: {
+          course_count: number
+          created_at: string | null
+          earliest_start_date: string | null
+          geographic_region: string | null
+          id: string
+          industry_sector: string | null
+          institution_count: number
+          institution_types: Json | null
+          is_active: boolean | null
+          last_updated: string | null
+          latest_start_date: string | null
+          project_category: string
+          required_skills: string[] | null
+          student_count: number
+          student_level_distribution: Json | null
+          typical_duration_weeks: number | null
+        }
+        Insert: {
+          course_count: number
+          created_at?: string | null
+          earliest_start_date?: string | null
+          geographic_region?: string | null
+          id?: string
+          industry_sector?: string | null
+          institution_count: number
+          institution_types?: Json | null
+          is_active?: boolean | null
+          last_updated?: string | null
+          latest_start_date?: string | null
+          project_category: string
+          required_skills?: string[] | null
+          student_count: number
+          student_level_distribution?: Json | null
+          typical_duration_weeks?: number | null
+        }
+        Update: {
+          course_count?: number
+          created_at?: string | null
+          earliest_start_date?: string | null
+          geographic_region?: string | null
+          id?: string
+          industry_sector?: string | null
+          institution_count?: number
+          institution_types?: Json | null
+          is_active?: boolean | null
+          last_updated?: string | null
+          latest_start_date?: string | null
+          project_category?: string
+          required_skills?: string[] | null
+          student_count?: number
+          student_level_distribution?: Json | null
+          typical_duration_weeks?: number | null
+        }
+        Relationships: []
+      }
+      employer_interest_submissions: {
+        Row: {
+          company_domain: string | null
+          company_name: string
+          contact_email: string
+          contact_name: string | null
+          created_at: string | null
+          demand_signal_id: string | null
+          id: string
+          preferred_timeline: string | null
+          project_category: string | null
+          project_description: string | null
+          proposed_project_title: string | null
+          referral_source: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string | null
+        }
+        Insert: {
+          company_domain?: string | null
+          company_name: string
+          contact_email: string
+          contact_name?: string | null
+          created_at?: string | null
+          demand_signal_id?: string | null
+          id?: string
+          preferred_timeline?: string | null
+          project_category?: string | null
+          project_description?: string | null
+          proposed_project_title?: string | null
+          referral_source?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+        }
+        Update: {
+          company_domain?: string | null
+          company_name?: string
+          contact_email?: string
+          contact_name?: string | null
+          created_at?: string | null
+          demand_signal_id?: string | null
+          id?: string
+          preferred_timeline?: string | null
+          project_category?: string | null
+          project_description?: string | null
+          proposed_project_title?: string | null
+          referral_source?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_interest_submissions_demand_signal_id_fkey"
+            columns: ["demand_signal_id"]
+            isOneToOne: false
+            referencedRelation: "demand_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       evaluations: {
         Row: {
           alignment: number | null
