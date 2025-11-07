@@ -1,5 +1,8 @@
 project_id = "wnxjeldvzjubfgzvvzov"
 
+[functions.job-matcher]
+verify_jwt = false
+
 [functions.competency-extractor]
 verify_jwt = false
 
