@@ -414,6 +414,7 @@ export type Database = {
           created_at: string | null
           demand_signal_id: string | null
           id: string
+          matched_project_id: string | null
           preferred_timeline: string | null
           project_category: string | null
           project_description: string | null
@@ -431,6 +432,7 @@ export type Database = {
           created_at?: string | null
           demand_signal_id?: string | null
           id?: string
+          matched_project_id?: string | null
           preferred_timeline?: string | null
           project_category?: string | null
           project_description?: string | null
@@ -448,6 +450,7 @@ export type Database = {
           created_at?: string | null
           demand_signal_id?: string | null
           id?: string
+          matched_project_id?: string | null
           preferred_timeline?: string | null
           project_category?: string | null
           project_description?: string | null
@@ -463,6 +466,13 @@ export type Database = {
             columns: ["demand_signal_id"]
             isOneToOne: false
             referencedRelation: "demand_signals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_interest_submissions_matched_project_id_fkey"
+            columns: ["matched_project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
