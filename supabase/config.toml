@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.investigate-apollo-jobs]
 verify_jwt = false
+
+[functions.TEST-talent-alert]
+verify_jwt = false
