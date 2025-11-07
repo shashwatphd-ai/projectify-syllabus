@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.submit-employer-interest]
 verify_jwt = false
+
+[functions.investigate-apollo-jobs]
+verify_jwt = false
