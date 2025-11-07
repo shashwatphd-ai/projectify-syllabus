@@ -20,6 +20,7 @@ import {
 } from "@/hooks/useDemandSignals";
 import { DemandSignalCard } from "./DemandSignalCard";
 import { EmployerCTAModal } from "./EmployerCTAModal";
+import { Header } from "@/components/Header";
 
 export const DemandBoardLayout = () => {
   const [filters, setFilters] = useState<DemandSignalFilters>({});
@@ -66,7 +67,9 @@ export const DemandBoardLayout = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      <Header />
+      
+      {/* Page Header Section */}
       <div className="border-b bg-card">
         <div className="container mx-auto px-4 py-6">
           <div className="flex flex-col gap-4">

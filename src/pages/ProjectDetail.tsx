@@ -19,7 +19,7 @@ import { TimelineTab } from "@/components/project-detail/TimelineTab";
 import { VerificationTab } from "@/components/project-detail/VerificationTab";
 import { MarketInsightsTab } from "@/components/project-detail/MarketInsightsTab";
 import { ValueAnalysisTab } from "@/components/project-detail/ValueAnalysisTab";
-import { Navigation } from "@/components/Navigation";
+import { Header } from "@/components/Header";
 import { useProjectAnalytics } from "@/hooks/useProjectAnalytics";
 
 const ProjectDetail = () => {
@@ -117,7 +117,7 @@ const ProjectDetail = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+      <Header />
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         <ProjectHeader project={project} />
 

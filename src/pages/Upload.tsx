@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Upload as UploadIcon, FileText, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Navigation } from "@/components/Navigation";
+import { Header } from "@/components/Header";
 
 const Upload = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
@@ -173,7 +173,7 @@ const Upload = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+      <Header />
       <div className="container mx-auto px-4 py-12 max-w-2xl">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold mb-2">Upload Your Syllabus</h1>

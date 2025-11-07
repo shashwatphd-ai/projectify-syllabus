@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Link2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Navigation } from "@/components/Navigation";
+import { Header } from "@/components/Header";
 import logo from "@/assets/logo-eduthree.jpg";
 
 const Landing = () => {
@@ -9,7 +9,7 @@ const Landing = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+      <Header />
 
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-muted/20">

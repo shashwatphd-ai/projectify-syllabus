@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ExternalLink, Briefcase, Building2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Navigation } from "@/components/Navigation";
+import { Header } from "@/components/Header";
 
 interface JobMatch {
   id: string;
@@ -55,7 +55,7 @@ const MyOpportunities = () => {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Navigation />
+        <Header />
         <div className="container mx-auto px-4 py-8">
           <Skeleton className="h-12 w-64 mb-8" />
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -70,7 +70,7 @@ const MyOpportunities = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+      <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-2">

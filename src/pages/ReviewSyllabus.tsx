@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Navigation } from "@/components/Navigation";
+import { Header } from "@/components/Header";
 import { SyllabusReview } from "@/components/SyllabusReview";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Loader2, AlertCircle } from "lucide-react";
@@ -101,7 +101,7 @@ export default function ReviewSyllabus() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Navigation />
+        <Header />
         <div className="flex items-center justify-center h-[80vh]">
           <div className="text-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
@@ -118,7 +118,7 @@ export default function ReviewSyllabus() {
   if (error && !course) {
     return (
       <div className="min-h-screen bg-background">
-        <Navigation />
+        <Header />
         <main className="container mx-auto px-4 py-8 max-w-4xl">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -140,7 +140,7 @@ export default function ReviewSyllabus() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+      <Header />
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="space-y-6">
           <div>

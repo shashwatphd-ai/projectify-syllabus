@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Briefcase, TrendingUp, Loader2, AlertTriangle, Download } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Navigation } from "@/components/Navigation";
+import { Header } from "@/components/Header";
 import { downloadCoursePdf } from "@/lib/downloadPdf";
 import { toast } from "sonner";
 
@@ -97,7 +97,7 @@ const Projects = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+      <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>

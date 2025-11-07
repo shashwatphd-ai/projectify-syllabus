@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Loader2, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Navigation } from "@/components/Navigation";
+import { Header } from "@/components/Header";
 
 const Configure = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
@@ -230,7 +230,7 @@ const Configure = () => {
   if (loading && autoGenerate) {
     return (
       <div className="min-h-screen bg-background">
-        <Navigation />
+        <Header />
         <div className="flex items-center justify-center h-[80vh]">
           <div className="text-center space-y-4 max-w-md">
             <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
@@ -252,7 +252,7 @@ const Configure = () => {
     
     return (
       <div className="min-h-screen bg-background">
-        <Navigation />
+        <Header />
         <div className="flex items-center justify-center h-[80vh]">
           <div className="text-center space-y-6 max-w-md w-full px-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
@@ -279,7 +279,7 @@ const Configure = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+      <Header />
       <div className="container mx-auto px-4 py-12 max-w-2xl">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold mb-2">Configure Project Generation</h1>
