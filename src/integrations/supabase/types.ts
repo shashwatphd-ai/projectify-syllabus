@@ -52,6 +52,7 @@ export type Database = {
       company_profiles: {
         Row: {
           apollo_enrichment_date: string | null
+          apollo_organization_id: string | null
           buying_intent_signals: Json | null
           city: string | null
           contact_city: string | null
@@ -104,6 +105,7 @@ export type Database = {
         }
         Insert: {
           apollo_enrichment_date?: string | null
+          apollo_organization_id?: string | null
           buying_intent_signals?: Json | null
           city?: string | null
           contact_city?: string | null
@@ -156,6 +158,7 @@ export type Database = {
         }
         Update: {
           apollo_enrichment_date?: string | null
+          apollo_organization_id?: string | null
           buying_intent_signals?: Json | null
           city?: string | null
           contact_city?: string | null
