@@ -32,7 +32,10 @@ const Projects = () => {
 
   const loadProjects = async () => {
     try {
-      let query = supabase.from('projects').select('*, course_profiles!inner(owner_id, title)');
+      let query = supabase
+        .from('projects')
+        .select('*, course_profiles!inner(owner_id, title)')
+        .eq('status', 'curated_live');
       
       if (courseId) {
         query = query.eq('course_id', courseId);
