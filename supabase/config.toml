@@ -1,5 +1,8 @@
 project_id = "wnxjeldvzjubfgzvvzov"
 
+[functions.competency-extractor]
+verify_jwt = false
+
 [functions.apollo-webhook-listener]
 verify_jwt = false
 
