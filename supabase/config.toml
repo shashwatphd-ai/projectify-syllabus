@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.aggregate-demand-signals]
 verify_jwt = false
+
+[functions.submit-employer-interest]
+verify_jwt = false
