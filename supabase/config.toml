@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.run-single-project-generation]
 verify_jwt = false
+
+[functions.TEST-real-email]
+verify_jwt = false
