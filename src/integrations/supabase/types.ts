@@ -811,6 +811,7 @@ export type Database = {
           course_id: string
           created_at: string
           deliverables: Json
+          description: string | null
           duration_weeks: number
           feasibility_score: number
           final_score: number
@@ -821,6 +822,7 @@ export type Database = {
           needs_review: boolean | null
           pricing_usd: number
           sector: string
+          status: Database["public"]["Enums"]["project_status"] | null
           tasks: Json
           team_size: number
           tier: string
@@ -832,6 +834,7 @@ export type Database = {
           course_id: string
           created_at?: string
           deliverables: Json
+          description?: string | null
           duration_weeks: number
           feasibility_score: number
           final_score: number
@@ -842,6 +845,7 @@ export type Database = {
           needs_review?: boolean | null
           pricing_usd: number
           sector: string
+          status?: Database["public"]["Enums"]["project_status"] | null
           tasks: Json
           team_size: number
           tier: string
@@ -853,6 +857,7 @@ export type Database = {
           course_id?: string
           created_at?: string
           deliverables?: Json
+          description?: string | null
           duration_weeks?: number
           feasibility_score?: number
           final_score?: number
@@ -863,6 +868,7 @@ export type Database = {
           needs_review?: boolean | null
           pricing_usd?: number
           sector?: string
+          status?: Database["public"]["Enums"]["project_status"] | null
           tasks?: Json
           team_size?: number
           tier?: string
@@ -939,6 +945,7 @@ export type Database = {
     }
     Enums: {
       app_role: "faculty" | "student" | "admin"
+      project_status: "ai_shell" | "curated_live" | "in_progress" | "completed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1067,6 +1074,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["faculty", "student", "admin"],
+      project_status: ["ai_shell", "curated_live", "in_progress", "completed"],
     },
   },
 } as const
