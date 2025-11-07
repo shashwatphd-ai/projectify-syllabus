@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Briefcase, TrendingUp, Loader2, AlertTriangle, Flame, ArrowUpDown } from "lucide-react";
+import { Briefcase, TrendingUp, Loader2, AlertTriangle, Flame, ArrowUpDown, Link as LinkIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Navigation } from "@/components/Navigation";
@@ -16,6 +16,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface ProjectWithSignal {
   id: string;
@@ -43,6 +51,16 @@ interface ProjectWithSignal {
   latest_score?: number;
 }
 
+interface AIShellProject {
+  id: string;
+  title: string;
+  company_name: string;
+  sector: string;
+  pricing_usd: number;
+  duration_weeks: number;
+  lo_score: number;
+}
+
 interface EmployerSubmission {
   id: string;
   company_name: string;
@@ -63,6 +81,11 @@ const AdminHub = () => {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [sortBy, setSortBy] = useState<'score' | 'date'>('score');
+  const [matchModalOpen, setMatchModalOpen] = useState(false);
+  const [selectedSubmission, setSelectedSubmission] = useState<EmployerSubmission | null>(null);
+  const [aiShellProjects, setAiShellProjects] = useState<AIShellProject[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     requireAuth();
@@ -178,6 +201,72 @@ const AdminHub = () => {
       return sorted.sort((a, b) => (b.latest_score || 0) - (a.latest_score || 0));
     }
     return sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  };
+
+  const loadAIShellProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select(`
+          id,
+          title,
+          company_name,
+          sector,
+          pricing_usd,
+          duration_weeks,
+          lo_score
+        `)
+        .eq('status', 'ai_shell')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setAiShellProjects(data || []);
+    } catch (error: any) {
+      console.error('Load AI shell projects error:', error);
+      toast.error('Failed to load available projects');
+    }
+  };
+
+  const handleOpenMatchModal = async (submission: EmployerSubmission) => {
+    setSelectedSubmission(submission);
+    setSelectedProjectId("");
+    await loadAIShellProjects();
+    setMatchModalOpen(true);
+  };
+
+  const handleSyncProject = async () => {
+    if (!selectedSubmission || !selectedProjectId) {
+      toast.error('Please select a project to match');
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
+      const { data, error } = await supabase.functions.invoke('sync-project-match', {
+        body: {
+          submission_id: selectedSubmission.id,
+          project_id: selectedProjectId
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success('Successfully matched employer lead with project!');
+      setMatchModalOpen(false);
+      setSelectedSubmission(null);
+      setSelectedProjectId("");
+      
+      // Refresh data
+      await loadData();
+    } catch (error: any) {
+      console.error('Sync error:', error);
+      toast.error(error.message || 'Failed to sync project');
+    } finally {
+      setSyncing(false);
+    }
   };
 
   if (authLoading || loading || !isAdmin) {
@@ -363,6 +452,19 @@ const AdminHub = () => {
                       <div className="text-xs text-muted-foreground">
                         Submitted {new Date(submission.created_at).toLocaleDateString()}
                       </div>
+
+                      {submission.status === 'pending' && (
+                        <div className="pt-3 border-t">
+                          <Button 
+                            onClick={() => handleOpenMatchModal(submission)}
+                            className="w-full"
+                            variant="default"
+                          >
+                            <LinkIcon className="h-4 w-4 mr-2" />
+                            Match to Project
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -376,6 +478,73 @@ const AdminHub = () => {
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Match Project Modal */}
+        <Dialog open={matchModalOpen} onOpenChange={setMatchModalOpen}>
+          <DialogContent className="sm:max-w-[600px] bg-background">
+            <DialogHeader>
+              <DialogTitle>Match Employer Lead to AI Project Shell</DialogTitle>
+              <DialogDescription>
+                Select an AI-generated project to match with <strong>{selectedSubmission?.company_name}</strong>
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              {selectedSubmission && (
+                <div className="rounded-lg border p-4 bg-muted/50">
+                  <h4 className="font-semibold mb-2">Employer Lead Details</h4>
+                  <div className="space-y-1 text-sm">
+                    <p><span className="text-muted-foreground">Company:</span> {selectedSubmission.company_name}</p>
+                    <p><span className="text-muted-foreground">Contact:</span> {selectedSubmission.contact_email}</p>
+                    {selectedSubmission.proposed_project_title && (
+                      <p><span className="text-muted-foreground">Project:</span> {selectedSubmission.proposed_project_title}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Select AI Project Shell</label>
+                <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                  <SelectTrigger className="w-full bg-background">
+                    <SelectValue placeholder="Choose a project..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background">
+                    {aiShellProjects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        <div className="flex flex-col items-start">
+                          <span className="font-medium">{project.title}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {project.company_name} • ${project.pricing_usd?.toLocaleString()} • {project.duration_weeks}w
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {aiShellProjects.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No AI shell projects available</p>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setMatchModalOpen(false)} disabled={syncing}>
+                Cancel
+              </Button>
+              <Button onClick={handleSyncProject} disabled={!selectedProjectId || syncing}>
+                {syncing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  'Confirm Match'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
