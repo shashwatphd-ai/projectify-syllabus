@@ -114,6 +114,8 @@ serve(async (req) => {
     // Step B: Update the project with submission data
     const projectUpdates: any = {
       company_name: submission.company_name,
+      description: submission.project_description,
+      status: 'curated_live',
       needs_review: false, // Mark as reviewed since admin is manually curating
     };
 
@@ -121,10 +123,6 @@ serve(async (req) => {
     if (submission.proposed_project_title) {
       projectUpdates.title = submission.proposed_project_title;
     }
-
-    // Note: There's no 'description' or 'status' field in the projects table based on the schema
-    // The project_description from submission is stored but not directly copied to projects
-    // The projects table doesn't have a 'status' field, so we can't set it to 'curated_live'
 
     const { data: updatedProject, error: projectError } = await supabaseService
       .from('projects')
