@@ -605,6 +605,53 @@ export type Database = {
           },
         ]
       }
+      job_matches: {
+        Row: {
+          apollo_company_name: string | null
+          apollo_job_id: string
+          apollo_job_payload: Json | null
+          apollo_job_title: string | null
+          apollo_job_url: string | null
+          competency_id: string | null
+          created_at: string | null
+          id: string
+          status: string | null
+          student_id: string
+        }
+        Insert: {
+          apollo_company_name?: string | null
+          apollo_job_id: string
+          apollo_job_payload?: Json | null
+          apollo_job_title?: string | null
+          apollo_job_url?: string | null
+          competency_id?: string | null
+          created_at?: string | null
+          id?: string
+          status?: string | null
+          student_id: string
+        }
+        Update: {
+          apollo_company_name?: string | null
+          apollo_job_id?: string
+          apollo_job_payload?: Json | null
+          apollo_job_title?: string | null
+          apollo_job_url?: string | null
+          competency_id?: string | null
+          created_at?: string | null
+          id?: string
+          status?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_matches_competency_id_fkey"
+            columns: ["competency_id"]
+            isOneToOne: false
+            referencedRelation: "verified_competencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partnership_proposals: {
         Row: {
           company_profile_id: string | null
