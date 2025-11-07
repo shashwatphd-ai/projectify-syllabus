@@ -54,19 +54,29 @@ serve(async (req) => {
       .eq('id', project_id)
       .single();
 
-    if (projectError || !project) {
-      console.error('Project lookup error:', projectError);
+    if (projectError || !project || !project.company_profile_id) {
+      console.error('Project lookup error or missing company_profile_id:', projectError);
       throw new Error('Could not find project or project has no associated company');
     }
 
-    if (!project.company_profile_id) {
-      console.log('Project has no company_profile_id - cannot fetch job postings');
+    // === CRITICAL FIX: Fetch the Apollo Organization ID ===
+    console.log(`Fetching Apollo Org ID for company_profile_id: ${project.company_profile_id}`);
+    const { data: profile, error: profileError } = await supabase
+      .from('company_profiles')
+      .select('apollo_organization_id')
+      .eq('id', project.company_profile_id)
+      .single();
+
+    if (profileError || !profile || !profile.apollo_organization_id) {
+      console.error('Apollo Org ID lookup error:', profileError);
+      console.log('Company profile is missing Apollo Organization ID - cannot fetch job postings');
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: 'Project has no associated company profile',
+          message: 'Company profile is missing Apollo Organization ID',
           student_id,
           project_id,
+          company_name: project.company_name,
           jobs_found: 0,
           matches_created: 0
         }),
@@ -74,7 +84,9 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Found company: ${project.company_name} (ID: ${project.company_profile_id})`);
+    const apolloOrgId = profile.apollo_organization_id;
+    console.log(`Found company: ${project.company_name} (Apollo ID: ${apolloOrgId})`);
+    // ======================================================
 
     // Step B: Call the CORRECT Apollo API endpoint
     const APOLLO_API_KEY = Deno.env.get('APOLLO_API_KEY');
@@ -82,8 +94,8 @@ serve(async (req) => {
       throw new Error('APOLLO_API_KEY is not configured');
     }
 
-    // Use the correct organization-specific job postings endpoint
-    const apolloJobsUrl = `https://api.apollo.io/v1/organizations/${project.company_profile_id}/job_postings`;
+    // Use the correct organization-specific job postings endpoint with REAL Apollo ID
+    const apolloJobsUrl = `https://api.apollo.io/v1/organizations/${apolloOrgId}/job_postings`;
     
     console.log(`Querying Apollo for job postings at: ${apolloJobsUrl}`);
 
