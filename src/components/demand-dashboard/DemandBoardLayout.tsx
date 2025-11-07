@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
+import { trackDashboardEvent } from "@/lib/analytics";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -30,6 +31,19 @@ export const DemandBoardLayout = () => {
   const { data: signals, isLoading, error } = useDemandSignals(filters);
   const { data: categories } = useDemandCategories();
   const { data: regions } = useDemandRegions();
+
+  // Track page view on mount
+  useEffect(() => {
+    trackDashboardEvent('view');
+  }, []);
+
+  // Track filter changes
+  useEffect(() => {
+    const hasFilters = Object.values(filters).some(v => v !== undefined);
+    if (hasFilters) {
+      trackDashboardEvent('filter', { filtersApplied: filters });
+    }
+  }, [filters]);
 
   const handleExpressInterest = (signalId: string, category: string) => {
     setSelectedSignalId(signalId);

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { trackDashboardEvent } from "@/lib/analytics";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -100,6 +101,12 @@ export const EmployerCTAModal = ({
       toast({
         title: "Interest Submitted Successfully",
         description: result.message || "Our team will review and contact you within 48 hours.",
+      });
+
+      // Track successful submission
+      await trackDashboardEvent('submission', {
+        demandSignalId,
+        resultedInSubmission: true,
       });
 
       form.reset();
