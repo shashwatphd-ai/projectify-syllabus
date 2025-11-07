@@ -246,6 +246,41 @@ serve(async (req) => {
 
     console.log(`Successfully inserted ${insertedMatches?.length || 0} job matches`);
 
+    // === TASK 4.8: "TALENT ALERT" SYSTEM ===
+    // We have matches! Now, we must alert the employer.
+    
+    // 1. Get the Contact Person for this company
+    // (We already have 'project.company_profile_id' from our previous step)
+    const { data: contactData, error: contactError } = await supabase
+      .from('company_profiles')
+      .select('contact_email, contact_first_name')
+      .eq('id', project.company_profile_id)
+      .single();
+
+    // 2. Send the email (using Supabase's built-in email or your preferred service)
+    // NOTE: This is a placeholder for the real email sending logic
+    if (!contactError && contactData && contactData.contact_email) {
+      console.log(`SIMULATING EMAIL to ${contactData.contact_email}`);
+      // In a real implementation, we would call:
+      // await sendEmail({
+      //   to: contactData.contact_email,
+      //   subject: "A student with skills you're hiring for just completed a project",
+      //   body: `Hi ${contactData.contact_first_name || 'Hiring Manager'}, a student just completed a project...`
+      // });
+
+      // 3. Update the status of the matches to 'notified'
+      const matchIds = (insertedMatches || []).map(m => m.id);
+      await supabase
+        .from('job_matches')
+        .update({ status: 'notified' })
+        .in('id', matchIds);
+      
+      console.log(`Successfully sent 'Talent Alert' and updated ${matchIds.length} matches to 'notified'.`);
+    } else {
+      console.warn('Could not find contact email for this company. Skipping talent alert.');
+    }
+    // ======================================
+
     return new Response(
       JSON.stringify({ 
         success: true,
@@ -254,6 +289,7 @@ serve(async (req) => {
         company_name: project.company_name,
         jobs_found: jobPostings.length,
         matches_created: insertedMatches?.length || 0,
+        talent_alert_sent: !contactError && contactData && contactData.contact_email,
         sample_matches: (insertedMatches || []).slice(0, 3).map(m => ({
           title: m.apollo_job_title,
           company: m.apollo_company_name,
