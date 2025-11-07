@@ -1,14 +1,38 @@
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
 import logo from "@/assets/logo-eduthree.jpg";
 
 export const Navigation = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      checkAdminStatus();
+    }
+  }, [user]);
+
+  const checkAdminStatus = async () => {
+    try {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user!.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+      
+      setIsAdmin(!!data);
+    } catch (error) {
+      console.error('Admin check error:', error);
+    }
+  };
 
   const handleSignOut = async () => {
     const { error } = await authService.signOut();
@@ -43,6 +67,12 @@ export const Navigation = () => {
                 <Button onClick={() => navigate("/projects")} variant="ghost" size="sm">
                   Projects
                 </Button>
+                {isAdmin && (
+                  <Button onClick={() => navigate("/admin-hub")} variant="ghost" size="sm">
+                    <Shield className="mr-2 h-4 w-4" />
+                    Admin Hub
+                  </Button>
+                )}
                 <Button onClick={handleSignOut} variant="ghost" size="sm">
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign Out

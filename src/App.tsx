@@ -11,6 +11,7 @@ import Configure from "./pages/Configure";
 import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import DemandBoard from "./pages/DemandBoard";
+import AdminHub from "./pages/AdminHub";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/demand-board" element={<DemandBoard />} />
+          <Route path="/admin-hub" element={<AdminHub />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
