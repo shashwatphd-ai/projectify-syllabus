@@ -922,6 +922,47 @@ export type Database = {
         }
         Relationships: []
       }
+      verified_competencies: {
+        Row: {
+          created_at: string | null
+          employer_rating: number | null
+          id: string
+          portfolio_evidence_url: string | null
+          project_id: string | null
+          skill_name: string
+          student_id: string
+          verification_source: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          employer_rating?: number | null
+          id?: string
+          portfolio_evidence_url?: string | null
+          project_id?: string | null
+          skill_name: string
+          student_id: string
+          verification_source?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          employer_rating?: number | null
+          id?: string
+          portfolio_evidence_url?: string | null
+          project_id?: string | null
+          skill_name?: string
+          student_id?: string
+          verification_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verified_competencies_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
