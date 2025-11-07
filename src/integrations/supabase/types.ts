@@ -216,6 +216,41 @@ export type Database = {
           },
         ]
       }
+      company_signals: {
+        Row: {
+          apollo_webhook_payload: Json
+          company_id: string | null
+          created_at: string | null
+          id: string
+          signal_type: string | null
+          status: string | null
+        }
+        Insert: {
+          apollo_webhook_payload: Json
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          signal_type?: string | null
+          status?: string | null
+        }
+        Update: {
+          apollo_webhook_payload?: Json
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          signal_type?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_signals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_profiles: {
         Row: {
           artifacts: Json
