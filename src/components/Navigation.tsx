@@ -67,6 +67,9 @@ export const Navigation = () => {
                 <Button onClick={() => navigate("/projects")} variant="ghost" size="sm">
                   Projects
                 </Button>
+                <Button onClick={() => navigate("/my-opportunities")} variant="ghost" size="sm">
+                  My Opportunities
+                </Button>
                 {isAdmin && (
                   <Button onClick={() => navigate("/admin-hub")} variant="ghost" size="sm">
                     <Shield className="mr-2 h-4 w-4" />
