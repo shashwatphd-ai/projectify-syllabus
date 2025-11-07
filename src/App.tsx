@@ -12,6 +12,7 @@ import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import DemandBoard from "./pages/DemandBoard";
 import AdminHub from "./pages/AdminHub";
+import MyOpportunities from "./pages/MyOpportunities";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/demand-board" element={<DemandBoard />} />
           <Route path="/admin-hub" element={<AdminHub />} />
+          <Route path="/my-opportunities" element={<MyOpportunities />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
