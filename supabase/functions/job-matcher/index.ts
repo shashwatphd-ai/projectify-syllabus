@@ -257,25 +257,50 @@ serve(async (req) => {
       .eq('id', project.company_profile_id)
       .single();
 
-    // 2. Send the email (using Supabase's built-in email or your preferred service)
-    // NOTE: This is a placeholder for the real email sending logic
+    // 2. Send the "Talent Alert" email via Resend
+    // NOTE: We are now implementing real email sending
     if (!contactError && contactData && contactData.contact_email) {
-      console.log(`SIMULATING EMAIL to ${contactData.contact_email}`);
-      // In a real implementation, we would call:
-      // await sendEmail({
-      //   to: contactData.contact_email,
-      //   subject: "A student with skills you're hiring for just completed a project",
-      //   body: `Hi ${contactData.contact_first_name || 'Hiring Manager'}, a student just completed a project...`
-      // });
+      const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+      if (!RESEND_API_KEY) {
+        console.warn('RESEND_API_KEY is not set. Skipping real email.');
+      } else {
+        try {
+          const subject = "A student with skills you're hiring for just completed a project";
+          const body = `Hi ${contactData.contact_first_name || 'Hiring Manager'},<br/><br/>A student at EduThree just completed a project with skills that match your open job postings (e.g., "${skills[0]}").<br/><br/>You can view this student's verified portfolio and job matches by logging into your EduThree employer portal.<br/><br/>Best,<br/>The EduThree Team`;
 
-      // 3. Update the status of the matches to 'notified'
-      const matchIds = (insertedMatches || []).map(m => m.id);
-      await supabase
-        .from('job_matches')
-        .update({ status: 'notified' })
-        .in('id', matchIds);
-      
-      console.log(`Successfully sent 'Talent Alert' and updated ${matchIds.length} matches to 'notified'.`);
+          const resendResponse = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${RESEND_API_KEY}`
+            },
+            body: JSON.stringify({
+              from: 'EduThree Alerts <onboarding@resend.dev>', // NOTE: Update to verified domain in production
+              to: contactData.contact_email,
+              subject: subject,
+              html: body
+            })
+          });
+
+          if (!resendResponse.ok) {
+            const errorText = await resendResponse.text();
+            console.error('Resend API error:', errorText);
+          } else {
+            console.log(`Successfully sent REAL Talent Alert to ${contactData.contact_email}`);
+            
+            // 3. Update the status of the matches to 'notified'
+            const matchIds = (insertedMatches || []).map(m => m.id);
+            await supabase
+              .from('job_matches')
+              .update({ status: 'notified' })
+              .in('id', matchIds);
+            
+            console.log(`Successfully updated ${matchIds.length} matches to 'notified'.`);
+          }
+        } catch (emailError) {
+          console.error('Failed to send email:', emailError);
+        }
+      }
     } else {
       console.warn('Could not find contact email for this company. Skipping talent alert.');
     }
