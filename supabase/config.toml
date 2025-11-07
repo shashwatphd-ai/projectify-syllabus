@@ -3,6 +3,9 @@ project_id = "wnxjeldvzjubfgzvvzov"
 [functions.apollo-webhook-listener]
 verify_jwt = false
 
+[functions.project-suitability-scorer]
+verify_jwt = false
+
 [functions.analyze-project-value]
 verify_jwt = false
 

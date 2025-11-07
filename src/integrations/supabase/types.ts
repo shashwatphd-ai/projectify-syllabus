@@ -222,6 +222,7 @@ export type Database = {
           company_id: string | null
           created_at: string | null
           id: string
+          project_score: number | null
           signal_type: string | null
           status: string | null
         }
@@ -230,6 +231,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           id?: string
+          project_score?: number | null
           signal_type?: string | null
           status?: string | null
         }
@@ -238,6 +240,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           id?: string
+          project_score?: number | null
           signal_type?: string | null
           status?: string | null
         }
