@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.migrate-technology-format]
 verify_jwt = false
+
+[functions.aggregate-demand-signals]
+verify_jwt = false
