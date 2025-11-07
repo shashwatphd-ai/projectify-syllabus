@@ -10,15 +10,14 @@ interface JobMatchRequest {
   student_id: string;
   skills: string[];
   competency_ids: string[];
+  project_id: string;
 }
 
-interface ApolloJob {
+interface ApolloJobPosting {
   id: string;
   title: string;
-  company_name?: string;
   url?: string;
   description?: string;
-  skills?: string[];
   location?: string;
   [key: string]: any;
 }
@@ -30,16 +29,16 @@ serve(async (req) => {
   }
 
   try {
-    const { student_id, skills, competency_ids }: JobMatchRequest = await req.json();
+    const { student_id, skills, competency_ids, project_id }: JobMatchRequest = await req.json();
     
-    if (!student_id || !skills || !Array.isArray(skills) || skills.length === 0) {
+    if (!student_id || !project_id || !skills || !Array.isArray(skills) || skills.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'student_id and skills array are required' }),
+        JSON.stringify({ error: 'student_id, project_id, and skills array are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Starting job matching for student: ${student_id}`);
+    console.log(`Starting targeted job matching for student: ${student_id}, project: ${project_id}`);
     console.log(`Skills to match: ${skills.join(', ')}`);
 
     // Initialize Supabase client with service role
@@ -47,35 +46,54 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Step A: Query Apollo API for jobs matching these skills
+    // Step A: Get the company_profile_id from the project
+    console.log(`Looking up company for project: ${project_id}`);
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('company_profile_id, company_name')
+      .eq('id', project_id)
+      .single();
+
+    if (projectError || !project) {
+      console.error('Project lookup error:', projectError);
+      throw new Error('Could not find project or project has no associated company');
+    }
+
+    if (!project.company_profile_id) {
+      console.log('Project has no company_profile_id - cannot fetch job postings');
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          message: 'Project has no associated company profile',
+          student_id,
+          project_id,
+          jobs_found: 0,
+          matches_created: 0
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`Found company: ${project.company_name} (ID: ${project.company_profile_id})`);
+
+    // Step B: Call the CORRECT Apollo API endpoint
     const APOLLO_API_KEY = Deno.env.get('APOLLO_API_KEY');
     if (!APOLLO_API_KEY) {
       throw new Error('APOLLO_API_KEY is not configured');
     }
 
-    // Apollo Jobs API endpoint
-    const apolloJobsUrl = 'https://api.apollo.io/v1/jobs/search';
+    // Use the correct organization-specific job postings endpoint
+    const apolloJobsUrl = `https://api.apollo.io/v1/organizations/${project.company_profile_id}/job_postings`;
     
-    // Build search query from skills
-    // We'll search for jobs that mention any of these skills in title or description
-    const skillQuery = skills.join(' OR ');
-    
-    console.log(`Querying Apollo Jobs API with skills: ${skillQuery}`);
+    console.log(`Querying Apollo for job postings at: ${apolloJobsUrl}`);
 
     const apolloResponse = await fetch(apolloJobsUrl, {
-      method: 'POST',
+      method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache',
         'X-Api-Key': APOLLO_API_KEY,
       },
-      body: JSON.stringify({
-        q_keywords: skillQuery,
-        page: 1,
-        per_page: 10, // Limit to top 10 matches to avoid overwhelming students
-        // Filter for active job postings
-        job_posted_at_min: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(), // Last 90 days
-      }),
     });
 
     if (!apolloResponse.ok) {
@@ -93,21 +111,38 @@ serve(async (req) => {
         throw new Error('Apollo API authentication failed. Please check API key.');
       }
       
+      if (apolloResponse.status === 404) {
+        console.log('No job postings found for this company (404)');
+        return new Response(
+          JSON.stringify({ 
+            success: true,
+            message: 'No job postings found for this company',
+            student_id,
+            project_id,
+            company_name: project.company_name,
+            jobs_found: 0,
+            matches_created: 0
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       throw new Error(`Apollo API request failed: ${errorText}`);
     }
 
     const apolloData = await apolloResponse.json();
-    const jobs: ApolloJob[] = apolloData.jobs || [];
+    const jobPostings: ApolloJobPosting[] = apolloData.job_postings || [];
     
-    console.log(`Found ${jobs.length} matching jobs from Apollo`);
+    console.log(`Found ${jobPostings.length} job postings for company: ${project.company_name}`);
 
-    if (jobs.length === 0) {
+    if (jobPostings.length === 0) {
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: 'No matching jobs found',
+          message: 'Company has no open job postings',
           student_id,
-          skills,
+          project_id,
+          company_name: project.company_name,
           jobs_found: 0,
           matches_created: 0
         }),
@@ -115,28 +150,58 @@ serve(async (req) => {
       );
     }
 
-    // Step B: Insert job matches into database
+    // Step C: Client-side matching - compare jobs against student skills
     const matchesToInsert = [];
     
-    for (const job of jobs) {
-      // For each job, we'll link it to the first competency_id
-      // (In a more sophisticated version, we could analyze which specific skill matched)
-      const primaryCompetencyId = competency_ids && competency_ids.length > 0 
-        ? competency_ids[0] 
-        : null;
+    for (const job of jobPostings) {
+      // Check if any of the student's skills appear in the job title or description
+      const jobText = `${job.title || ''} ${job.description || ''}`.toLowerCase();
+      const matchedSkills = skills.filter(skill => 
+        jobText.includes(skill.toLowerCase())
+      );
 
-      matchesToInsert.push({
-        student_id,
-        competency_id: primaryCompetencyId,
-        apollo_job_id: job.id || `apollo_${Date.now()}_${Math.random()}`,
-        apollo_job_title: job.title,
-        apollo_company_name: job.company_name || job.organization_name,
-        apollo_job_url: job.url || job.application_url,
-        apollo_job_payload: job, // Store full job data for rich UI display
-        status: 'pending_notification'
-      });
+      // Only insert if we found at least one skill match
+      if (matchedSkills.length > 0) {
+        console.log(`Match found! Job "${job.title}" matches skills: ${matchedSkills.join(', ')}`);
+        
+        const primaryCompetencyId = competency_ids && competency_ids.length > 0 
+          ? competency_ids[0] 
+          : null;
+
+        matchesToInsert.push({
+          student_id,
+          competency_id: primaryCompetencyId,
+          apollo_job_id: job.id || `apollo_${project.company_profile_id}_${Date.now()}`,
+          apollo_job_title: job.title,
+          apollo_company_name: project.company_name,
+          apollo_job_url: job.url,
+          apollo_job_payload: {
+            ...job,
+            matched_skills: matchedSkills // Store which skills matched
+          },
+          status: 'pending_notification'
+        });
+      }
     }
 
+    console.log(`Found ${matchesToInsert.length} matching jobs out of ${jobPostings.length} total postings`);
+
+    if (matchesToInsert.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          message: 'No job postings matched student skills',
+          student_id,
+          project_id,
+          company_name: project.company_name,
+          jobs_found: jobPostings.length,
+          matches_created: 0
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Step D: Insert matches into database
     console.log(`Attempting to insert ${matchesToInsert.length} job matches`);
 
     const { data: insertedMatches, error: insertError } = await supabase
@@ -155,8 +220,9 @@ serve(async (req) => {
             success: true,
             message: 'Job matches processed (some duplicates skipped)',
             student_id,
-            skills,
-            jobs_found: jobs.length,
+            project_id,
+            company_name: project.company_name,
+            jobs_found: jobPostings.length,
             matches_created: 0
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -172,13 +238,14 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true,
         student_id,
-        skills,
-        jobs_found: jobs.length,
+        project_id,
+        company_name: project.company_name,
+        jobs_found: jobPostings.length,
         matches_created: insertedMatches?.length || 0,
-        sample_jobs: jobs.slice(0, 3).map(j => ({
-          title: j.title,
-          company: j.company_name,
-          url: j.url
+        sample_matches: (insertedMatches || []).slice(0, 3).map(m => ({
+          title: m.apollo_job_title,
+          company: m.apollo_company_name,
+          url: m.apollo_job_url
         }))
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

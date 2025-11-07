@@ -235,6 +235,7 @@ Do NOT include soft skills like "communication" or "teamwork". Only include meas
     const { error: invokeError } = await supabase.functions.invoke('job-matcher', {
       body: {
         student_id: studentId,
+        project_id: project_id,
         skills: extractedSkills,
         competency_ids: competencyIds
       }
