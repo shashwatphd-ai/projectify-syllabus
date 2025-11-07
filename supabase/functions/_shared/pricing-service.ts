@@ -23,7 +23,7 @@ interface CompanyInfo {
     posted_date?: string;
   }>;
   technologies_used?: string[];
-  inferred_needs?: Array<string | { need: string }>;
+  inferred_needs?: string[];
   data_completeness_score?: number;
 }
 
@@ -266,7 +266,7 @@ export function calculateApolloEnrichedPricing(
     }
   }
   
-  // 7. INFERRED STRATEGIC NEEDS (from Apollo)
+  // 7. INFERRED STRATEGIC NEEDS
   if (company.inferred_needs && Array.isArray(company.inferred_needs) && company.inferred_needs.length > 0) {
     const strategicKeywords = [
       'strategic', 'optimization', 'transformation', 'innovation',
@@ -274,10 +274,9 @@ export function calculateApolloEnrichedPricing(
       'digital transformation', 'modernization', 'efficiency'
     ];
     
-    const hasStrategicNeeds = company.inferred_needs.some((need: any) => {
-      const needText = typeof need === 'string' ? need : need.need || '';
+    const hasStrategicNeeds = company.inferred_needs.some((need: string) => {
       return strategicKeywords.some(keyword => 
-        needText.toLowerCase().includes(keyword)
+        need.toLowerCase().includes(keyword)
       );
     });
     
