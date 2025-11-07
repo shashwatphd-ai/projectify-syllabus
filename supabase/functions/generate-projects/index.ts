@@ -603,161 +603,34 @@ serve(async (req) => {
 
     const projectIds: string[] = [];
 
+    // TASK 5.1: Create "shell" projects and queue async generation
+    console.log('\n🚀 Creating project shells and queuing async generation...');
+    
     for (let i = 0; i < companiesFound.length; i++) {
       const company = companiesFound[i];
-      console.log(`\n🔨 Generating project ${i + 1}/${companiesFound.length} for ${company.name}...`);
+      console.log(`\n📝 Creating shell project ${i + 1}/${companiesFound.length} for ${company.name}...`);
       
-      // CHECKPOINT 1: Verify company has intelligent data
-      const needsQuality = company.needs && company.needs.length > 0 ? 'specific' : 'generic/missing';
-      console.log(`  Data Quality Check: ${needsQuality} needs (${company.needs?.length || 0} items)`);
-      if (needsQuality === 'generic/missing') {
-        console.warn(`  ⚠ WARNING: May produce low-quality project due to generic company data`);
-      }
-      
-      let proposal: ProjectProposal | null = null;
-      let attempts = 0;
-      const maxAttempts = 3;
-      
-      while (!proposal && attempts < maxAttempts) {
-        attempts++;
-        try {
-          const rawProposal = await generateProjectProposal(
-            company,
-            outcomes,
-            artifacts,
-            course.level,
-            course.weeks,
-            course.hrs_per_week
-          );
-          
-          const { cleaned, issues } = cleanAndValidate(rawProposal);
-          
-          if (issues.length > 0) {
-            console.log('Quality issues detected:', issues);
-            if (attempts < maxAttempts) {
-              console.log('Retrying generation...');
-              await delay(2000 * attempts); // 2s, 4s, 6s
-              continue;
-            }
-          }
-          
-          const validationErrors = validateProjectData(cleaned, company);
-          if (validationErrors.length > 0) {
-            console.log('Validation errors:', validationErrors);
-            if (attempts < maxAttempts) {
-              console.log('Retrying generation...');
-              await delay(2000 * attempts); // 2s, 4s, 6s
-              continue;
-            }
-          }
-          
-          proposal = cleaned;
-        } catch (error) {
-          console.error(`Attempt ${attempts} failed:`, error);
-          if (attempts < maxAttempts) {
-            // Exponential backoff: 3s, 8s, 15s
-            const backoffDelay = Math.min(3000 * Math.pow(2, attempts - 1), 15000);
-            console.log(`Waiting ${backoffDelay}ms before retry...`);
-            await delay(backoffDelay);
-          } else {
-            throw new Error(`Failed to generate proposal after ${maxAttempts} attempts`);
-          }
-        }
-      }
-
-      if (!proposal) {
-        throw new Error('Failed to generate valid proposal');
-      }
-
-      // CHECKPOINT 2: Verify proposal quality
-      console.log(`  ✓ Proposal generated: ${proposal.tasks.length} tasks, ${proposal.deliverables.length} deliverables`);
-      console.log(`  Addressing company needs: ${proposal.company_needs?.join(', ') || 'Not specified'}`);
-
-      const scores = await calculateScores(
-        proposal.tasks,
-        proposal.deliverables,
-        outcomes,
-        course.weeks,
-        proposal.lo_alignment
-      );
-
-      console.log(`  Scores: LO=${(scores.lo_score * 100).toFixed(0)}%, Feasibility=${(scores.feasibility_score * 100).toFixed(0)}%, Benefit=${(scores.mutual_benefit_score * 100).toFixed(0)}%`);
-
-      console.log('  Generating detailed LO alignment...');
-      const loAlignmentDetail = await generateLOAlignmentDetail(
-        proposal.tasks,
-        proposal.deliverables,
-        outcomes,
-        proposal.lo_alignment
-      );
-      
-      // CHECKPOINT 3: Verify alignment detail was generated
-      if (loAlignmentDetail) {
-        console.log(`  ✓ LO alignment mapped: ${loAlignmentDetail.outcome_mappings?.length || 0} outcomes covered`);
-      } else {
-        console.warn(`  ⚠ Failed to generate detailed LO alignment`);
-      }
-
-      const teamSize = 3;
-      
-      // CRITICAL: Filter company signals ONCE before pricing/ROI/metadata
-      const filteredCompany = filterRelevantSignals(
-        company,
-        cityZip,
-        artifacts || [],
-        outcomes
-      );
-      
-      // Use Apollo-enriched pricing algorithm with FILTERED data
-      const budgetResult = calculateApolloEnrichedPricing(
-        course.weeks,
-        course.hrs_per_week,
-        teamSize,
-        proposal.tier,
-        filteredCompany
-      );
-      
-      console.log(`  💰 Apollo-Enriched Pricing: $${budgetResult.budget.toLocaleString()}`);
-      console.log(`  📊 Market signals: ${budgetResult.breakdown.market_signals_detected?.length || 0} detected`);
-      console.log(`  🎯 Intelligence factors: ${budgetResult.breakdown.apollo_intelligence_applied?.length || 0} applied`);
-
-      const milestones = generateMilestones(course.weeks, proposal.deliverables);
-      const forms = createForms(company, proposal, course);
-      
-      // Calculate Apollo-enriched ROI with FILTERED data
-      const roiAnalysis = calculateApolloEnrichedROI(
-        budgetResult.budget,
-        proposal.deliverables,
-        filteredCompany,
-        proposal.tasks
-      );
-      
-      console.log(`  📈 Apollo-Enriched ROI: ${roiAnalysis.roi_multiplier}x ($${roiAnalysis.total_value.toLocaleString()} total value)`);
-      console.log(`  💡 Value components: ${roiAnalysis.value_components?.length || 0} categories analyzed`);
-
-      // CRITICAL: Insert project with MANDATORY company_profile_id linking
+      // Create minimal "shell" project with pending status
       const projectInsert: any = {
         course_id: courseId,
-        title: proposal.title,
+        title: `Project for ${company.name}`,
         company_name: company.name,
         sector: company.sector,
         duration_weeks: course.weeks,
-        team_size: teamSize,
-        tasks: proposal.tasks,
-        deliverables: proposal.deliverables,
-        pricing_usd: budgetResult.budget,
-        lo_score: scores.lo_score,
-        feasibility_score: scores.feasibility_score,
-        mutual_benefit_score: scores.mutual_benefit_score,
-        final_score: scores.final_score,
-        tier: proposal.tier,
+        team_size: 3,
+        tasks: [],
+        deliverables: [],
+        pricing_usd: 0,
+        lo_score: 0,
+        feasibility_score: 0,
+        mutual_benefit_score: 0,
+        final_score: 0,
+        tier: 'Standard',
         needs_review: false,
-        company_profile_id: company.id, // MANDATORY: Apollo-enriched companies always have IDs
-        generation_run_id: generationRunId, // MANDATORY: Always present in Apollo-First flow
+        status: 'pending_generation', // NEW: Mark as pending
+        company_profile_id: company.id,
+        generation_run_id: generationRunId,
       };
-
-      console.log(`  ✅ Linked to company_profile_id: ${company.id}`);
-      console.log(`  ✅ Linked to generation_run_id: ${generationRunId}`);
 
       const { data: projectData, error: projectError } = await supabaseClient
         .from('projects')
@@ -766,135 +639,32 @@ serve(async (req) => {
         .single();
 
       if (projectError) {
-        console.error('Project insert error:', projectError);
-        throw new Error('Failed to insert project');
-      }
-
-      const { error: formsError } = await serviceRoleClient
-        .from('project_forms')
-        .insert({
-          project_id: projectData.id,
-          ...forms,
-          milestones: milestones,
-        });
-
-      if (formsError) {
-        console.error('Forms insert error:', formsError);
-        throw new Error('Failed to insert project forms');
-      }
-
-      // Insert project metadata for algorithm transparency
-      const metadataInsert: any = {
-        project_id: projectData.id,
-        algorithm_version: 'v2.0-intelligent',
-        companies_considered: [{
-          name: company.name,
-          sector: company.sector,
-          size: company.size,
-          data_quality: company.needs?.length > 0 ? 'enriched' : 'basic',
-          needs_addressed: company.needs || [],
-          reason: 'Selected based on enriched company data with AI-analyzed business needs'
-        }],
-        selection_criteria: {
-          industries,
-          location: cityZip,
-          num_teams: numTeams,
-          data_requirements: 'Companies with AI-analyzed needs from reviews'
-        },
-        scoring_rationale: {
-          lo_score: { 
-            value: scores.lo_score, 
-            method: 'AI analysis mapping specific company needs to learning outcomes through tasks/deliverables',
-            coverage: loAlignmentDetail?.outcome_mappings?.length || 0
-          },
-          feasibility_score: { 
-            value: scores.feasibility_score, 
-            method: 'Duration and complexity assessment based on company size and project scope' 
-          },
-          mutual_benefit_score: { 
-            value: scores.mutual_benefit_score, 
-            method: 'Alignment between company needs and project deliverables',
-            needs_addressed: proposal.company_needs || []
-          }
-        },
-        ai_model_version: 'gemini-2.0-flash-exp'
-      };
-
-      // Add LO alignment details if available
-      if (loAlignmentDetail) {
-        metadataInsert.lo_alignment_detail = loAlignmentDetail;
-        metadataInsert.lo_mapping_tasks = loAlignmentDetail.task_mappings;
-        metadataInsert.lo_mapping_deliverables = loAlignmentDetail.deliverable_mappings;
-      }
-      
-      // Add Apollo-enriched pricing and ROI to metadata
-      metadataInsert.pricing_breakdown = budgetResult.breakdown;
-      metadataInsert.estimated_roi = roiAnalysis;
-      metadataInsert.market_alignment_score = calculateMarketAlignmentScore(
-        proposal.tasks,
-        proposal.deliverables,
-        filteredCompany.inferred_needs || filteredCompany.needs || [],
-        filteredCompany.job_postings || [],
-        filteredCompany.technologies_used || [],
-        artifacts || [],
-        outcomes
-      );
-      
-      // Add FILTERED market signals used (showing filtering effectiveness)
-      if (filteredCompany.job_postings || filteredCompany.technologies_used || filteredCompany.funding_stage) {
-        metadataInsert.market_signals_used = {
-          job_postings_matched: filteredCompany.job_postings?.length || 0,
-          job_postings_total: company.job_postings?.length || 0,
-          job_postings_filtered_out: (company.job_postings?.length || 0) - (filteredCompany.job_postings?.length || 0),
-          technologies_aligned: filteredCompany.technologies_used || [],
-          technologies_total: company.technologies_used?.length || 0,
-          technologies_filtered_out: (company.technologies_used?.length || 0) - (filteredCompany.technologies_used?.length || 0),
-          funding_stage: filteredCompany.funding_stage || null,
-          hiring_urgency: filteredCompany.job_postings && filteredCompany.job_postings.length > 5 ? 'high' : 'medium',
-          needs_identified: company.needs || [],
-          location_filter: cityZip,
-          topic_filters_applied: artifacts || []
-        };
-      }
-      
-      // CRITICAL: Add match intelligence for display
-      if (company.match_score && company.match_reason) {
-        metadataInsert.match_analysis = {
-          relevance_score: company.match_score,
-          match_reasoning: company.match_reason,
-          intelligence_factors: []
-        };
-        
-        // Add intelligence factors based on available data
-        if (company.job_postings && company.job_postings.length > 0) {
-          metadataInsert.match_analysis.intelligence_factors.push(`${company.job_postings.length} active job openings indicate growth`);
-        }
-        if (company.technologies_used && company.technologies_used.length > 0) {
-          metadataInsert.match_analysis.intelligence_factors.push(`Technology stack alignment: ${company.technologies_used.slice(0, 3).join(', ')}`);
-        }
-        if (company.funding_stage) {
-          metadataInsert.match_analysis.intelligence_factors.push(`${company.funding_stage} funding stage shows investment readiness`);
-        }
-        if (company.buying_intent_signals && company.buying_intent_signals.length > 0) {
-          metadataInsert.match_analysis.intelligence_factors.push(`${company.buying_intent_signals.length} buying intent signals detected`);
-        }
-        
-        console.log(`  🎯 Match Intelligence: ${company.match_score}% - ${company.match_reason}`);
-      }
-
-      const { error: metadataError } = await serviceRoleClient
-        .from('project_metadata')
-        .insert(metadataInsert);
-        
-      if (metadataError) {
-        console.error('Metadata insert error:', metadataError);
+        console.error('Project shell insert error:', projectError);
+        continue; // Skip this project but don't fail the whole request
       }
 
       projectIds.push(projectData.id);
-      console.log(`✓ Project ${i + 1} created successfully`);
+      console.log(`✓ Shell project ${i + 1} created with ID: ${projectData.id}`);
+      
+      // Queue async generation by calling worker function
+      console.log(`  🔧 Queueing async generation...`);
+      try {
+        // Call worker function without awaiting (fire and forget)
+        serviceRoleClient.functions.invoke('run-single-project-generation', {
+          body: { 
+            project_id: projectData.id,
+            course_id: courseId,
+            generation_run_id: generationRunId
+          }
+        });
+        console.log(`  ✅ Generation queued for project ${projectData.id}`);
+      } catch (error) {
+        console.error(`  ⚠️ Failed to queue generation for project ${projectData.id}:`, error);
+        // Don't fail the whole request - the project will remain in pending state
+      }
     }
 
-    // Update generation run with final project count
+    // Update generation run with shell project count
     if (generationRunId) {
       await serviceRoleClient
         .from('generation_runs')

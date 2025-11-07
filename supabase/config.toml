@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.TEST-talent-alert]
 verify_jwt = false
+
+[functions.run-single-project-generation]
+verify_jwt = false
