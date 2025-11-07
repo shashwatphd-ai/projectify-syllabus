@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import { GraduationCap, Loader2 } from "lucide-react";
 import { authService } from "@/lib/supabase";
-import logo from "@/assets/logo-eduthree.jpg";
+import { Header } from "@/components/Header";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -52,13 +52,7 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4">
-          <div className="flex h-16 items-center justify-center">
-            <img src={logo} alt="EduThree" className="h-8 md:h-10" />
-          </div>
-        </div>
-      </nav>
+      <Header />
       
       <div className="flex-1 flex items-center justify-center p-4">
         <Card className="w-full max-w-md shadow-[var(--shadow-card)]">
