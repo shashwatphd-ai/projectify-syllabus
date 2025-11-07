@@ -32,6 +32,9 @@ export const Navigation = () => {
           </button>
           
           <div className="flex items-center gap-4">
+            <Button onClick={() => navigate("/demand-board")} variant="ghost" size="sm">
+              Marketplace
+            </Button>
             {user && (
               <>
                 <Button onClick={() => navigate("/upload")} variant="ghost" size="sm">
