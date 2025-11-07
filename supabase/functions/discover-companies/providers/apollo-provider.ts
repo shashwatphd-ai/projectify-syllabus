@@ -406,6 +406,7 @@ Return JSON:
 
     return {
       name: enrichedOrg.name,
+      apollo_organization_id: enrichedOrg.id,
       website: enrichedOrg.website_url,
       sector: enrichedOrg.industry || 'Unknown',
       size: formatEmployeeCount(enrichedOrg.estimated_num_employees),

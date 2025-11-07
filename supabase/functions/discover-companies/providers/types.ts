@@ -14,6 +14,7 @@ export interface CourseContext {
 export interface DiscoveredCompany {
   // Basic info
   name: string;
+  apollo_organization_id?: string;
   website: string;
   sector: string;
   size: string;
