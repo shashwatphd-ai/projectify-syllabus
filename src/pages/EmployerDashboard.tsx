@@ -40,6 +40,7 @@ interface StudentApplication {
   status: string;
   project_id: string;
   student_id: string;
+  student_email: string | null;
   projects: {
     title: string;
     company_profile_id: string;
@@ -131,7 +132,9 @@ export default function EmployerDashboard() {
   const fetchApplications = async () => {
     try {
       setApplicationsLoading(true);
-      const { data, error } = await supabase
+      
+      // First, fetch applications with project data
+      const { data: applicationsData, error: appsError } = await supabase
         .from("project_applications")
         .select(`
           id,
@@ -147,9 +150,30 @@ export default function EmployerDashboard() {
         .eq("projects.company_profile_id", companyProfile!.id)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (appsError) throw appsError;
 
-      setApplications(data || []);
+      if (!applicationsData || applicationsData.length === 0) {
+        setApplications([]);
+        return;
+      }
+
+      // Second, fetch student profiles for all unique student_ids
+      const studentIds = [...new Set(applicationsData.map(app => app.student_id))];
+      const { data: profilesData, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, email")
+        .in("id", studentIds);
+
+      if (profilesError) throw profilesError;
+
+      // Merge applications with student profile data
+      const profilesMap = new Map(profilesData?.map(p => [p.id, p]) || []);
+      const enrichedApplications = applicationsData.map(app => ({
+        ...app,
+        student_email: profilesMap.get(app.student_id)?.email || null
+      }));
+
+      setApplications(enrichedApplications);
     } catch (error: any) {
       console.error("Error fetching applications:", error);
       toast.error("Failed to load student applications");
@@ -435,7 +459,7 @@ export default function EmployerDashboard() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2">
                             <h4 className="font-semibold truncate">
-                              Student ID: {application.student_id.substring(0, 8)}...
+                              {application.student_email || 'Unknown Student'}
                             </h4>
                             <Badge variant={getApplicationStatusColor(application.status)}>
                               {getApplicationStatusLabel(application.status)}
