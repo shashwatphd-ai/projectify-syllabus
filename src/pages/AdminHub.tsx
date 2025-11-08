@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Briefcase, TrendingUp, Loader2, AlertTriangle, Flame, ArrowUpDown, Link as LinkIcon } from "lucide-react";
+import { Briefcase, TrendingUp, Loader2, AlertTriangle, Flame, ArrowUpDown, Link as LinkIcon, BarChart3 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
@@ -284,10 +284,22 @@ const AdminHub = () => {
       <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Admin Curation Hub</h1>
-          <p className="text-muted-foreground">
-            Manage AI-generated projects and employer interest submissions
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Admin Curation Hub</h1>
+              <p className="text-muted-foreground">
+                Manage AI-generated projects and employer interest submissions
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => navigate('/admin-hub/metrics')}
+              className="gap-2"
+            >
+              <BarChart3 className="h-4 w-4" />
+              View Metrics Dashboard
+            </Button>
+          </div>
         </div>
 
         <Tabs defaultValue="projects" className="space-y-6">
