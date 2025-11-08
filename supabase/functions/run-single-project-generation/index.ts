@@ -318,12 +318,23 @@ serve(async (req) => {
       outcomes
     );
     
-    const loAlignmentDetail = await generateLOAlignmentDetail(
-      cleaned.tasks,
-      cleaned.deliverables,
-      outcomes,
-      cleaned.lo_alignment
-    );
+    // Calculate LO alignment detail with robust error handling
+    let loAlignmentDetail = null; // Default to null
+    try {
+      console.log(`  [Worker] Generating LO Alignment for project ${project_id}...`);
+      loAlignmentDetail = await generateLOAlignmentDetail(
+        cleaned.tasks,
+        cleaned.deliverables,
+        outcomes,
+        cleaned.lo_alignment
+      );
+      console.log(`  [Worker] ✓ LO Alignment generated successfully`);
+    } catch (loError) {
+      // THIS IS THE "ROBUST" FIX - prevents silent worker failures
+      console.error(`  [Worker] ⚠️ FAILED to generate LO Alignment for project ${project_id}:`, loError instanceof Error ? loError.message : 'Unknown error');
+      // DO NOT throw the error. We will log it and proceed.
+      // The project is still 90% good and should become an 'ai_shell'.
+    }
 
     const forms = createForms(company, cleaned, course);
     const milestones = generateMilestones(course.weeks, cleaned.deliverables);
