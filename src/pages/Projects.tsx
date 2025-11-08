@@ -47,8 +47,7 @@ const Projects = () => {
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', user!.id)
-        .maybeSingle();
+        .eq('user_id', user!.id);
       
       if (error) {
         console.error('Error checking user role:', error);
@@ -56,7 +55,22 @@ const Projects = () => {
         return;
       }
       
-      setUserRole((data?.role as 'student' | 'faculty' | 'admin' | 'employer') || 'student');
+      if (data && data.length > 0) {
+        // Extract all roles and prioritize: admin > faculty > employer > student
+        const roles = data.map(r => r.role);
+        
+        if (roles.includes('admin')) {
+          setUserRole('admin');
+        } else if (roles.includes('faculty')) {
+          setUserRole('faculty');
+        } else if (roles.includes('employer')) {
+          setUserRole('employer');
+        } else {
+          setUserRole('student');
+        }
+      } else {
+        setUserRole('student');
+      }
     } catch (error) {
       console.error('Error checking user role:', error);
       setUserRole('student');
