@@ -217,10 +217,10 @@ export const DemandBoardLayout = () => {
             {/* Signals Grid */}
             {!isLoading && !error && signals && signals.length > 0 && (
               <>
-                <div className="mb-4 text-sm text-muted-foreground">
+                <div className="mb-4 text-lg font-semibold">
                   Showing {signals.length} opportunit{signals.length === 1 ? "y" : "ies"}
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {signals.map((signal) => (
                     <DemandSignalCard
                       key={signal.id}
