@@ -13,6 +13,7 @@ interface MetricsData {
   total_employer_leads: number;
   total_synced_projects: number;
   total_failed_generations: number;
+  total_generating: number;
 }
 
 const AdminMetrics = () => {
@@ -27,6 +28,7 @@ const AdminMetrics = () => {
     total_employer_leads: 0,
     total_synced_projects: 0,
     total_failed_generations: 0,
+    total_generating: 0,
   });
 
   useEffect(() => {
@@ -91,12 +93,19 @@ const AdminMetrics = () => {
 
         if (syncedProjectsError) throw syncedProjectsError;
 
-        // Fetch Failed Generations count
-        // Note: Querying without type constraint as "failed" may not be in enum yet
+        // Fetch Projects Being Generated count
+        const { count: generatingCount, error: generatingError } = await supabase
+          .from("projects")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "pending_generation");
+
+        if (generatingError) throw generatingError;
+
+        // Fetch Failed Generations count (truly failed projects only)
         const { count: failedGenerationsCount, error: failedGenerationsError } = await supabase
           .from("projects")
           .select("*", { count: "exact", head: true })
-          .or("status.is.null,status.not.in.(ai_shell,completed,curated_live,in_progress)");
+          .or("status.is.null,status.eq.failed");
 
         if (failedGenerationsError) throw failedGenerationsError;
 
@@ -105,6 +114,7 @@ const AdminMetrics = () => {
           total_employer_leads: employerLeadsCount || 0,
           total_synced_projects: syncedProjectsCount || 0,
           total_failed_generations: failedGenerationsCount || 0,
+          total_generating: generatingCount || 0,
         });
       } catch (error: any) {
         console.error("Error fetching metrics:", error);
@@ -176,6 +186,13 @@ const AdminMetrics = () => {
       description: "Ready-to-match project proposals",
       icon: Database,
       iconColor: "text-blue-500",
+    },
+    {
+      title: "Projects Being Generated",
+      value: metrics.total_generating,
+      description: "Currently processing with new prompt",
+      icon: RefreshCw,
+      iconColor: "text-purple-500",
     },
     {
       title: "Pending Employer Leads",
@@ -263,6 +280,13 @@ const AdminMetrics = () => {
                 <p className="text-sm text-muted-foreground">
                   These are AI-generated project proposals ready to be matched with incoming employer interest submissions. 
                   They represent the "supply" side of our marketplace.
+                </p>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-2">Projects Being Generated</h3>
+                <p className="text-sm text-muted-foreground">
+                  Projects currently being regenerated with the new "wow factor" prompt. 
+                  These will move to "AI Project Shells" once generation completes successfully.
                 </p>
               </div>
               <div>
