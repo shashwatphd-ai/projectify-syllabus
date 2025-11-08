@@ -23,6 +23,7 @@ const AdminMetrics = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
+  const [aggregating, setAggregating] = useState(false);
   const [metrics, setMetrics] = useState<MetricsData>({
     total_ai_shells: 0,
     total_employer_leads: 0,
@@ -167,6 +168,42 @@ const AdminMetrics = () => {
     }
   };
 
+  const handleRefreshMarketplace = async () => {
+    const confirmed = window.confirm(
+      `Refresh the Demand Board marketplace data?\n\n` +
+      `This will re-aggregate all ${metrics.total_ai_shells} AI Shell projects to extract their "wow factor" skills.\n\n` +
+      `The process takes about 30-60 seconds.`
+    );
+
+    if (!confirmed) return;
+
+    setAggregating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('aggregate-demand-signals');
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Marketplace data refreshed successfully. The Demand Board now shows updated skills.",
+      });
+
+      // Refresh page to show updated metrics
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error: any) {
+      console.error("Error refreshing marketplace:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to refresh marketplace. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setAggregating(false);
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -228,24 +265,44 @@ const AdminMetrics = () => {
               Overview of the EduThree curation pipeline and employer marketplace
             </p>
           </div>
-          <Button
-            variant="destructive"
-            onClick={handleRegenerateProjects}
-            disabled={regenerating || metrics.total_ai_shells === 0}
-            className="gap-2"
-          >
-            {regenerating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Regenerating...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4" />
-                Regenerate All AI Shells
-              </>
-            )}
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={handleRefreshMarketplace}
+              disabled={aggregating || metrics.total_ai_shells === 0}
+              className="gap-2"
+            >
+              {aggregating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Refreshing Marketplace...
+                </>
+              ) : (
+                <>
+                  <Database className="h-4 w-4" />
+                  Refresh Marketplace Data
+                </>
+              )}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRegenerateProjects}
+              disabled={regenerating || metrics.total_ai_shells === 0}
+              className="gap-2"
+            >
+              {regenerating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Regenerating...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  Regenerate All AI Shells
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
