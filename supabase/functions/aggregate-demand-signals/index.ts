@@ -120,123 +120,144 @@ async function deriveGeographicRegion(cityZip: string): Promise<string> {
 }
 
 /**
- * Extract meaningful skills from actual project tasks and deliverables
- * This function parses real project content to derive concrete skills
+ * Extract specific "wow factor" skills directly from project content
+ * This function captures exact frameworks, tools, and methodologies without downgrading to generic terms
  */
 function extractRequiredSkills(tasks: any, deliverables: any): string[] {
   const skills = new Set<string>();
 
   try {
-    // Skill inference mappings based on real project content
-    const skillMappings: Record<string, string[]> = {
-      // Analysis & Research
-      'analysis': ['Data Analysis', 'Research', 'Critical Thinking'],
-      'research': ['Market Research', 'Data Collection', 'Analysis'],
-      'discovery': ['Discovery', 'Stakeholder Interviews', 'User Research'],
-      'market': ['Market Analysis', 'Competitive Analysis', 'Industry Research'],
-      'competitive': ['Competitive Intelligence', 'Strategic Analysis'],
-      'feasibility': ['Feasibility Analysis', 'Risk Assessment', 'Business Analysis'],
+    // Patterns to match specific frameworks, tools, and methodologies
+    const patterns = [
+      // Strategic frameworks
+      /PESTEL\s+Analysis/gi,
+      /Porter'?s\s+Five\s+Forces/gi,
+      /SWOT\s+Analysis/gi,
+      /Ansoff\s+Matrix/gi,
+      /BCG\s+Matrix/gi,
+      /Value\s+Chain\s+Analysis/gi,
+      /Blue\s+Ocean\s+Strategy/gi,
+      /Balanced\s+Scorecard/gi,
       
-      // Strategic & Planning
-      'strategy': ['Strategic Planning', 'Business Strategy', 'Strategic Thinking'],
-      'plan': ['Project Planning', 'Strategic Planning', 'Roadmap Development'],
-      'roadmap': ['Strategic Roadmapping', 'Product Planning', 'Timeline Management'],
-      'scope': ['Scope Definition', 'Requirements Gathering', 'Project Management'],
-      'charter': ['Project Charter', 'Stakeholder Alignment', 'Goal Setting'],
+      // Business analysis frameworks
+      /Competitive\s+Intelligence\s+Matrix/gi,
+      /Market\s+Sizing\s+Model/gi,
+      /Business\s+Model\s+Canvas/gi,
+      /Lean\s+Canvas/gi,
+      /Customer\s+Journey\s+Map/gi,
+      /Stakeholder\s+Analysis/gi,
+      /Gap\s+Analysis/gi,
+      /Risk\s+Assessment\s+Matrix/gi,
       
-      // Documentation & Reporting
-      'report': ['Report Writing', 'Business Writing', 'Documentation'],
-      'documentation': ['Technical Documentation', 'Process Documentation', 'Writing'],
-      'memo': ['Business Communication', 'Executive Communication', 'Writing'],
-      'presentation': ['Presentation Skills', 'Public Speaking', 'PowerPoint/Keynote'],
-      'deck': ['Presentation Design', 'Visual Communication', 'Storytelling'],
-      'executive': ['Executive Communication', 'C-Suite Presentation', 'Business Acumen'],
+      // Research & data tools
+      /Qualtrics/gi,
+      /Survey\s+Design/gi,
+      /Focus\s+Group\s+Facilitation/gi,
+      /A\/B\s+Testing/gi,
+      /Statistical\s+Analysis/gi,
+      /Regression\s+Analysis/gi,
+      /Conjoint\s+Analysis/gi,
       
-      // Design & Creative
-      'design': ['Design Thinking', 'Visual Design', 'Creative Problem Solving'],
-      'prototype': ['Prototyping', 'Rapid Iteration', 'User Testing'],
-      'mockup': ['UI/UX Design', 'Wireframing', 'Visual Design'],
-      'wireframe': ['UX Design', 'Information Architecture', 'User Flows'],
-      'brand': ['Brand Strategy', 'Brand Development', 'Marketing'],
+      // Process & operations
+      /BPMN\s+(?:Diagrams?|Modeling)/gi,
+      /Process\s+Mapping/gi,
+      /Six\s+Sigma/gi,
+      /Lean\s+Methodology/gi,
+      /Kaizen/gi,
+      /5S\s+Methodology/gi,
       
-      // Development & Technical
-      'development': ['Software Development', 'Programming', 'Technical Implementation'],
-      'implementation': ['Project Implementation', 'Technical Execution', 'Deployment'],
-      'testing': ['Quality Assurance', 'Testing', 'Validation'],
-      'integration': ['Systems Integration', 'API Development', 'Technical Integration'],
-      'optimization': ['Process Optimization', 'Performance Tuning', 'Efficiency Analysis'],
+      // Financial frameworks
+      /Financial\s+Modeling/gi,
+      /DCF\s+Analysis/gi,
+      /NPV\s+Calculation/gi,
+      /Sensitivity\s+Analysis/gi,
+      /Break-?even\s+Analysis/gi,
+      /Cost-?Benefit\s+Analysis/gi,
+      /ROI\s+Analysis/gi,
       
-      // Business Operations
-      'workflow': ['Process Design', 'Workflow Optimization', 'Operations'],
-      'process': ['Process Improvement', 'Operations Management', 'Efficiency'],
-      'efficiency': ['Process Optimization', 'Lean Methodology', 'Continuous Improvement'],
-      'automation': ['Process Automation', 'Technology Implementation', 'Efficiency'],
+      // Design & UX
+      /Design\s+Thinking/gi,
+      /Wireframing/gi,
+      /Prototyping/gi,
+      /Usability\s+Testing/gi,
+      /User\s+Persona\s+Development/gi,
+      /Information\s+Architecture/gi,
       
-      // Marketing & Communications
-      'marketing': ['Marketing Strategy', 'Digital Marketing', 'Brand Management'],
-      'campaign': ['Campaign Management', 'Marketing Execution', 'Analytics'],
-      'content': ['Content Strategy', 'Content Creation', 'Copywriting'],
-      'social': ['Social Media Marketing', 'Community Management', 'Digital Engagement'],
-      'seo': ['SEO', 'Digital Marketing', 'Analytics'],
+      // Data visualization & reporting
+      /KPI\s+Dashboard/gi,
+      /Data\s+Visualization/gi,
+      /Tableau/gi,
+      /Power\s+BI/gi,
+      /Excel\s+Modeling/gi,
       
-      // Financial & Metrics
-      'financial': ['Financial Analysis', 'Budgeting', 'Financial Modeling'],
-      'budget': ['Budget Management', 'Financial Planning', 'Cost Analysis'],
-      'roi': ['ROI Analysis', 'Financial Metrics', 'Business Case Development'],
-      'metrics': ['Metrics & KPIs', 'Data Analytics', 'Performance Measurement'],
-      'dashboard': ['Data Visualization', 'Dashboard Design', 'Reporting'],
+      // Marketing frameworks
+      /Marketing\s+Mix/gi,
+      /4Ps\s+Framework/gi,
+      /Customer\s+Segmentation/gi,
+      /Positioning\s+Map/gi,
+      /Brand\s+Architecture/gi,
+      /Content\s+Strategy/gi,
+      /SEO\s+Optimization/gi,
+      /Social\s+Media\s+Strategy/gi,
       
-      // Project Management
-      'timeline': ['Timeline Management', 'Project Scheduling', 'Planning'],
-      'milestone': ['Milestone Planning', 'Project Management', 'Progress Tracking'],
-      'stakeholder': ['Stakeholder Management', 'Relationship Building', 'Communication'],
-      'coordination': ['Cross-Functional Coordination', 'Team Collaboration', 'Project Management'],
-      
-      // Collaboration & Soft Skills
-      'workshop': ['Workshop Facilitation', 'Group Facilitation', 'Collaboration'],
-      'collaboration': ['Team Collaboration', 'Cross-Functional Teamwork', 'Communication'],
-      'interview': ['Interviewing', 'Qualitative Research', 'Communication'],
-      'synthesis': ['Synthesis', 'Critical Thinking', 'Problem Solving'],
-      'recommendations': ['Strategic Recommendations', 'Business Advisory', 'Consulting'],
-    };
+      // Project management
+      /Gantt\s+Chart/gi,
+      /Agile\s+Methodology/gi,
+      /Scrum\s+Framework/gi,
+      /Kanban/gi,
+      /Critical\s+Path\s+Analysis/gi,
+      /Stakeholder\s+Mapping/gi,
+    ];
 
-    // Process tasks
+    // Combine all text from tasks and deliverables
+    const allText: string[] = [];
+    
     if (Array.isArray(tasks)) {
       tasks.forEach((task: any) => {
         const taskText = typeof task === 'string' ? task : task?.description || '';
-        if (taskText) {
-          const taskLower = taskText.toLowerCase();
-          
-          // Check against skill mappings
-          Object.entries(skillMappings).forEach(([keyword, relatedSkills]) => {
-            if (taskLower.includes(keyword)) {
-              relatedSkills.forEach(skill => skills.add(skill));
-            }
-          });
-        }
+        if (taskText) allText.push(taskText);
       });
     }
-
-    // Process deliverables
+    
     if (Array.isArray(deliverables)) {
       deliverables.forEach((deliverable: any) => {
         const deliverableText = typeof deliverable === 'string' ? deliverable : deliverable?.description || '';
-        if (deliverableText) {
-          const deliverableLower = deliverableText.toLowerCase();
-          
-          // Check against skill mappings
-          Object.entries(skillMappings).forEach(([keyword, relatedSkills]) => {
-            if (deliverableLower.includes(keyword)) {
-              relatedSkills.forEach(skill => skills.add(skill));
-            }
-          });
-        }
+        if (deliverableText) allText.push(deliverableText);
+      });
+    }
+
+    // Extract matches from all text
+    const combinedText = allText.join(' ');
+    
+    patterns.forEach(pattern => {
+      const matches = combinedText.match(pattern);
+      if (matches) {
+        matches.forEach(match => {
+          // Normalize spacing and capitalization
+          const normalized = match
+            .replace(/\s+/g, ' ')
+            .trim()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' ');
+          skills.add(normalized);
+        });
+      }
+    });
+
+    // Also extract capitalized multi-word terms that look like specific skills/tools
+    // (e.g., "Competitive Analysis Matrix", "Customer Retention Strategy")
+    const capitalizedTermPattern = /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+(?:\s+(?:Analysis|Matrix|Model|Framework|Strategy|Methodology|Technique|Tool|Method|Approach|Diagram|Chart|Map|Canvas|Assessment)))\b/g;
+    const capitalizedMatches = combinedText.match(capitalizedTermPattern);
+    if (capitalizedMatches) {
+      capitalizedMatches.forEach(match => {
+        skills.add(match.trim());
       });
     }
 
     const extractedSkills = Array.from(skills);
-    console.log(`Extracted ${extractedSkills.length} skills from project content`);
-    return extractedSkills.slice(0, 30); // Increased to 30 to capture more real skills
+    console.log(`Extracted ${extractedSkills.length} specific skills:`, extractedSkills);
+    return extractedSkills.slice(0, 30); // Top 30 specific skills
   } catch (error) {
     console.error("Error extracting skills:", error);
     return [];
