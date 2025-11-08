@@ -11,16 +11,19 @@ const GOOGLE_API_KEY = Deno.env.get("GOOGLE_PLACES_API_KEY");
 const GOOGLE_NLP_ENDPOINT = "https://language.googleapis.com/v1/documents:classifyText";
 const GOOGLE_GEOCODING_ENDPOINT = "https://maps.googleapis.com/maps/api/geocode/json";
 
-interface CourseProfile {
+interface ProjectWithCourse {
   id: string;
   title: string;
-  level: string;
-  city_zip: string;
-  artifacts: any;
-  outcomes: any;
-  hrs_per_week: number;
-  weeks: number;
-  owner_id: string;
+  sector: string;
+  tasks: any;
+  deliverables: any;
+  duration_weeks: number;
+  status: string;
+  course_profiles: {
+    city_zip: string;
+    level: string;
+    owner_id: string;
+  };
 }
 
 interface DemandSignal {
@@ -39,56 +42,21 @@ interface DemandSignal {
 }
 
 /**
- * Derive project category using Google Cloud Natural Language API
+ * Derive project category from sector or title
  */
-async function deriveProjectCategory(title: string, artifacts: any): Promise<string> {
-  if (!GOOGLE_API_KEY) {
-    console.error("Google API key not configured");
-    return "General Projects";
+function deriveProjectCategory(sector: string, title: string): string {
+  if (sector && sector.trim() !== '') {
+    return sector;
   }
-
-  try {
-    // Combine title and artifacts for richer context
-    const artifactText = Array.isArray(artifacts) 
-      ? artifacts.join(". ") 
-      : (typeof artifacts === 'string' ? artifacts : JSON.stringify(artifacts));
-    
-    const contentText = `${title}. ${artifactText}`.substring(0, 1000); // Limit to 1000 chars
-
-    const response = await fetch(`${GOOGLE_NLP_ENDPOINT}?key=${GOOGLE_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        document: {
-          type: 'PLAIN_TEXT',
-          content: contentText,
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Google NLP API error:", response.status, errorText);
-      return "General Projects";
-    }
-
-    const data = await response.json();
-    
-    // Google returns categories like "/Business & Industrial/Business Operations"
-    // Extract the top-level category
-    if (data.categories && data.categories.length > 0) {
-      const topCategory = data.categories[0].name;
-      // Clean up the category path (e.g., "/Business & Industrial" -> "Business & Industrial")
-      const cleaned = topCategory.split('/').filter((c: string) => c)[0];
-      console.log(`Category derived: ${cleaned} (confidence: ${data.categories[0].confidence})`);
-      return cleaned || "General Projects";
-    }
-
-    return "General Projects";
-  } catch (error) {
-    console.error("Error calling Google NLP API:", error);
-    return "General Projects";
-  }
+  
+  // Fallback to extracting from title if no sector
+  if (title.toLowerCase().includes('marketing')) return 'Marketing';
+  if (title.toLowerCase().includes('software') || title.toLowerCase().includes('development')) return 'Software Development';
+  if (title.toLowerCase().includes('data') || title.toLowerCase().includes('analytics')) return 'Data Analytics';
+  if (title.toLowerCase().includes('design')) return 'Design';
+  if (title.toLowerCase().includes('finance')) return 'Finance';
+  
+  return 'General Projects';
 }
 
 /**
@@ -152,24 +120,40 @@ async function deriveGeographicRegion(cityZip: string): Promise<string> {
 }
 
 /**
- * Extract required skills from course outcomes
+ * Extract required skills from project tasks and deliverables
  */
-function extractRequiredSkills(outcomes: any): string[] {
-  if (!outcomes) return [];
+function extractRequiredSkills(tasks: any, deliverables: any): string[] {
+  const skills = new Set<string>();
 
   try {
-    const outcomesArray = Array.isArray(outcomes) ? outcomes : [outcomes];
-    const skills = outcomesArray
-      .flatMap((outcome: any) => {
-        if (typeof outcome === 'string') return [outcome];
-        if (outcome?.skill) return [outcome.skill];
-        if (outcome?.outcome) return [outcome.outcome];
-        return [];
-      })
-      .filter((skill: string) => skill && skill.length > 0)
-      .map((skill: string) => skill.substring(0, 100)); // Limit length
+    // Extract from tasks
+    if (Array.isArray(tasks)) {
+      tasks.forEach((task: any) => {
+        if (typeof task === 'string') {
+          // Extract skill keywords from task descriptions
+          const skillKeywords = extractSkillKeywords(task);
+          skillKeywords.forEach(skill => skills.add(skill));
+        } else if (task?.description) {
+          const skillKeywords = extractSkillKeywords(task.description);
+          skillKeywords.forEach(skill => skills.add(skill));
+        }
+      });
+    }
 
-    return [...new Set(skills)]; // Deduplicate
+    // Extract from deliverables
+    if (Array.isArray(deliverables)) {
+      deliverables.forEach((deliverable: any) => {
+        if (typeof deliverable === 'string') {
+          const skillKeywords = extractSkillKeywords(deliverable);
+          skillKeywords.forEach(skill => skills.add(skill));
+        } else if (deliverable?.description) {
+          const skillKeywords = extractSkillKeywords(deliverable.description);
+          skillKeywords.forEach(skill => skills.add(skill));
+        }
+      });
+    }
+
+    return Array.from(skills).slice(0, 20); // Limit to top 20 skills
   } catch (error) {
     console.error("Error extracting skills:", error);
     return [];
@@ -177,39 +161,78 @@ function extractRequiredSkills(outcomes: any): string[] {
 }
 
 /**
- * Main aggregation logic
+ * Extract skill keywords from text
+ */
+function extractSkillKeywords(text: string): string[] {
+  const skillPatterns = [
+    /\b(Python|JavaScript|TypeScript|Java|C\+\+|React|Angular|Vue|Node\.js|SQL|NoSQL|MongoDB|PostgreSQL)\b/gi,
+    /\b(HTML|CSS|Tailwind|Bootstrap|Git|Docker|Kubernetes|AWS|Azure|GCP)\b/gi,
+    /\b(Machine Learning|AI|Data Analysis|Statistics|Excel|Tableau|Power BI)\b/gi,
+    /\b(Project Management|Agile|Scrum|Leadership|Communication|Problem Solving)\b/gi,
+    /\b(Marketing|SEO|Content Creation|Social Media|Graphic Design|UX\/UI Design)\b/gi,
+    /\b(Testing|QA|CI\/CD|DevOps|Security|Networking|Cloud Computing)\b/gi,
+  ];
+
+  const skills = new Set<string>();
+  skillPatterns.forEach(pattern => {
+    const matches = text.match(pattern);
+    if (matches) {
+      matches.forEach(match => skills.add(match));
+    }
+  });
+
+  return Array.from(skills);
+}
+
+/**
+ * Main aggregation logic - NOW READS FROM PROJECTS TABLE
  */
 async function aggregateDemandSignals(supabaseClient: any) {
-  console.log("Starting demand signals aggregation...");
+  console.log("Starting demand signals aggregation from PROJECTS table...");
 
-  // Fetch all active course profiles
-  const { data: courses, error: coursesError } = await supabaseClient
-    .from('course_profiles')
-    .select('*');
+  // Fetch all AI-generated and curated projects with course profile data
+  const { data: projects, error: projectsError } = await supabaseClient
+    .from('projects')
+    .select(`
+      id,
+      title,
+      sector,
+      tasks,
+      deliverables,
+      duration_weeks,
+      status,
+      course_profiles!inner (
+        city_zip,
+        level,
+        owner_id
+      )
+    `)
+    .in('status', ['ai_shell', 'curated_live']);
 
-  if (coursesError) {
-    throw new Error(`Failed to fetch courses: ${coursesError.message}`);
+  if (projectsError) {
+    console.error("Failed to fetch projects:", projectsError);
+    throw new Error(`Failed to fetch projects: ${projectsError.message}`);
   }
 
-  if (!courses || courses.length === 0) {
-    console.log("No courses found to aggregate");
+  if (!projects || projects.length === 0) {
+    console.log("No projects found to aggregate");
     return { aggregated: 0 };
   }
 
-  console.log(`Found ${courses.length} courses to aggregate`);
+  console.log(`Found ${projects.length} projects to aggregate`);
 
-  // Group courses by similarity (category + region)
-  const signalGroups = new Map<string, CourseProfile[]>();
+  // Group projects by category and region
+  const signalGroups = new Map<string, ProjectWithCourse[]>();
 
-  for (const course of courses) {
-    const category = await deriveProjectCategory(course.title, course.artifacts);
-    const region = await deriveGeographicRegion(course.city_zip);
+  for (const project of projects as ProjectWithCourse[]) {
+    const category = deriveProjectCategory(project.sector, project.title);
+    const region = await deriveGeographicRegion(project.course_profiles.city_zip);
     const key = `${category}|${region}`;
 
     if (!signalGroups.has(key)) {
       signalGroups.set(key, []);
     }
-    signalGroups.get(key)!.push(course);
+    signalGroups.get(key)!.push(project);
   }
 
   console.log(`Grouped into ${signalGroups.size} demand signals`);
@@ -227,38 +250,39 @@ async function aggregateDemandSignals(supabaseClient: any) {
   // Create new aggregated signals
   let createdCount = 0;
   
-  for (const [key, groupCourses] of signalGroups.entries()) {
+  for (const [key, groupProjects] of signalGroups.entries()) {
     const [category, region] = key.split('|');
 
-    // Aggregate metrics (privacy-preserving)
-    const uniqueOwners = new Set(groupCourses.map(c => c.owner_id));
-    const allSkills = groupCourses.flatMap(c => extractRequiredSkills(c.outcomes));
+    // Aggregate metrics from real projects
+    const uniqueOwners = new Set(groupProjects.map(p => p.course_profiles.owner_id));
+    const allSkills = groupProjects.flatMap(p => extractRequiredSkills(p.tasks, p.deliverables));
     const uniqueSkills = [...new Set(allSkills)];
 
     // Calculate level distribution
     const levelCounts: Record<string, number> = {};
-    groupCourses.forEach(c => {
-      levelCounts[c.level] = (levelCounts[c.level] || 0) + 1;
+    groupProjects.forEach(p => {
+      const level = p.course_profiles.level;
+      levelCounts[level] = (levelCounts[level] || 0) + 1;
     });
 
     // Calculate typical duration
     const avgDuration = Math.round(
-      groupCourses.reduce((sum, c) => sum + c.weeks, 0) / groupCourses.length
+      groupProjects.reduce((sum, p) => sum + p.duration_weeks, 0) / groupProjects.length
     );
 
     const signal: DemandSignal = {
       project_category: category,
-      industry_sector: null, // Could derive from category or NLP
-      required_skills: uniqueSkills.slice(0, 20), // Top 20 skills
+      industry_sector: category, // Use category as sector
+      required_skills: uniqueSkills.slice(0, 20), // Top 20 real skills from projects
       geographic_region: region,
-      student_count: groupCourses.length, // Proxy: 1 course ≈ 1+ students
-      course_count: groupCourses.length,
+      student_count: groupProjects.length, // Each project represents student demand
+      course_count: groupProjects.length,
       institution_count: uniqueOwners.size,
-      earliest_start_date: null, // Would need course start dates
+      earliest_start_date: null,
       latest_start_date: null,
       typical_duration_weeks: avgDuration,
       student_level_distribution: levelCounts,
-      institution_types: { "Higher Education": uniqueOwners.size }, // Simplified
+      institution_types: { "Higher Education": uniqueOwners.size },
     };
 
     const { error: insertError } = await supabaseClient
@@ -269,12 +293,12 @@ async function aggregateDemandSignals(supabaseClient: any) {
       console.error(`Failed to insert signal for ${key}:`, insertError);
     } else {
       createdCount++;
-      console.log(`Created signal: ${category} in ${region} (${signal.course_count} courses)`);
+      console.log(`✅ Created signal: ${category} in ${region} (${signal.course_count} projects, ${uniqueSkills.length} skills)`);
     }
   }
 
-  console.log(`Aggregation complete. Created ${createdCount} demand signals.`);
-  return { aggregated: createdCount };
+  console.log(`🎉 Aggregation complete. Created ${createdCount} demand signals from ${projects.length} projects.`);
+  return { aggregated: createdCount, total_projects: projects.length };
 }
 
 serve(async (req) => {
