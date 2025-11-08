@@ -301,11 +301,14 @@ async function aggregateDemandSignals(supabaseClient: any) {
 
   console.log(`Found ${projects.length} projects to aggregate`);
 
-  // Group projects by category and region
+  // Group projects by ACTUAL sector and region (no derivation/guessing)
   const signalGroups = new Map<string, ProjectWithCourse[]>();
 
   for (const project of projects as ProjectWithCourse[]) {
-    const category = deriveProjectCategory(project.sector, project.title);
+    // Use the actual sector field directly - no guessing/derivation
+    const category = project.sector && project.sector.trim() !== '' 
+      ? project.sector 
+      : 'General Projects';
     const region = await deriveGeographicRegion(project.course_profiles.city_zip);
     const key = `${category}|${region}`;
 
