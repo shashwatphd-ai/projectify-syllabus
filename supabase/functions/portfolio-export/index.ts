@@ -291,7 +291,7 @@ serve(async (req) => {
 
     console.log('📄 PDF generated successfully');
 
-    return new Response(pdfBytes, {
+    return new Response(pdfBytes as unknown as BodyInit, {
       status: 200,
       headers: {
         ...corsHeaders,
