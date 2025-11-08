@@ -86,14 +86,27 @@ export async function generateProjectProposal(
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
 
-  const systemPrompt = `You are an expert experiential learning designer. You MUST create SPECIFIC, DETAILED, HIGH-VALUE project proposals.
-  
-CRITICAL RULES YOU MUST FOLLOW:
-1. NEVER use generic business terms like "research", "analyze", "synthesis", "recommendations"
-2. ALWAYS include specific methodologies, tools, frameworks (e.g., "SWOT Analysis", "Porter's Five Forces", "SQL queries", "Tableau dashboards")
-3. EVERY task must include a specific action verb + methodology + business outcome
-4. EVERY deliverable must be a concrete, named artifact (e.g., "Customer Churn Prediction Model", "5-Year Financial Forecast Spreadsheet")
-5. Extract REAL skills from the tasks (e.g., if task mentions "SQL", skill = "SQL Database Querying")
+  const systemPrompt = `You are an elite experiential learning designer creating HIGH-VALUE, SPECIFIC project proposals.
+
+⚠️ ABSOLUTE REQUIREMENTS - FAILURE TO COMPLY WILL RESULT IN REJECTION:
+
+1. FORBIDDEN GENERIC TERMS (Automatic Rejection):
+   ❌ "research", "analyze", "synthesis", "investigate", "explore", "recommendations", "report", "memo", "presentation", "findings"
+   ❌ Generic skills: "communication", "leadership", "teamwork", "critical thinking", "problem solving"
+
+2. MANDATORY SPECIFICITY IN EVERY ELEMENT:
+   ✅ Tasks: MUST include named framework/tool + quantified scope + specific data source
+      Example: "Conduct Porter's Five Forces analysis using 2024 IBISWorld data for telehealth market"
+   ✅ Deliverables: MUST be named artifacts with format specified
+      Example: "Competitive Positioning Matrix in Excel comparing 12 vendors across 15 features"
+   ✅ Skills: MUST be domain-specific technical/business skills extracted FROM your tasks
+      Example: If task uses "DCF Model", skill = "Discounted Cash Flow Valuation"
+
+3. EXTRACTION RULE - Skills MUST Mirror Tasks:
+   - If task mentions "SWOT" → skill = "SWOT Strategic Analysis"
+   - If task mentions "SQL" → skill = "SQL Database Querying"
+   - If task mentions "Tableau" → skill = "Tableau Data Visualization"
+   - If task mentions "survey 200+ customers" → skill = "Primary Customer Research" or "Survey Design & Analysis"
 
 Return ONLY valid JSON, no markdown code blocks.`;
   
@@ -136,7 +149,16 @@ Return ONLY valid JSON, no markdown code blocks.`;
 
   const prompt = `Design a ${weeks}-week business consulting project for ${level} students partnering with this company.
 
-⚠️ CRITICAL INSTRUCTION: You MUST create SPECIFIC, DETAILED, HIGH-VALUE content. Generic business terms will be REJECTED.
+🚨 CRITICAL INSTRUCTION: GENERIC CONTENT = AUTOMATIC REJECTION 🚨
+
+You are creating a project proposal that will be displayed to employers on a marketplace. 
+Your proposal MUST demonstrate SPECIFIC, HIGH-VALUE capabilities that justify hiring students.
+
+REJECTION TRIGGERS (Avoid these at ALL costs):
+- Any task/deliverable using words: "research", "analyze", "report", "memo", "recommendations", "findings"
+- Any skill from this list: "communication", "leadership", "teamwork", "research", "analysis"
+- Vague deliverables like "Final Report" or "Analysis Document"
+- Tasks without named frameworks/methodologies/tools
 
 COMPANY PROFILE:
 Name: ${company.name}
@@ -194,29 +216,41 @@ Return ONLY valid JSON (no markdown code blocks):
   "description": "2-3 sentences describing the business problem, the solution approach, and measurable outcomes. Must be SPECIFIC to this company.",
   
   "tasks": [
-    "Create exactly 7 tasks. EACH TASK MUST:
-    ✅ Start with specific action verb (Develop, Build, Create, Design, Conduct, Map, Calculate, Implement)
-    ✅ Include named methodology/framework (e.g., SWOT, Porter's Five Forces, BPMN, NPV, A/B Testing, SQL queries)
-    ✅ Specify data sources or sample sizes (e.g., '200+ customers', 'last 2 years of transaction data', 'top 10 competitors')
-    ✅ Name specific tools if technical (Tableau, Python, Excel, SQL, Google Analytics, Salesforce, etc.)
-    ✅ Include quantifiable scope (e.g., '5 key metrics', '3 customer segments', '10-page report')
+    "Create exactly 7 tasks. EVERY SINGLE TASK MUST FOLLOW THIS EXACT FORMULA:
     
-    MANDATORY PATTERN: [Action Verb] + [Named Framework/Method] + [Specific Scope/Data] + [Tool if applicable]
+    📋 MANDATORY FORMULA: [Action Verb] + [Named Framework/Tool/Method] + [Quantified Scope] + [Specific Data/Context]
     
-    Examples that WILL BE ACCEPTED:
-    - 'Conduct Porter's Five Forces analysis of the telehealth industry using 2024 market data from IBISWorld'
-    - 'Build predictive churn model in Python using 3 years of customer transaction and support ticket data'
-    - 'Design A/B testing framework for homepage redesign with 5 variants targeting 1000+ weekly visitors'
-    - 'Map current patient intake process using BPMN notation and identify 8+ bottleneck points'
-    - 'Calculate Net Promoter Score (NPS) from 300+ customer survey responses using Qualtrics'
-    - 'Develop 12-month social media content calendar for Instagram and LinkedIn with 4 posts per week'
-    - 'Create financial ROI model in Excel with 5-year projections and sensitivity analysis on 3 key variables'
+    🎯 ACTION VERBS TO USE:
+    Conduct, Build, Create, Design, Develop, Map, Calculate, Implement, Construct, Model, Benchmark, Survey, Interview
     
-    Examples that WILL BE REJECTED:
-    - 'Conduct market research' (no methodology, no scope)
-    - 'Analyze customer data' (no framework, no specific data source)
-    - 'Develop recommendations' (this is outcome, not a task)
-    - 'Research industry trends' (too vague)"
+    🔧 NAMED FRAMEWORKS/TOOLS (Pick from these or similar):
+    - Analysis: SWOT, PESTEL, Porter's Five Forces, Value Chain Analysis, Ansoff Matrix, Blue Ocean Strategy
+    - Financial: DCF Valuation, NPV Calculation, Break-even Analysis, ROI Modeling, Sensitivity Analysis, Pro Forma Statements
+    - Process: BPMN Diagrams, Process Mapping, Lean Six Sigma, Value Stream Mapping, Gantt Charts
+    - Data/Tech: SQL queries, Python analysis, Tableau dashboards, Excel models, Power BI, Qualtrics surveys, Google Analytics
+    - Marketing: A/B Testing, Customer Journey Mapping, Persona Development, Content Strategy, SEO Analysis, Social Media Calendar
+    - Research: Customer interviews, Competitive benchmarking, Market sizing, NPS calculation, Statistical analysis
+    
+    📊 QUANTIFICATION REQUIREMENTS (Must include numbers):
+    - Sample sizes: '200+ customers', '50 stakeholder interviews', '10 competitors'
+    - Time spans: 'last 3 years of data', '5-year forecast', '12-month plan'
+    - Scope: '8 key metrics', '4 customer segments', '15-page analysis', '20-slide deck'
+    
+    ✅ EXAMPLES THAT WILL BE ACCEPTED:
+    - 'Conduct SWOT analysis of top 8 competitors in the cybersecurity market using publicly available financial data'
+    - 'Build customer segmentation model using K-means clustering on 50,000+ transaction records from past 2 years'
+    - 'Design A/B testing framework for email campaigns with 5 variant designs targeting 10,000+ subscribers'
+    - 'Map current order fulfillment process using BPMN notation identifying 10+ inefficiency points'
+    - 'Calculate customer lifetime value (CLV) for 4 distinct segments using 3-year purchase history data'
+    - 'Develop 12-month content calendar for LinkedIn and Instagram with 48 posts per month targeting B2B audience'
+    - 'Create 5-year DCF valuation model in Excel with sensitivity analysis on 6 key revenue and cost drivers'
+    
+    ❌ EXAMPLES THAT WILL CAUSE REJECTION:
+    - 'Conduct market research' (No framework, no scope, no data source)
+    - 'Analyze customer feedback' (No method, vague)
+    - 'Develop strategic recommendations' (This is output, not a task)
+    - 'Research competitors' (No framework, no quantity)
+    - 'Create a report on findings' (Generic, vague)"
   ],
   
   "deliverables": [
@@ -244,33 +278,74 @@ Return ONLY valid JSON (no markdown code blocks):
   ],
   
   "skills": [
-    "List exactly 7 DOMAIN-SPECIFIC skills. EXTRACT FROM YOUR TASKS.
+    "List exactly 7 DOMAIN-SPECIFIC skills. CRITICAL: Skills MUST be EXTRACTED directly from your tasks.
     
-    MANDATORY RULES:
-    ✅ If task mentions 'SWOT', include skill 'SWOT Analysis'
-    ✅ If task mentions 'Excel', include skill 'Financial Modeling in Excel' or 'Spreadsheet Analysis'
-    ✅ If task mentions 'Python', include 'Python Programming' or 'Data Analysis with Python'
-    ✅ If task mentions 'SQL', include 'SQL Database Querying'
-    ✅ If task mentions 'survey', include 'Survey Design & Analysis' or 'Primary Research'
-    ✅ If working with healthcare, include 'Healthcare Industry Knowledge' or 'HIPAA Compliance'
-    ✅ If working with finance, include 'Financial Statement Analysis' or 'Valuation Modeling'
+    🎯 SKILL EXTRACTION RULES (Follow this mapping EXACTLY):
     
-    ⛔ NEVER INCLUDE: 'Communication', 'Leadership', 'Teamwork', 'Research', 'Analysis', 'Critical Thinking', 'Problem Solving', 'Presentation'
+    Framework/Method Mentioned → Required Skill:
+    - 'SWOT' → 'SWOT Strategic Analysis'
+    - 'Porter's Five Forces' → 'Porter's Five Forces Competitive Analysis'
+    - 'PESTEL' → 'PESTEL Analysis'
+    - 'DCF' or 'Discounted Cash Flow' → 'Discounted Cash Flow Valuation'
+    - 'NPV' → 'NPV Calculation'
+    - 'ROI' → 'ROI Financial Modeling'
+    - 'Sensitivity Analysis' → 'Sensitivity Analysis'
+    - 'Break-even' → 'Break-even Analysis'
+    - 'BPMN' → 'BPMN Process Mapping'
+    - 'Lean Six Sigma' → 'Lean Six Sigma Methodology'
+    - 'Gantt' → 'Gantt Chart Project Planning'
     
-    Examples that WILL BE ACCEPTED:
-    - 'Customer Journey Mapping'
-    - 'Competitive Intelligence Analysis'
-    - 'A/B Testing & Experimentation'
+    Tool/Technology Mentioned → Required Skill:
+    - 'Excel model' → 'Financial Modeling in Excel'
+    - 'Tableau' → 'Tableau Data Visualization'
+    - 'Python' → 'Python Data Analysis'
+    - 'SQL' → 'SQL Database Querying'
+    - 'Power BI' → 'Power BI Business Intelligence'
+    - 'Google Analytics' → 'Google Analytics Web Analytics'
+    - 'Qualtrics' → 'Qualtrics Survey Design'
+    
+    Research Method Mentioned → Required Skill:
+    - 'customer interviews' or 'stakeholder interviews' → 'Qualitative Research & Interviews'
+    - 'survey' → 'Survey Design & Analysis'
+    - 'competitive benchmarking' → 'Competitive Benchmarking'
+    - 'market sizing' → 'Market Sizing & Forecasting'
+    - 'NPS' → 'Net Promoter Score Analysis'
+    
+    Marketing Activity Mentioned → Required Skill:
+    - 'A/B testing' → 'A/B Testing & Experimentation'
+    - 'customer journey' → 'Customer Journey Mapping'
+    - 'persona' → 'Customer Persona Development'
+    - 'content calendar' → 'Content Strategy'
+    - 'SEO' → 'SEO & Digital Marketing'
+    - 'social media' → 'Social Media Strategy'
+    
+    ⛔ AUTOMATIC REJECTION - NEVER INCLUDE THESE:
+    'Communication', 'Leadership', 'Teamwork', 'Research', 'Analysis', 'Critical Thinking', 
+    'Problem Solving', 'Presentation', 'Writing', 'Collaboration', 'Time Management'
+    
+    ✅ VALID SKILL EXAMPLES (Specific, Domain-Relevant, Extracted):
+    - 'SWOT Strategic Analysis'
+    - 'Porter's Five Forces Competitive Analysis'
+    - 'Discounted Cash Flow Valuation'
+    - 'SQL Database Querying'
     - 'Tableau Data Visualization'
-    - 'Healthcare Regulatory Compliance'
-    - 'SEO & Digital Marketing'
-    - 'Supply Chain Process Optimization'
+    - 'Customer Journey Mapping'
+    - 'A/B Testing & Experimentation'
+    - 'BPMN Process Mapping'
     - 'Market Sizing & Forecasting'
+    - 'Net Promoter Score Analysis'
+    - 'Financial Modeling in Excel'
+    - 'Competitive Benchmarking'
+    - 'Survey Design & Analysis'
+    - 'Content Strategy'
+    - 'SEO & Digital Marketing'
     
-    Examples that WILL BE REJECTED:
-    - 'Communication' (generic)
-    - 'Analysis' (vague)
-    - 'Research' (not specific)"
+    ❌ INVALID SKILLS (Will Cause Rejection):
+    - 'Communication' (generic soft skill)
+    - 'Analysis' (vague, no context)
+    - 'Research' (not specific)
+    - 'Data Analysis' (too broad, be specific: 'Python Data Analysis' or 'Statistical Data Analysis')
+    - 'Marketing' (too broad, be specific: 'Digital Marketing Strategy' or 'SEO & Content Marketing')"
   ],
   
   "tier": "Select 'Intermediate' for standard business consulting/analytics projects, 'Advanced' for technical implementation or strategic transformation requiring specialized skills",
@@ -311,7 +386,7 @@ Return ONLY valid JSON (no markdown code blocks):
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.7,
+      temperature: 0.4,  // Lower temperature for more consistent, rule-following output
     }),
   });
 
