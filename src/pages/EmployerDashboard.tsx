@@ -34,13 +34,27 @@ interface ProjectWithCourse {
   };
 }
 
+interface StudentApplication {
+  id: string;
+  created_at: string;
+  status: string;
+  project_id: string;
+  student_id: string;
+  projects: {
+    title: string;
+    company_profile_id: string;
+  };
+}
+
 export default function EmployerDashboard() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
   const [projects, setProjects] = useState<ProjectWithCourse[]>([]);
+  const [applications, setApplications] = useState<StudentApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [projectsLoading, setProjectsLoading] = useState(false);
+  const [applicationsLoading, setApplicationsLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -57,6 +71,7 @@ export default function EmployerDashboard() {
   useEffect(() => {
     if (companyProfile) {
       fetchProjects();
+      fetchApplications();
     }
   }, [companyProfile]);
 
@@ -110,6 +125,62 @@ export default function EmployerDashboard() {
       toast.error("Failed to load projects");
     } finally {
       setProjectsLoading(false);
+    }
+  };
+
+  const fetchApplications = async () => {
+    try {
+      setApplicationsLoading(true);
+      const { data, error } = await supabase
+        .from("project_applications")
+        .select(`
+          id,
+          created_at,
+          status,
+          project_id,
+          student_id,
+          projects!inner(
+            title,
+            company_profile_id
+          )
+        `)
+        .eq("projects.company_profile_id", companyProfile!.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      setApplications(data || []);
+    } catch (error: any) {
+      console.error("Error fetching applications:", error);
+      toast.error("Failed to load student applications");
+    } finally {
+      setApplicationsLoading(false);
+    }
+  };
+
+  const getApplicationStatusColor = (status: string) => {
+    switch (status) {
+      case "approved":
+        return "default";
+      case "pending":
+        return "secondary";
+      case "rejected":
+        return "outline";
+      default:
+        return "outline";
+    }
+  };
+
+  const getApplicationStatusLabel = (status: string) => {
+    switch (status) {
+      case "approved":
+        return "Approved";
+      case "pending":
+        return "Pending Review";
+      case "rejected":
+        return "Rejected";
+      default:
+        return status;
     }
   };
 
@@ -344,9 +415,44 @@ export default function EmployerDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground text-sm">
-                Coming soon: View students who have applied or expressed interest.
-              </p>
+              {applicationsLoading ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-24 w-full" />
+                  <Skeleton className="h-24 w-full" />
+                </div>
+              ) : applications.length === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  No student applications yet. Applications will appear here when students apply to your projects.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {applications.map((application) => (
+                    <div
+                      key={application.id}
+                      className="border rounded-lg p-4 hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-semibold truncate">
+                              Student ID: {application.student_id.substring(0, 8)}...
+                            </h4>
+                            <Badge variant={getApplicationStatusColor(application.status)}>
+                              {getApplicationStatusLabel(application.status)}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Applied to: {application.projects.title}
+                          </p>
+                          <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                            <span>📅 Applied {new Date(application.created_at).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

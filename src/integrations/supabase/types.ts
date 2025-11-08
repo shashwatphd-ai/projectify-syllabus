@@ -733,6 +733,38 @@ export type Database = {
         }
         Relationships: []
       }
+      project_applications: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          status: Database["public"]["Enums"]["application_status"]
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          status?: Database["public"]["Enums"]["application_status"]
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          status?: Database["public"]["Enums"]["application_status"]
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_applications_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_forms: {
         Row: {
           form1: Json
@@ -1039,6 +1071,7 @@ export type Database = {
     }
     Enums: {
       app_role: "faculty" | "student" | "admin" | "employer"
+      application_status: "pending" | "approved" | "rejected"
       project_status:
         | "ai_shell"
         | "curated_live"
@@ -1173,6 +1206,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["faculty", "student", "admin", "employer"],
+      application_status: ["pending", "approved", "rejected"],
       project_status: [
         "ai_shell",
         "curated_live",
