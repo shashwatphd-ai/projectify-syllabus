@@ -1,5 +1,8 @@
 project_id = "wnxjeldvzjubfgzvvzov"
 
+[functions.admin-regenerate-projects]
+verify_jwt = false
+
 [functions.get-apollo-org-id]
 verify_jwt = false
 
