@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Briefcase, ExternalLink, Loader2, Search } from "lucide-react";
+import { Briefcase, ExternalLink, Loader2, Search, X } from "lucide-react";
 
 interface JobMatch {
   id: string;
@@ -111,26 +111,42 @@ export default function MyOpportunities() {
         {/* Filter Section */}
         <Card className="mb-6">
           <CardContent className="pt-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by job title or company..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+            <div className="flex flex-col gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by job title or company..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="pending_notification">New Match</SelectItem>
+                    <SelectItem value="notified">Employer Notified</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="pending_notification">New Match</SelectItem>
-                  <SelectItem value="notified">Employer Notified</SelectItem>
-                </SelectContent>
-              </Select>
+              {(searchQuery || statusFilter !== "all") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setStatusFilter("all");
+                  }}
+                  className="w-fit"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Clear Filters
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
