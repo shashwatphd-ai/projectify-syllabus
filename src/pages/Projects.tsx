@@ -19,7 +19,7 @@ const Projects = () => {
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingCourseId, setDownloadingCourseId] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<'student' | 'faculty' | 'admin' | 'employer' | null>(null);
   const [appliedProjects, setAppliedProjects] = useState<Set<string>>(new Set());
   const [applyingProjectId, setApplyingProjectId] = useState<string | null>(null);
 
@@ -30,9 +30,17 @@ const Projects = () => {
   useEffect(() => {
     if (user) {
       checkUserRole();
-      loadProjects();
     }
-  }, [user, courseId]);
+  }, [user]);
+
+  useEffect(() => {
+    if (user && userRole) {
+      loadProjects();
+      if (userRole === 'student') {
+        loadStudentApplications();
+      }
+    }
+  }, [user, userRole, courseId]);
 
   const checkUserRole = async () => {
     try {
@@ -40,56 +48,92 @@ const Projects = () => {
         .from('user_roles')
         .select('role')
         .eq('user_id', user!.id)
-        .single();
+        .maybeSingle();
       
-      if (error) throw error;
-      setUserRole(data?.role || 'student');
+      if (error) {
+        console.error('Error checking user role:', error);
+        setUserRole('student');
+        return;
+      }
+      
+      setUserRole((data?.role as 'student' | 'faculty' | 'admin' | 'employer') || 'student');
     } catch (error) {
       console.error('Error checking user role:', error);
-      setUserRole('student'); // Default to student
+      setUserRole('student');
     }
   };
 
   const loadProjects = async () => {
     try {
-      // Check user role first
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user!.id)
-        .single();
-      
-      const role = roleData?.role || 'student';
-      
-      let query = supabase
-        .from('projects')
-        .select('*, course_profiles!inner(owner_id, title)');
-      
-      if (role === 'student') {
-        // Students see all curated_live projects
-        query = query.eq('status', 'curated_live');
-      } else {
-        // Faculty/admin see their own projects
-        query = query.in('status', ['ai_shell', 'curated_live']);
-        
+      setLoading(true);
+
+      if (userRole === 'student') {
+        // Students see only curated_live projects
+        const { data, error } = await supabase
+          .from('projects')
+          .select('*, course_profiles(owner_id, title)')
+          .eq('status', 'curated_live')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setProjects(data || []);
+
+      } else if (userRole === 'faculty') {
+        // Faculty see all projects from courses they own (all statuses)
+        let query = supabase
+          .from('projects')
+          .select('*, course_profiles!inner(owner_id, title)')
+          .eq('course_profiles.owner_id', user!.id);
+
         if (courseId) {
           query = query.eq('course_id', courseId);
-        } else {
-          query = query.eq('course_profiles.owner_id', user!.id);
         }
-      }
 
-      const { data, error } = await query.order('created_at', { ascending: false });
+        const { data, error } = await query.order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setProjects(data || []);
+        if (error) throw error;
+        setProjects(data || []);
 
-      // If student, load their applications
-      if (role === 'student') {
-        loadStudentApplications();
+      } else if (userRole === 'admin') {
+        // Admins see all projects (all statuses)
+        let query = supabase
+          .from('projects')
+          .select('*, course_profiles(owner_id, title)');
+
+        if (courseId) {
+          query = query.eq('course_id', courseId);
+        }
+
+        const { data, error } = await query.order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setProjects(data || []);
+
+      } else if (userRole === 'employer') {
+        // Employers see only their company's live projects
+        const { data: companyData } = await supabase
+          .from('company_profiles')
+          .select('id')
+          .eq('owner_user_id', user!.id)
+          .maybeSingle();
+
+        if (companyData) {
+          const { data, error } = await supabase
+            .from('projects')
+            .select('*, course_profiles(owner_id, title)')
+            .eq('company_profile_id', companyData.id)
+            .in('status', ['curated_live', 'in_progress', 'completed'])
+            .order('created_at', { ascending: false });
+
+          if (error) throw error;
+          setProjects(data || []);
+        } else {
+          setProjects([]);
+        }
       }
     } catch (error: any) {
       console.error('Load projects error:', error);
+      toast.error('Failed to load projects');
     } finally {
       setLoading(false);
     }
