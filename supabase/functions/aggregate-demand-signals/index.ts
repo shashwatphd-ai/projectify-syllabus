@@ -120,68 +120,127 @@ async function deriveGeographicRegion(cityZip: string): Promise<string> {
 }
 
 /**
- * Extract required skills from project tasks and deliverables
+ * Extract meaningful skills from actual project tasks and deliverables
+ * This function parses real project content to derive concrete skills
  */
 function extractRequiredSkills(tasks: any, deliverables: any): string[] {
   const skills = new Set<string>();
 
   try {
-    // Extract from tasks
+    // Skill inference mappings based on real project content
+    const skillMappings: Record<string, string[]> = {
+      // Analysis & Research
+      'analysis': ['Data Analysis', 'Research', 'Critical Thinking'],
+      'research': ['Market Research', 'Data Collection', 'Analysis'],
+      'discovery': ['Discovery', 'Stakeholder Interviews', 'User Research'],
+      'market': ['Market Analysis', 'Competitive Analysis', 'Industry Research'],
+      'competitive': ['Competitive Intelligence', 'Strategic Analysis'],
+      'feasibility': ['Feasibility Analysis', 'Risk Assessment', 'Business Analysis'],
+      
+      // Strategic & Planning
+      'strategy': ['Strategic Planning', 'Business Strategy', 'Strategic Thinking'],
+      'plan': ['Project Planning', 'Strategic Planning', 'Roadmap Development'],
+      'roadmap': ['Strategic Roadmapping', 'Product Planning', 'Timeline Management'],
+      'scope': ['Scope Definition', 'Requirements Gathering', 'Project Management'],
+      'charter': ['Project Charter', 'Stakeholder Alignment', 'Goal Setting'],
+      
+      // Documentation & Reporting
+      'report': ['Report Writing', 'Business Writing', 'Documentation'],
+      'documentation': ['Technical Documentation', 'Process Documentation', 'Writing'],
+      'memo': ['Business Communication', 'Executive Communication', 'Writing'],
+      'presentation': ['Presentation Skills', 'Public Speaking', 'PowerPoint/Keynote'],
+      'deck': ['Presentation Design', 'Visual Communication', 'Storytelling'],
+      'executive': ['Executive Communication', 'C-Suite Presentation', 'Business Acumen'],
+      
+      // Design & Creative
+      'design': ['Design Thinking', 'Visual Design', 'Creative Problem Solving'],
+      'prototype': ['Prototyping', 'Rapid Iteration', 'User Testing'],
+      'mockup': ['UI/UX Design', 'Wireframing', 'Visual Design'],
+      'wireframe': ['UX Design', 'Information Architecture', 'User Flows'],
+      'brand': ['Brand Strategy', 'Brand Development', 'Marketing'],
+      
+      // Development & Technical
+      'development': ['Software Development', 'Programming', 'Technical Implementation'],
+      'implementation': ['Project Implementation', 'Technical Execution', 'Deployment'],
+      'testing': ['Quality Assurance', 'Testing', 'Validation'],
+      'integration': ['Systems Integration', 'API Development', 'Technical Integration'],
+      'optimization': ['Process Optimization', 'Performance Tuning', 'Efficiency Analysis'],
+      
+      // Business Operations
+      'workflow': ['Process Design', 'Workflow Optimization', 'Operations'],
+      'process': ['Process Improvement', 'Operations Management', 'Efficiency'],
+      'efficiency': ['Process Optimization', 'Lean Methodology', 'Continuous Improvement'],
+      'automation': ['Process Automation', 'Technology Implementation', 'Efficiency'],
+      
+      // Marketing & Communications
+      'marketing': ['Marketing Strategy', 'Digital Marketing', 'Brand Management'],
+      'campaign': ['Campaign Management', 'Marketing Execution', 'Analytics'],
+      'content': ['Content Strategy', 'Content Creation', 'Copywriting'],
+      'social': ['Social Media Marketing', 'Community Management', 'Digital Engagement'],
+      'seo': ['SEO', 'Digital Marketing', 'Analytics'],
+      
+      // Financial & Metrics
+      'financial': ['Financial Analysis', 'Budgeting', 'Financial Modeling'],
+      'budget': ['Budget Management', 'Financial Planning', 'Cost Analysis'],
+      'roi': ['ROI Analysis', 'Financial Metrics', 'Business Case Development'],
+      'metrics': ['Metrics & KPIs', 'Data Analytics', 'Performance Measurement'],
+      'dashboard': ['Data Visualization', 'Dashboard Design', 'Reporting'],
+      
+      // Project Management
+      'timeline': ['Timeline Management', 'Project Scheduling', 'Planning'],
+      'milestone': ['Milestone Planning', 'Project Management', 'Progress Tracking'],
+      'stakeholder': ['Stakeholder Management', 'Relationship Building', 'Communication'],
+      'coordination': ['Cross-Functional Coordination', 'Team Collaboration', 'Project Management'],
+      
+      // Collaboration & Soft Skills
+      'workshop': ['Workshop Facilitation', 'Group Facilitation', 'Collaboration'],
+      'collaboration': ['Team Collaboration', 'Cross-Functional Teamwork', 'Communication'],
+      'interview': ['Interviewing', 'Qualitative Research', 'Communication'],
+      'synthesis': ['Synthesis', 'Critical Thinking', 'Problem Solving'],
+      'recommendations': ['Strategic Recommendations', 'Business Advisory', 'Consulting'],
+    };
+
+    // Process tasks
     if (Array.isArray(tasks)) {
       tasks.forEach((task: any) => {
-        if (typeof task === 'string') {
-          // Extract skill keywords from task descriptions
-          const skillKeywords = extractSkillKeywords(task);
-          skillKeywords.forEach(skill => skills.add(skill));
-        } else if (task?.description) {
-          const skillKeywords = extractSkillKeywords(task.description);
-          skillKeywords.forEach(skill => skills.add(skill));
+        const taskText = typeof task === 'string' ? task : task?.description || '';
+        if (taskText) {
+          const taskLower = taskText.toLowerCase();
+          
+          // Check against skill mappings
+          Object.entries(skillMappings).forEach(([keyword, relatedSkills]) => {
+            if (taskLower.includes(keyword)) {
+              relatedSkills.forEach(skill => skills.add(skill));
+            }
+          });
         }
       });
     }
 
-    // Extract from deliverables
+    // Process deliverables
     if (Array.isArray(deliverables)) {
       deliverables.forEach((deliverable: any) => {
-        if (typeof deliverable === 'string') {
-          const skillKeywords = extractSkillKeywords(deliverable);
-          skillKeywords.forEach(skill => skills.add(skill));
-        } else if (deliverable?.description) {
-          const skillKeywords = extractSkillKeywords(deliverable.description);
-          skillKeywords.forEach(skill => skills.add(skill));
+        const deliverableText = typeof deliverable === 'string' ? deliverable : deliverable?.description || '';
+        if (deliverableText) {
+          const deliverableLower = deliverableText.toLowerCase();
+          
+          // Check against skill mappings
+          Object.entries(skillMappings).forEach(([keyword, relatedSkills]) => {
+            if (deliverableLower.includes(keyword)) {
+              relatedSkills.forEach(skill => skills.add(skill));
+            }
+          });
         }
       });
     }
 
-    return Array.from(skills).slice(0, 20); // Limit to top 20 skills
+    const extractedSkills = Array.from(skills);
+    console.log(`Extracted ${extractedSkills.length} skills from project content`);
+    return extractedSkills.slice(0, 30); // Increased to 30 to capture more real skills
   } catch (error) {
     console.error("Error extracting skills:", error);
     return [];
   }
-}
-
-/**
- * Extract skill keywords from text
- */
-function extractSkillKeywords(text: string): string[] {
-  const skillPatterns = [
-    /\b(Python|JavaScript|TypeScript|Java|C\+\+|React|Angular|Vue|Node\.js|SQL|NoSQL|MongoDB|PostgreSQL)\b/gi,
-    /\b(HTML|CSS|Tailwind|Bootstrap|Git|Docker|Kubernetes|AWS|Azure|GCP)\b/gi,
-    /\b(Machine Learning|AI|Data Analysis|Statistics|Excel|Tableau|Power BI)\b/gi,
-    /\b(Project Management|Agile|Scrum|Leadership|Communication|Problem Solving)\b/gi,
-    /\b(Marketing|SEO|Content Creation|Social Media|Graphic Design|UX\/UI Design)\b/gi,
-    /\b(Testing|QA|CI\/CD|DevOps|Security|Networking|Cloud Computing)\b/gi,
-  ];
-
-  const skills = new Set<string>();
-  skillPatterns.forEach(pattern => {
-    const matches = text.match(pattern);
-    if (matches) {
-      matches.forEach(match => skills.add(match));
-    }
-  });
-
-  return Array.from(skills);
 }
 
 /**
