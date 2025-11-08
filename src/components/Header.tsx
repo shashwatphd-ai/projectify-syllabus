@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { LogOut, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { useNewJobMatchCount } from "@/hooks/useNewJobMatchCount";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import logo from "@/assets/logo-eduthree.jpg";
@@ -12,6 +14,7 @@ export const Header = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
+  const { data: newMatchCount } = useNewJobMatchCount();
 
   useEffect(() => {
     if (user) {
@@ -67,8 +70,13 @@ export const Header = () => {
                 <Button onClick={() => navigate("/projects")} variant="ghost" size="sm">
                   Projects
                 </Button>
-                <Button onClick={() => navigate("/my-opportunities")} variant="ghost" size="sm">
+                <Button onClick={() => navigate("/my-opportunities")} variant="ghost" size="sm" className="relative">
                   My Opportunities
+                  {newMatchCount && newMatchCount > 0 && (
+                    <Badge variant="destructive" className="ml-2 h-5 min-w-5 px-1.5">
+                      {newMatchCount}
+                    </Badge>
+                  )}
                 </Button>
                 <Button onClick={() => navigate("/my-competencies")} variant="ghost" size="sm">
                   My Skills
