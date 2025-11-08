@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Shield } from "lucide-react";
+import { LogOut, Shield, Building2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -14,11 +14,13 @@ export const Header = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isEmployer, setIsEmployer] = useState(false);
   const { data: newMatchCount } = useNewJobMatchCount();
 
   useEffect(() => {
     if (user) {
       checkAdminStatus();
+      checkEmployerStatus();
     }
   }, [user]);
 
@@ -34,6 +36,21 @@ export const Header = () => {
       setIsAdmin(!!data);
     } catch (error) {
       console.error('Admin check error:', error);
+    }
+  };
+
+  const checkEmployerStatus = async () => {
+    try {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user!.id)
+        .eq('role', 'employer')
+        .maybeSingle();
+      
+      setIsEmployer(!!data);
+    } catch (error) {
+      console.error('Employer check error:', error);
     }
   };
 
@@ -81,6 +98,12 @@ export const Header = () => {
                 <Button onClick={() => navigate("/my-competencies")} variant="ghost" size="sm">
                   My Skills
                 </Button>
+                {isEmployer && (
+                  <Button onClick={() => navigate("/employer/dashboard")} variant="ghost" size="sm">
+                    <Building2 className="mr-2 h-4 w-4" />
+                    Employer Portal
+                  </Button>
+                )}
                 {isAdmin && (
                   <Button onClick={() => navigate("/admin-hub")} variant="ghost" size="sm">
                     <Shield className="mr-2 h-4 w-4" />

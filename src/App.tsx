@@ -15,6 +15,7 @@ import AdminHub from "./pages/AdminHub";
 import AdminMetrics from "./pages/AdminMetrics";
 import MyOpportunities from "./pages/MyOpportunities";
 import MyCompetencies from "./pages/MyCompetencies";
+import EmployerDashboard from "./pages/EmployerDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
           <Route path="/admin-hub/metrics" element={<AdminMetrics />} />
           <Route path="/my-opportunities" element={<MyOpportunities />} />
           <Route path="/my-competencies" element={<MyCompetencies />} />
+          <Route path="/employer/dashboard" element={<EmployerDashboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
