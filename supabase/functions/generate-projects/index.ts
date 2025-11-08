@@ -684,7 +684,7 @@ serve(async (req) => {
         projectIds,
         message: `Successfully generated ${projectIds.length} projects`,
         using_real_data: companiesFound.some(c => c.id !== undefined),
-        generation_run_id: generationRunId
+        generationRunId: generationRunId  // FIXED: Match frontend expectation (camelCase)
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
