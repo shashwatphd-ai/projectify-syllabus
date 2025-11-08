@@ -6,7 +6,9 @@ import { Header } from "@/components/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Briefcase, ExternalLink, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Briefcase, ExternalLink, Loader2, Search } from "lucide-react";
 
 interface JobMatch {
   id: string;
@@ -22,6 +24,8 @@ export default function MyOpportunities() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [jobMatches, setJobMatches] = useState<JobMatch[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -49,16 +53,29 @@ export default function MyOpportunities() {
     if (user) {
       fetchJobMatches();
     }
-  }, [user]);
+  }, [user, searchQuery, statusFilter]);
 
   const fetchJobMatches = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from("job_matches")
         .select("*")
-        .eq("student_id", user.id)
-        .order("created_at", { ascending: false });
+        .eq("student_id", user.id);
+
+      // Apply status filter
+      if (statusFilter !== "all") {
+        query = query.eq("status", statusFilter);
+      }
+
+      // Apply search filter (searches both title and company)
+      if (searchQuery.trim()) {
+        query = query.or(
+          `apollo_job_title.ilike.%${searchQuery}%,apollo_company_name.ilike.%${searchQuery}%`
+        );
+      }
+
+      const { data, error } = await query.order("created_at", { ascending: false });
 
       if (error) throw error;
 
@@ -90,6 +107,33 @@ export default function MyOpportunities() {
             Opportunities matched to your verified skills and completed projects
           </p>
         </div>
+
+        {/* Filter Section */}
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by job title or company..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="pending_notification">New Match</SelectItem>
+                  <SelectItem value="notified">Employer Notified</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
