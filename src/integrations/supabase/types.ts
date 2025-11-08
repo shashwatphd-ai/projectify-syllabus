@@ -93,6 +93,7 @@ export type Database = {
           organization_logo_url: string | null
           organization_revenue_range: string | null
           organization_twitter_url: string | null
+          owner_user_id: string | null
           recent_news: string | null
           sector: string | null
           size: string | null
@@ -146,6 +147,7 @@ export type Database = {
           organization_logo_url?: string | null
           organization_revenue_range?: string | null
           organization_twitter_url?: string | null
+          owner_user_id?: string | null
           recent_news?: string | null
           sector?: string | null
           size?: string | null
@@ -199,6 +201,7 @@ export type Database = {
           organization_logo_url?: string | null
           organization_revenue_range?: string | null
           organization_twitter_url?: string | null
+          owner_user_id?: string | null
           recent_news?: string | null
           sector?: string | null
           size?: string | null
