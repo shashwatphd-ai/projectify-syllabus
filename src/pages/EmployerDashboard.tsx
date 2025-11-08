@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Building2, Mail, Globe, MapPin } from "lucide-react";
+import { Building2, Mail, Globe, MapPin, Briefcase, ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface CompanyProfile {
@@ -19,11 +21,26 @@ interface CompanyProfile {
   organization_logo_url: string | null;
 }
 
+interface ProjectWithCourse {
+  id: string;
+  title: string;
+  status: string;
+  description: string | null;
+  pricing_usd: number;
+  duration_weeks: number;
+  team_size: number;
+  course_profiles: {
+    title: string;
+  };
+}
+
 export default function EmployerDashboard() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
+  const [projects, setProjects] = useState<ProjectWithCourse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [projectsLoading, setProjectsLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -36,6 +53,12 @@ export default function EmployerDashboard() {
       fetchCompanyProfile();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (companyProfile) {
+      fetchProjects();
+    }
+  }, [companyProfile]);
 
   const fetchCompanyProfile = async () => {
     try {
@@ -58,6 +81,65 @@ export default function EmployerDashboard() {
       toast.error("Failed to load company profile");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      setProjectsLoading(true);
+      const { data, error } = await supabase
+        .from("projects")
+        .select(`
+          id,
+          title,
+          status,
+          description,
+          pricing_usd,
+          duration_weeks,
+          team_size,
+          course_profiles!inner(title)
+        `)
+        .eq("company_profile_id", companyProfile!.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      setProjects(data || []);
+    } catch (error: any) {
+      console.error("Error fetching projects:", error);
+      toast.error("Failed to load projects");
+    } finally {
+      setProjectsLoading(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "curated_live":
+        return "default";
+      case "in_progress":
+        return "secondary";
+      case "completed":
+        return "outline";
+      case "ai_shell":
+        return "secondary";
+      default:
+        return "outline";
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "curated_live":
+        return "Live";
+      case "in_progress":
+        return "In Progress";
+      case "completed":
+        return "Completed";
+      case "ai_shell":
+        return "Draft";
+      default:
+        return status;
     }
   };
 
@@ -192,15 +274,65 @@ export default function EmployerDashboard() {
 
           <Card>
             <CardHeader>
-              <CardTitle>My Projects</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Briefcase className="h-5 w-5" />
+                My Projects
+              </CardTitle>
               <CardDescription>
                 Student projects and partnership opportunities
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground text-sm">
-                Coming soon: View and manage your project partnerships with students.
-              </p>
+              {projectsLoading ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-24 w-full" />
+                  <Skeleton className="h-24 w-full" />
+                </div>
+              ) : projects.length === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  No projects found. Projects will appear here once they're created for your company.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {projects.map((project) => (
+                    <div
+                      key={project.id}
+                      className="border rounded-lg p-4 hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-semibold truncate">{project.title}</h4>
+                            <Badge variant={getStatusColor(project.status)}>
+                              {getStatusLabel(project.status)}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Course: {project.course_profiles.title}
+                          </p>
+                          {project.description && (
+                            <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                              {project.description}
+                            </p>
+                          )}
+                          <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                            <span>💰 ${project.pricing_usd.toLocaleString()}</span>
+                            <span>⏱️ {project.duration_weeks} weeks</span>
+                            <span>👥 Team of {project.team_size}</span>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/projects/${project.id}`)}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
