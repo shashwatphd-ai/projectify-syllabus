@@ -35,7 +35,7 @@ const Projects = () => {
       let query = supabase
         .from('projects')
         .select('*, course_profiles!inner(owner_id, title)')
-        .eq('status', 'curated_live');
+        .in('status', ['ai_shell', 'curated_live']);
       
       if (courseId) {
         query = query.eq('course_id', courseId);
