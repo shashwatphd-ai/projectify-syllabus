@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Database, Building2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Database, Building2, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface MetricsData {
@@ -20,6 +21,7 @@ const AdminMetrics = () => {
   const { toast } = useToast();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [regenerating, setRegenerating] = useState(false);
   const [metrics, setMetrics] = useState<MetricsData>({
     total_ai_shells: 0,
     total_employer_leads: 0,
@@ -119,6 +121,42 @@ const AdminMetrics = () => {
     fetchMetrics();
   }, [isAdmin, toast]);
 
+  const handleRegenerateProjects = async () => {
+    const confirmed = window.confirm(
+      `Are you sure you want to regenerate all AI Shell projects?\n\n` +
+      `This will re-queue ${metrics.total_ai_shells} projects for regeneration with the new "wow factor" prompt.\n\n` +
+      `This action cannot be undone and may take several minutes to complete.`
+    );
+
+    if (!confirmed) return;
+
+    setRegenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-regenerate-projects');
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: data?.message || `Successfully re-queued ${data?.count || metrics.total_ai_shells} projects for regeneration.`,
+      });
+
+      // Refresh metrics after a short delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error: any) {
+      console.error("Error regenerating projects:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to regenerate projects. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -166,11 +204,31 @@ const AdminMetrics = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto py-8 px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Curation Metrics Dashboard</h1>
-          <p className="text-muted-foreground">
-            Overview of the EduThree curation pipeline and employer marketplace
-          </p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Curation Metrics Dashboard</h1>
+            <p className="text-muted-foreground">
+              Overview of the EduThree curation pipeline and employer marketplace
+            </p>
+          </div>
+          <Button
+            variant="destructive"
+            onClick={handleRegenerateProjects}
+            disabled={regenerating || metrics.total_ai_shells === 0}
+            className="gap-2"
+          >
+            {regenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Regenerating...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4" />
+                Regenerate All AI Shells
+              </>
+            )}
+          </Button>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
