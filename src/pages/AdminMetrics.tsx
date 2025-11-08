@@ -101,11 +101,11 @@ const AdminMetrics = () => {
 
         if (generatingError) throw generatingError;
 
-        // Fetch Failed Generations count (truly failed projects only)
+        // Fetch Failed Generations count (projects with null status only)
         const { count: failedGenerationsCount, error: failedGenerationsError } = await supabase
           .from("projects")
           .select("*", { count: "exact", head: true })
-          .or("status.is.null,status.eq.failed");
+          .is("status", null);
 
         if (failedGenerationsError) throw failedGenerationsError;
 
