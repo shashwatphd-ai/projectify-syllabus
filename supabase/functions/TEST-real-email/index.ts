@@ -108,8 +108,8 @@ serve(async (req) => {
         'Authorization': `Bearer ${RESEND_API_KEY}`
       },
       body: JSON.stringify({
-        from: 'EduThree Alerts <alerts@eduthree.com>',
-        to: contactData.contact_email,
+        from: 'onboarding@resend.dev',
+        to: 'delivered@resend.dev',
         subject: subject,
         html: body
       })
