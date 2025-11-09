@@ -15,6 +15,7 @@ const Upload = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [cityZip, setCityZip] = useState("");
+  const [searchLocation, setSearchLocation] = useState("");
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [manualEntry, setManualEntry] = useState(false);
@@ -65,8 +66,10 @@ const Upload = () => {
 
       if (data.success && data.location) {
         console.log('📍 Location detected:', data.location);
-        setCityZip(data.location);
-        toast.success(`Location detected: ${data.city}, ${data.state}`);
+        console.log('🔍 Search location format:', data.searchLocation);
+        setCityZip(data.location); // Display format
+        setSearchLocation(data.searchLocation || data.location); // Apollo format
+        toast.success(`Location detected: ${data.city}, ${data.state || data.country}`);
       } else {
         console.log('⚠️ Location detection unsuccessful:', data.error);
         toast.error(data.error || 'Could not find location for your institution');
@@ -128,7 +131,11 @@ const Upload = () => {
 
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('cityZip', finalLocation);
+      // Pass both location formats as JSON to parse-syllabus
+      formData.append('cityZip', JSON.stringify({
+        location: finalLocation, // Display format
+        searchLocation: searchLocation || finalLocation // Apollo format
+      }));
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-syllabus`,

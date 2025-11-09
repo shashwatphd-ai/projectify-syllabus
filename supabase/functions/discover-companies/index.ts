@@ -37,10 +37,10 @@ serve(async (req) => {
 
     const { courseId, location, industries = [], count = 4 } = await req.json();
 
-    // Get course data
+    // Get course data including search_location for Apollo queries
     const { data: course, error: courseError } = await supabase
       .from('course_profiles')
-      .select('*')
+      .select('*, search_location')
       .eq('id', courseId)
       .single();
 
@@ -48,6 +48,9 @@ serve(async (req) => {
 
     const outcomes = course.outcomes || [];
     const topics = course.artifacts?.topics || [];
+    
+    // Use search_location if available (Apollo-friendly), fallback to location parameter
+    const searchLocation = course.search_location || location;
 
     console.log(`\n🎓 MODULAR DISCOVERY SYSTEM`);
     console.log(`   Course: ${course.title}`);
@@ -94,9 +97,10 @@ serve(async (req) => {
       outcomes,
       level: course.level,
       topics,
-      location,
+      location, // Display location for logging/UI
+      searchLocation, // Apollo-friendly format for searches
       targetCount: count
-    };
+    } as CourseContext & { searchLocation?: string };
 
     const discoveryResult = await provider.discover(courseContext);
 

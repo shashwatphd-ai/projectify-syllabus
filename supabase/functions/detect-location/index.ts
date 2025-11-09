@@ -52,10 +52,20 @@ serve(async (req) => {
 
     if (universityData) {
       console.log('✅ Found in database:', universityData.name);
+      
+      // Create Apollo-friendly search location (city, state, country)
+      const searchParts = [
+        universityData.city,
+        universityData.state,
+        universityData.country
+      ].filter(Boolean);
+      const searchLocation = searchParts.join(', ');
+      
       return new Response(
         JSON.stringify({
           success: true,
-          location: universityData.formatted_location,
+          location: universityData.formatted_location, // Display format
+          searchLocation: searchLocation, // Apollo format
           city: universityData.city || '',
           state: universityData.state || '',
           zip: universityData.zip || '',
@@ -89,6 +99,8 @@ serve(async (req) => {
           
           // Cache this result for future lookups
           const formatted = `${match.name}, ${match.country}`;
+          const searchLocation = match.country; // Only country available from API
+          
           await supabaseClient
             .from('university_domains')
             .insert({
@@ -104,6 +116,7 @@ serve(async (req) => {
             JSON.stringify({
               success: true,
               location: formatted,
+              searchLocation: searchLocation, // Apollo format (just country for now)
               city: '',
               state: '',
               zip: '',
@@ -214,12 +227,18 @@ serve(async (req) => {
       ? `${city}, ${state} ${postcode}` 
       : `${city}, ${postcode}`;
     
+    // Create Apollo-friendly search location
+    const searchParts = [city, state, country].filter(Boolean);
+    const searchLocation = searchParts.join(', ');
+    
     console.log('📍 Location detected via Nominatim:', detectedLocation);
+    console.log('🔍 Apollo search format:', searchLocation);
 
     return new Response(
       JSON.stringify({
         success: true,
-        location: detectedLocation,
+        location: detectedLocation, // Display format
+        searchLocation: searchLocation, // Apollo format
         city,
         state,
         zip: postcode,

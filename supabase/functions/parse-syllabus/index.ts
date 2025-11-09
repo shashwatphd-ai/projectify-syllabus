@@ -249,6 +249,23 @@ serve(async (req) => {
     // Parse the extracted text using AI
     const parsed = await extractTextWithAI(pdfText);
 
+    // Parse location data if it contains both formats
+    let displayLocation = cityZip;
+    let searchLocation = cityZip;
+    
+    try {
+      // Check if cityZip is JSON with both location formats
+      const locationData = JSON.parse(cityZip);
+      if (locationData.location && locationData.searchLocation) {
+        displayLocation = locationData.location;
+        searchLocation = locationData.searchLocation;
+        console.log(`📍 Parsed location formats - Display: "${displayLocation}", Search: "${searchLocation}"`);
+      }
+    } catch {
+      // Not JSON, use as-is (backward compatibility)
+      console.log(`📍 Using location as-is: "${cityZip}"`);
+    }
+
     // Insert course profile using authenticated client with RLS
     // RLS policy "Users can insert own courses" allows this when owner_id = auth.uid()
     const { data: course, error: insertError } = await supabaseClient
@@ -257,7 +274,8 @@ serve(async (req) => {
         owner_id: user.id,
         title: parsed.title,
         level: parsed.level,
-        city_zip: cityZip,
+        city_zip: displayLocation, // Display format for backward compatibility
+        search_location: searchLocation, // Apollo-friendly format
         weeks: parsed.weeks,
         hrs_per_week: parsed.hrs_per_week,
         outcomes: parsed.outcomes,

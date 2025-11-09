@@ -153,13 +153,16 @@ const Configure = () => {
       // Step 1: Discover & enrich companies with Apollo
       let generationRunId = null;
       
-      if (courseData?.city_zip) {
+      // Use search_location if available (Apollo-friendly), fallback to city_zip
+      const locationForDiscovery = courseData?.search_location || courseData?.city_zip;
+      
+      if (locationForDiscovery) {
         toast.info("Discovering companies with Apollo...", { duration: 3000 });
         
         const { data: discoveryData, error: discoveryError } = await supabase.functions.invoke('discover-companies', {
           body: { 
             courseId: courseId,
-            location: courseData.city_zip,
+            location: locationForDiscovery, // Use Apollo-friendly format
             count: parseInt(numTeams)
           }
         });

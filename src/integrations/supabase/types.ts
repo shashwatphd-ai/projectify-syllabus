@@ -277,6 +277,7 @@ export type Database = {
           outcomes: Json
           owner_id: string
           schedule: Json | null
+          search_location: string | null
           title: string
           weeks: number
         }
@@ -296,6 +297,7 @@ export type Database = {
           outcomes: Json
           owner_id: string
           schedule?: Json | null
+          search_location?: string | null
           title: string
           weeks: number
         }
@@ -315,6 +317,7 @@ export type Database = {
           outcomes?: Json
           owner_id?: string
           schedule?: Json | null
+          search_location?: string | null
           title?: string
           weeks?: number
         }

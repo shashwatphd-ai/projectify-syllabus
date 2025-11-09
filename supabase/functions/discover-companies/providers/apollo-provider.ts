@@ -162,7 +162,10 @@ Apollo.io Organization Search Filters:
 
 Return ONLY valid JSON with these filters.`;
 
-    const userPrompt = `Generate Apollo search filters for ${context.targetCount}+ companies within 50 miles of ${context.location}.
+    // Use searchLocation if available (Apollo-friendly format), fallback to location
+    const apolloLocation = (context as any).searchLocation || context.location;
+    
+    const userPrompt = `Generate Apollo search filters for ${context.targetCount}+ companies within 50 miles of ${apolloLocation}.
 
 COURSE: ${context.level}
 TOPICS: ${context.topics.join(', ')}
@@ -173,7 +176,7 @@ Employee ranges to prefer: ${randomEmployeeRange.join(', ')}
 
 Return JSON:
 {
-  "organization_locations": ["${context.location}"],
+  "organization_locations": ["${apolloLocation}"],
   "q_organization_keyword_tags": ["relevant industries"],
   "q_organization_job_titles": ["matching job titles from suggested categories"],
   "organization_num_employees_ranges": ${JSON.stringify(randomEmployeeRange)},
