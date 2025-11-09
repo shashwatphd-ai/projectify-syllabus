@@ -104,24 +104,63 @@ export class ApolloProvider implements DiscoveryProvider {
   
   async discover(context: CourseContext): Promise<DiscoveryResult> {
     const startTime = Date.now();
-    
+
     if (!this.isConfigured()) {
       throw new Error('Apollo provider not configured. Missing: ' + this.getRequiredSecrets().join(', '));
     }
-    
+
     console.log(`🚀 Apollo Provider: Discovering companies for ${context.location}`);
-    
+
     // Step 1: Generate Apollo search filters using AI
     const filters = await this.generateFilters(context);
-    
-    // Step 2: Search Apollo for organizations
-    const organizations = await this.searchOrganizations(filters, context.targetCount * 3);
-    
+
+    // Step 2: Search Apollo for organizations with automatic fallback
+    let organizations = await this.searchOrganizations(filters, context.targetCount * 3);
+
+    // Step 2b: Fallback mechanism - if no results, try broader locations
+    if (organizations.length < 3 && context.searchLocation && context.searchLocation.includes(',')) {
+      console.log(`⚠️ Found only ${organizations.length} companies, trying broader locations...`);
+
+      const parts = context.searchLocation.split(',').map((p: string) => p.trim());
+
+      // Fallback 1: Try state + country (remove city)
+      if (parts.length >= 3 && organizations.length < 3) {
+        const broaderLocation = parts.slice(1).join(', ');
+        console.log(`🔄 Trying state + country: "${broaderLocation}"`);
+
+        const broaderFilters = { ...filters, organization_locations: [broaderLocation] };
+        const broaderOrgs = await this.searchOrganizations(broaderFilters, context.targetCount * 3);
+
+        if (broaderOrgs.length > organizations.length) {
+          console.log(`✓ Found ${broaderOrgs.length} companies at state level`);
+          organizations = broaderOrgs;
+        }
+      }
+
+      // Fallback 2: Try country only if still insufficient
+      if (parts.length >= 2 && organizations.length < 3) {
+        const countryOnly = parts[parts.length - 1];
+        console.log(`🔄 Trying country-wide: "${countryOnly}"`);
+
+        const countryFilters = { ...filters, organization_locations: [countryOnly] };
+        const countryOrgs = await this.searchOrganizations(countryFilters, context.targetCount * 3);
+
+        if (countryOrgs.length > organizations.length) {
+          console.log(`✓ Found ${countryOrgs.length} companies at country level`);
+          organizations = countryOrgs;
+        }
+      }
+    }
+
+    if (organizations.length === 0) {
+      console.log(`⚠️ Warning: No organizations found even after fallback attempts`);
+    }
+
     // Step 3: Enrich organizations with contacts and market intelligence
     const companies = await this.enrichOrganizations(organizations, context.targetCount);
-    
+
     const processingTime = (Date.now() - startTime) / 1000;
-    
+
     return {
       companies,
       stats: {
