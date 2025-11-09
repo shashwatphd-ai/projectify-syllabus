@@ -602,70 +602,179 @@ serve(async (req) => {
     }
 
     const projectIds: string[] = [];
+    const generationErrors: any[] = [];
 
-    // TASK 5.1: Create "shell" projects and queue async generation
-    console.log('\n🚀 Creating project shells and queuing async generation...');
+    // Generate Full Projects Synchronously
+    console.log('\n🚀 Generating full projects synchronously...');
     
     for (let i = 0; i < companiesFound.length; i++) {
       const company = companiesFound[i];
-      console.log(`\n📝 Creating shell project ${i + 1}/${companiesFound.length} for ${company.name}...`);
+      console.log(`\n📝 Generating project ${i + 1}/${companiesFound.length} for ${company.name}...`);
       
-      // Create minimal "shell" project with pending status
-      const projectInsert: any = {
-        course_id: courseId,
-        title: `Project for ${company.name}`,
-        company_name: company.name,
-        sector: company.sector,
-        duration_weeks: course.weeks,
-        team_size: 3,
-        tasks: [],
-        deliverables: [],
-        pricing_usd: 0,
-        lo_score: 0,
-        feasibility_score: 0,
-        mutual_benefit_score: 0,
-        final_score: 0,
-        tier: 'Standard',
-        needs_review: false,
-        status: 'pending_generation', // NEW: Mark as pending
-        company_profile_id: company.id,
-        generation_run_id: generationRunId,
-      };
-
-      const { data: projectData, error: projectError } = await supabaseClient
-        .from('projects')
-        .insert(projectInsert)
-        .select('id')
-        .single();
-
-      if (projectError) {
-        console.error('Project shell insert error:', projectError);
-        continue; // Skip this project but don't fail the whole request
-      }
-
-      projectIds.push(projectData.id);
-      console.log(`✓ Shell project ${i + 1} created with ID: ${projectData.id}`);
-      
-      // PHASE 1: Queue project for async generation using database queue
-      console.log(`  🔧 Adding to generation queue...`);
-      const { error: queueError } = await serviceRoleClient
-        .from('project_generation_queue')
-        .insert({
-          project_id: projectData.id,
-          course_id: courseId,
-          generation_run_id: generationRunId,
-          status: 'pending'
-        });
-      
-      if (queueError) {
-        console.error(`  ⚠️ Failed to queue project ${projectData.id}:`, queueError);
-        // Don't fail the whole request - project will remain in pending state
-      } else {
-        console.log(`  ✅ Project queued successfully: ${projectData.id}`);
+      try {
+        // Filter company signals for relevance
+        const filteredCompany = filterRelevantSignals(company, cityZip, course.topics || [], outcomes);
+        
+        // Generate proposal
+        console.log('  → Generating AI proposal...');
+        const proposal = await generateProjectProposal(
+          filteredCompany,
+          outcomes,
+          artifacts,
+          level,
+          course.weeks,
+          course.hrs_per_week
+        );
+        
+        // Clean and validate
+        const { cleaned: cleanedProposal, issues } = cleanAndValidate(proposal);
+        if (issues.length > 0) {
+          console.log(`  ⚠️ Validation issues: ${issues.join(', ')}`);
+        }
+        
+        // Calculate scores
+        console.log('  → Calculating scores...');
+        const scores = await calculateScores(
+          cleanedProposal.tasks,
+          cleanedProposal.deliverables,
+          outcomes,
+          course.weeks,
+          cleanedProposal.lo_alignment
+        );
+        
+        // Calculate market alignment and ROI
+        const marketAlignment = await calculateMarketAlignmentScore(
+          cleanedProposal.tasks,
+          cleanedProposal.deliverables,
+          filteredCompany.needs,
+          filteredCompany.job_postings || [],
+          filteredCompany.technologies_used || [],
+          course.topics || [],
+          outcomes
+        );
+        const loAlignmentDetail = await generateLOAlignmentDetail(
+          cleanedProposal.tasks,
+          cleanedProposal.deliverables,
+          outcomes,
+          cleanedProposal.lo_alignment
+        );
+        
+        // Calculate pricing first, then ROI
+        const pricingResult = calculateApolloEnrichedPricing(
+          course.weeks,
+          course.hrs_per_week,
+          3,
+          cleanedProposal.tier,
+          filteredCompany
+        );
+        const roiCalculation = calculateApolloEnrichedROI(
+          pricingResult.budget,
+          cleanedProposal.deliverables,
+          filteredCompany,
+          cleanedProposal.tasks
+        );
+        
+        // Generate forms and milestones
+        const forms = createForms(filteredCompany, cleanedProposal, course);
+        const milestones = generateMilestones(course.weeks, cleanedProposal.deliverables);
+        
+        // Insert project with ai_shell status
+        console.log('  → Inserting project...');
+        const { data: insertedProject, error: projectError } = await serviceRoleClient
+          .from('projects')
+          .insert({
+            owner_id: user.id,
+            course_id: courseId,
+            generation_run_id: generationRunId,
+            company_profile_id: filteredCompany.id,
+            company_name: filteredCompany.name,
+            company_logo_url: null,
+            status: 'ai_shell',
+            title: cleanedProposal.title,
+            description: cleanedProposal.description,
+            tasks: cleanedProposal.tasks,
+            deliverables: cleanedProposal.deliverables,
+            tier: cleanedProposal.tier,
+            sector: filteredCompany.sector,
+            company_size: filteredCompany.size,
+            company_needs: filteredCompany.needs,
+            lo_alignment: cleanedProposal.lo_alignment,
+            lo_score: scores.lo_score,
+            feasibility_score: scores.feasibility_score,
+            mutual_benefit_score: scores.mutual_benefit_score,
+            final_score: scores.final_score,
+            skills: cleanedProposal.skills || [],
+            majors: cleanedProposal.majors || [],
+            website: cleanedProposal.website || filteredCompany.website,
+            faculty_feedback: issues.length > 0 ? `Validation issues: ${issues.join(', ')}` : null,
+            needs_review: issues.length > 0,
+            duration_weeks: course.weeks,
+            team_size: 3,
+            pricing_usd: pricingResult.budget
+          })
+          .select()
+          .single();
+        
+        if (projectError) {
+          console.error(`  ❌ Failed to insert project:`, projectError);
+          generationErrors.push({ company: company.name, error: projectError.message });
+          continue;
+        }
+        
+        projectIds.push(insertedProject.id);
+        
+        // Insert forms
+        console.log('  → Inserting forms...');
+        const formsToInsert = Object.entries(forms).map(([formType, formData]) => ({
+          project_id: insertedProject.id,
+          form_type: formType,
+          form_data: formData
+        }));
+        
+        const { error: formsError } = await serviceRoleClient
+          .from('project_forms')
+          .insert(formsToInsert);
+        
+        if (formsError) {
+          console.error(`  ⚠️ Failed to insert forms:`, formsError);
+        }
+        
+        // Insert metadata
+        console.log('  → Inserting metadata...');
+        const { error: metadataError } = await serviceRoleClient
+          .from('project_metadata')
+          .insert({
+            project_id: insertedProject.id,
+            market_alignment_score: marketAlignment,
+            roi_estimate: roiCalculation.roi,
+            data_quality_score: filteredCompany.data_completeness_score || 0.5,
+            student_value_score: roiCalculation.studentValueScore,
+            employer_value_score: roiCalculation.employerValueScore,
+            university_value_score: roiCalculation.universityValueScore,
+            stakeholder_insights: roiCalculation.stakeholderInsights,
+            lo_detail: loAlignmentDetail,
+            milestones: milestones,
+            pricing_breakdown: roiCalculation.pricingBreakdown
+          });
+        
+        if (metadataError) {
+          console.error(`  ⚠️ Failed to insert metadata:`, metadataError);
+        }
+        
+        console.log(`  ✅ Project created successfully: ${insertedProject.id}`);
+        
+        // Add small delay to avoid rate limits
+        if (i < companiesFound.length - 1) {
+          await delay(500);
+        }
+        
+      } catch (error: any) {
+        console.error(`  ❌ Generation failed for ${company.name}:`, error);
+        generationErrors.push({ company: company.name, error: error.message });
       }
     }
 
-    // Update generation run with shell project count
+    // Update generation run
     if (generationRunId) {
       await serviceRoleClient
         .from('generation_runs')
@@ -679,13 +788,20 @@ serve(async (req) => {
       console.log(`✅ Updated generation run ${generationRunId} with ${projectIds.length} projects`);
     }
 
+    console.log('\n========================================');
+    console.log('✅ PROJECT GENERATION COMPLETE');
+    console.log(`   Successful: ${projectIds.length}`);
+    console.log(`   Failed: ${generationErrors.length}`);
+    console.log('========================================\n');
+
     return new Response(
       JSON.stringify({ 
         success: true,
         projectIds,
         message: `Successfully generated ${projectIds.length} projects`,
+        errors: generationErrors.length > 0 ? generationErrors : undefined,
         using_real_data: companiesFound.some(c => c.id !== undefined),
-        generationRunId: generationRunId  // FIXED: Match frontend expectation (camelCase)
+        generationRunId: generationRunId
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
