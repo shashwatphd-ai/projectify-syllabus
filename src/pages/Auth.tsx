@@ -21,13 +21,8 @@ const Auth = () => {
     e.preventDefault();
     
     // Role-specific email validation
-    if ((selectedRole === "student" || selectedRole === "faculty") && !email.endsWith(".edu")) {
-      toast.error("Students and Faculty must use a .edu email address");
-      return;
-    }
-    
-    if (selectedRole === "employer" && email.endsWith(".edu")) {
-      toast.error("Employers should use a company email address, not .edu");
+    if (selectedRole === "employer" && (email.endsWith(".edu") || email.endsWith(".ac.uk") || email.endsWith(".edu.au"))) {
+      toast.error("Employers should use a company email address, not an educational institution domain");
       return;
     }
 
@@ -80,7 +75,7 @@ const Auth = () => {
             </div>
             <CardTitle className="text-2xl">{isSignUp ? "Create Account" : "Welcome Back"}</CardTitle>
             <CardDescription>
-              {isSignUp ? "Sign up with your .edu email to get started" : "Sign in to continue"}
+              {isSignUp ? "Sign up with your university email to get started" : "Sign in to continue"}
             </CardDescription>
           </CardHeader>
         <CardContent>
@@ -139,7 +134,7 @@ const Auth = () => {
               <p className="text-sm text-muted-foreground">
                 {selectedRole === "employer" 
                   ? "Must be a company email address" 
-                  : "Must be a valid .edu email address"}
+                  : "Any accredited university email worldwide (.edu, .ac.uk, .edu.au, etc.)"}
               </p>
             </div>
 
