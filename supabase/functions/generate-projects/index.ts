@@ -694,10 +694,10 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Generation error:', error);
+    // Return generic error message to prevent information leakage
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        details: error instanceof Error ? error.stack : undefined
+        error: 'Failed to generate projects. Please check your course configuration and try again.'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

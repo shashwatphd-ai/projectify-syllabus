@@ -266,10 +266,10 @@ Do NOT include soft skills like "communication" or "teamwork". Only include meas
 
   } catch (error) {
     console.error('Competency extraction error:', error);
+    // Return generic error message to prevent information leakage
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
-        details: error 
+        error: 'Failed to extract competencies. Please try again later.'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

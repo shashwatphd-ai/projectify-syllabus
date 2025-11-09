@@ -227,10 +227,11 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Discovery error:', error);
+    // Return generic error message to prevent information leakage
     return new Response(
       JSON.stringify({
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
+        error: 'Failed to discover companies. Please check your configuration and try again.'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

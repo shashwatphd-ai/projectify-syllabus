@@ -361,10 +361,10 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[get-project-detail] Unexpected error:', error);
+    // Return generic error message to prevent information leakage
     return new Response(
       JSON.stringify({ 
-        error: 'Internal server error', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
+        error: 'Failed to load project details. Please try again later.'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

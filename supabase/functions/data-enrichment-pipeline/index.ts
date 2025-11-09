@@ -886,8 +886,11 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Pipeline error:', error);
+    // Return generic error message to prevent information leakage
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ 
+        error: 'Data enrichment failed. Please try again later.' 
+      }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

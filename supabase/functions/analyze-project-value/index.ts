@@ -359,10 +359,11 @@ Return comprehensive analysis with validated insights.`;
 
   } catch (error: any) {
     console.error('Error in analyze-project-value:', error);
+    // Return generic error message to prevent information leakage
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error.message 
+        error: 'Failed to analyze project value. Please try again later.'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

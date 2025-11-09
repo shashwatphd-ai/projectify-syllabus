@@ -420,10 +420,11 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("Error in aggregate-demand-signals:", error);
+    // Return generic error message to prevent information leakage
     return new Response(
       JSON.stringify({
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error occurred"
+        error: "Failed to aggregate demand signals. Please try again later."
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

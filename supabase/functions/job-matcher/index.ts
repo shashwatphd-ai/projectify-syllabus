@@ -334,10 +334,10 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Job matching error:', error);
+    // Return generic error message to prevent information leakage
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
-        details: error 
+        error: 'Failed to match jobs. Please try again later.'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

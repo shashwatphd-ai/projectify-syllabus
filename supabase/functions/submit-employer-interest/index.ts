@@ -177,9 +177,10 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in submit-employer-interest:', error);
+    // Return generic error message to prevent information leakage
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'An unexpected error occurred. Please try again later.' 
+        error: 'Failed to submit interest. Please try again later.'
       }),
       { 
         status: 500, 

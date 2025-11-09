@@ -286,10 +286,15 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('Error in parse-syllabus:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    // Return generic error message to prevent information leakage
+    return new Response(
+      JSON.stringify({ 
+        error: 'Failed to parse syllabus. Please ensure the file is a valid PDF and try again.' 
+      }), 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 });

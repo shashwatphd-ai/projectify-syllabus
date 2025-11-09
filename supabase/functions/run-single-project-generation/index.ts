@@ -459,8 +459,8 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        details: error instanceof Error ? error.stack : undefined
+        success: false,
+        error: 'Failed to generate project. Please try again later.'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
