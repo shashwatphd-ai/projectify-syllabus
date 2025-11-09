@@ -13,18 +13,15 @@ export const DemandSignalCard = ({ signal, onExpressInterest }: DemandSignalCard
   return (
     <Card className="flex flex-col h-full hover:shadow-elevated transition-all duration-300 border-border/50">
       <CardHeader className="pb-3 sm:pb-4">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <CardTitle className="text-lg sm:text-xl font-bold line-clamp-2 leading-tight">{signal.project_category}</CardTitle>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Briefcase className="w-5 h-5 sm:w-6 sm:h-6 shrink-0 text-primary" />
+            <CardTitle className="text-lg sm:text-xl font-bold line-clamp-2 leading-tight">{signal.project_category}</CardTitle>
+          </div>
           <Badge variant="secondary" className="shrink-0 text-xs">
             {signal.course_count}
           </Badge>
         </div>
-        {signal.industry_sector && (
-          <Badge variant="outline" className="w-fit text-xs">
-            <Briefcase className="w-3 h-3 mr-1" />
-            {signal.industry_sector}
-          </Badge>
-        )}
       </CardHeader>
 
       <CardContent className="flex-1 space-y-3 sm:space-y-4 pt-0">
