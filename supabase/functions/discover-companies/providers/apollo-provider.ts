@@ -266,8 +266,41 @@ Return JSON:
     filters: ApolloSearchFilters, 
     maxResults: number
   ): Promise<ApolloOrganization[]> {
+    const originalLocation = filters.organization_locations[0];
     console.log(`  🔍 Searching Apollo for ${maxResults} organizations...`);
     
+    // Try with original location first
+    let organizations = await this.trySearch(filters, maxResults);
+    
+    // If no results and location has multiple parts, try broader searches
+    if (organizations.length === 0 && originalLocation.includes(',')) {
+      const locationParts = originalLocation.split(',').map(p => p.trim());
+      
+      // Try state + country (e.g., "Tamil Nadu, India")
+      if (locationParts.length >= 3) {
+        const broaderLocation = locationParts.slice(-2).join(', ');
+        console.log(`  🔄 No results for "${originalLocation}", trying broader: "${broaderLocation}"`);
+        filters.organization_locations = [broaderLocation];
+        organizations = await this.trySearch(filters, maxResults);
+      }
+      
+      // Try just country (e.g., "India")
+      if (organizations.length === 0 && locationParts.length >= 2) {
+        const countryOnly = locationParts[locationParts.length - 1];
+        console.log(`  🔄 Still no results, trying country-wide: "${countryOnly}"`);
+        filters.organization_locations = [countryOnly];
+        organizations = await this.trySearch(filters, maxResults);
+      }
+    }
+    
+    console.log(`  ✓ Found ${organizations.length} organizations`);
+    return organizations;
+  }
+  
+  private async trySearch(
+    filters: ApolloSearchFilters,
+    maxResults: number
+  ): Promise<ApolloOrganization[]> {
     const response = await fetch(
       'https://api.apollo.io/v1/mixed_companies/search',
       {
@@ -290,8 +323,6 @@ Return JSON:
     }
 
     const data = await response.json();
-    console.log(`  ✓ Found ${data.organizations?.length || 0} organizations`);
-    
     return data.organizations || [];
   }
   
