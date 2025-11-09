@@ -14,14 +14,91 @@ serve(async (req) => {
   try {
     console.log('🚀 Admin Regenerate Projects - Starting');
 
+    // Step 1: Get authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error('❌ No authorization header provided');
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Unauthorized: No authorization header' 
+        }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Step 2: Create client with user's token (NOT service role)
     const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { headers: { Authorization: authHeader } }
+      }
+    );
+
+    // Step 3: Verify user identity
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      console.error('❌ Invalid token:', userError);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Unauthorized: Invalid token' 
+        }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Step 4: Verify admin role using has_role RPC
+    const { data: isAdmin, error: roleError } = await supabaseClient
+      .rpc('has_role', { _user_id: user.id, _role: 'admin' });
+
+    if (roleError) {
+      console.error('❌ Failed to verify admin status:', roleError);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Failed to verify admin status' 
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    if (!isAdmin) {
+      console.warn(`⚠️ Unauthorized access attempt by user ${user.id}`);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Unauthorized: Admin privileges required' 
+        }),
+        { 
+          status: 403, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    console.log(`✅ Admin authorization verified for user ${user.id}`);
+
+    // Step 5: NOW use service role client for actual operations
+    const supabaseService = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
     // Step A: SELECT all AI shell projects
     console.log('📊 Step A: Fetching all AI shell projects...');
-    const { data: projects, error: fetchError } = await supabaseClient
+    const { data: projects, error: fetchError } = await supabaseService
       .from('projects')
       .select('id, course_id, generation_run_id')
       .eq('status', 'ai_shell');
@@ -50,7 +127,7 @@ serve(async (req) => {
 
     // Step B: UPDATE all projects to pending_generation status
     console.log('🔄 Step B: Updating project statuses to pending_generation...');
-    const { error: updateError } = await supabaseClient
+    const { error: updateError } = await supabaseService
       .from('projects')
       .update({ status: 'pending_generation' })
       .eq('status', 'ai_shell');
