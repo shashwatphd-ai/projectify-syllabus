@@ -723,17 +723,20 @@ serve(async (req) => {
         
         projectIds.push(insertedProject.id);
         
-        // Insert forms
+        // Insert forms (single row with all forms)
         console.log('  → Inserting forms...');
-        const formsToInsert = Object.entries(forms).map(([formType, formData]) => ({
-          project_id: insertedProject.id,
-          form_type: formType,
-          form_data: formData
-        }));
-        
         const { error: formsError } = await serviceRoleClient
           .from('project_forms')
-          .insert(formsToInsert);
+          .insert({
+            project_id: insertedProject.id,
+            form1: forms.form1 || {},
+            form2: forms.form2 || {},
+            form3: forms.form3 || {},
+            form4: forms.form4 || {},
+            form5: forms.form5 || {},
+            form6: forms.form6 || {},
+            milestones: milestones
+          });
         
         if (formsError) {
           console.error(`  ⚠️ Failed to insert forms:`, formsError);
@@ -746,15 +749,17 @@ serve(async (req) => {
           .insert({
             project_id: insertedProject.id,
             market_alignment_score: marketAlignment,
-            roi_estimate: roiCalculation.roi,
-            data_quality_score: filteredCompany.data_completeness_score || 0.5,
-            student_value_score: roiCalculation.studentValueScore,
-            employer_value_score: roiCalculation.employerValueScore,
-            university_value_score: roiCalculation.universityValueScore,
+            estimated_roi: {
+              roi: roiCalculation.roi,
+              studentValueScore: roiCalculation.studentValueScore,
+              employerValueScore: roiCalculation.employerValueScore,
+              universityValueScore: roiCalculation.universityValueScore
+            },
             stakeholder_insights: roiCalculation.stakeholderInsights,
-            lo_detail: loAlignmentDetail,
-            milestones: milestones,
-            pricing_breakdown: roiCalculation.pricingBreakdown
+            lo_alignment_detail: loAlignmentDetail,
+            pricing_breakdown: roiCalculation.pricingBreakdown,
+            algorithm_version: 'v2.0',
+            ai_model_version: 'gemini-2.0-flash-exp'
           });
         
         if (metadataError) {
