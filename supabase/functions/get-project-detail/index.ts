@@ -49,8 +49,8 @@ serve(async (req) => {
       .from('projects')
       .select(`
         *,
-        project_forms!inner (*),
-        course_profiles!inner (*),
+        project_forms (*),
+        course_profiles (*),
         project_metadata (*),
         company_profiles (*)
       `)
@@ -69,12 +69,65 @@ serve(async (req) => {
       );
     }
 
+    // ============================================================================
+    // PHASE 1 FIX: Handle pending_generation projects gracefully
+    // ============================================================================
+    // If project exists but forms/course don't, check if it's pending generation
     if (!rawData) {
       console.log('[get-project-detail] Project not found:', projectId);
-      console.log('[get-project-detail] DEBUG: This likely means INNER JOIN failed - project_forms or course_profiles missing');
       return new Response(
         JSON.stringify({ error: 'Project not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // If project_forms or course_profiles are missing, check generation status
+    if (!rawData.project_forms || !rawData.course_profiles) {
+      console.log('[get-project-detail] Incomplete project data - checking generation status');
+      
+      // Query generation queue for status
+      const { data: queueData } = await supabase
+        .from('project_generation_queue')
+        .select('status, created_at, attempts, error_message')
+        .eq('project_id', projectId)
+        .single();
+
+      console.log('[get-project-detail] Queue status:', queueData?.status);
+
+      // If project is in pending_generation, return special payload (not 404)
+      if (queueData && (queueData.status === 'pending' || queueData.status === 'processing')) {
+        return new Response(
+          JSON.stringify({
+            project: {
+              id: rawData.id,
+              title: rawData.title || 'Generating...',
+              status: rawData.status || 'pending_generation',
+              company_name: rawData.company_name,
+              created_at: rawData.created_at
+            },
+            generation_status: queueData.status,
+            queue_position: queueData.created_at,
+            attempts: queueData.attempts,
+            forms: null,
+            metadata: null,
+            company: null,
+            course: null
+          }),
+          { 
+            status: 200, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      // Project exists but incomplete and NOT in queue - data issue
+      console.error('[get-project-detail] Project incomplete but not in generation queue');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Project data incomplete', 
+          details: 'Missing required data (forms/course) but not in generation queue'
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

@@ -99,6 +99,98 @@ const ProjectDetail = () => {
     );
   }
 
+  // ============================================================================
+  // PHASE 2: Handle pending generation gracefully with Realtime updates
+  // ============================================================================
+  useEffect(() => {
+    if (data?.generation_status === 'pending' || data?.generation_status === 'processing') {
+      console.log('[ProjectDetail] Setting up Realtime subscription for pending project');
+      
+      const channel = supabase
+        .channel(`project-${id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'projects',
+            filter: `id=eq.${id}`
+          },
+          (payload) => {
+            console.log('[ProjectDetail] Realtime update received:', payload);
+            // If status changed from pending_generation, reload
+            if (payload.new.status !== 'pending_generation') {
+              console.log('[ProjectDetail] Generation completed - reloading data');
+              loadProjectData();
+            }
+          }
+        )
+        .subscribe();
+      
+      return () => {
+        console.log('[ProjectDetail] Cleaning up Realtime subscription');
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [data?.generation_status, id]);
+
+  // Show generating UI for pending projects
+  if (data?.generation_status === 'pending' || data?.generation_status === 'processing') {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-8 max-w-2xl">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div>
+                  <CardTitle>Project Generating...</CardTitle>
+                  <CardDescription>
+                    Our AI is creating this project based on course requirements. 
+                    This usually takes 2-3 minutes.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  <strong>Project ID:</strong> {data.project?.id}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  <strong>Company:</strong> {data.project?.company_name || 'Unknown'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  <strong>Status:</strong> {data.generation_status}
+                </p>
+                {data.queue_position && (
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Queued at:</strong> {new Date(data.queue_position).toLocaleString()}
+                  </p>
+                )}
+                {data.attempts > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Attempts:</strong> {data.attempts}
+                  </p>
+                )}
+              </div>
+              <div className="pt-4 border-t">
+                <p className="text-sm text-muted-foreground">
+                  💡 You'll be automatically redirected when generation completes. 
+                  Feel free to close this tab and come back later.
+                </p>
+              </div>
+              <Button onClick={loadProjectData} variant="outline" className="w-full">
+                Check Status Now
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   if (!data || !data.project || !data.forms) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
