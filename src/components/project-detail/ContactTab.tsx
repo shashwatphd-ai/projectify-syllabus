@@ -76,7 +76,7 @@ export const ContactTab = ({ forms, companyProfile, contactInfo, projectId, proj
       case 'fully_enriched':
         return { variant: 'default' as const, label: 'Fully Verified', color: 'text-green-600' };
       case 'apollo_verified':
-        return { variant: 'secondary' as const, label: 'Apollo Verified', color: 'text-blue-600' };
+        return { variant: 'secondary' as const, label: 'Professionally Verified', color: 'text-blue-600' };
       default:
         return { variant: 'outline' as const, label: 'Basic Info', color: 'text-gray-600' };
     }
@@ -257,7 +257,7 @@ export const ContactTab = ({ forms, companyProfile, contactInfo, projectId, proj
                 </h3>
                 {displayData.data_enrichment_level === 'fully_enriched' && (
                   <Badge variant="default" className="bg-green-600">
-                    ✓ Apollo Verified
+                    ✓ Verified Contact
                   </Badge>
                 )}
               </div>
@@ -302,9 +302,9 @@ export const ContactTab = ({ forms, companyProfile, contactInfo, projectId, proj
                       </p>
                       {displayData.contact_email.includes('email_not_unlocked') ? (
                         <div className="space-y-1">
-                          <p className="text-sm font-medium text-amber-600">🔒 Email Requires Apollo Credits</p>
+                          <p className="text-sm font-medium text-amber-600">🔒 Contact Requires Verification</p>
                           <p className="text-xs text-muted-foreground">
-                            Use the Propose Partnership button above to reach out, or unlock this email through Apollo.
+                            Use the Propose Partnership button above to reach out, or request verified contact info.
                           </p>
                         </div>
                       ) : (

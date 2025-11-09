@@ -150,14 +150,14 @@ const Configure = () => {
     setLoading(true);
 
     try {
-      // Step 1: Discover & enrich companies with Apollo
+      // Step 1: Discover & enrich companies with market intelligence
       let generationRunId = null;
       
-      // Use search_location if available (Apollo-friendly), fallback to city_zip
+      // Use search_location if available (verified format), fallback to city_zip
       const locationForDiscovery = courseData?.search_location || courseData?.city_zip;
       
       if (locationForDiscovery) {
-        toast.info("Discovering companies with Apollo...", { duration: 3000 });
+        toast.info("Discovering partner companies...", { duration: 3000 });
         
         const { data: discoveryData, error: discoveryError } = await supabase.functions.invoke('discover-companies', {
           body: { 
@@ -168,19 +168,19 @@ const Configure = () => {
         });
 
         if (discoveryError) {
-          console.error('Apollo discovery failed:', discoveryError);
-          toast.error("Apollo discovery failed. Please check your API keys.", { duration: 5000 });
+          console.error('Company discovery failed:', discoveryError);
+          toast.error("Company discovery failed. Please check configuration.", { duration: 5000 });
           setLoading(false);
           return;
         } else {
           generationRunId = discoveryData?.generation_run_id;
-          console.log('✓ Apollo discovery complete. Generation run ID:', generationRunId);
-          toast.success(`Found ${discoveryData?.count || 0} companies with Apollo!`, { duration: 2000 });
+          console.log('✓ Company discovery complete. Generation run ID:', generationRunId);
+          toast.success(`Found ${discoveryData?.count || 0} partner companies!`, { duration: 2000 });
         }
       }
 
-      // Step 2: Generate projects using Apollo-enriched data
-      toast.info("Generating projects from Apollo data...", { duration: 3000 });
+      // Step 2: Generate projects using enriched company data
+      toast.info("Generating projects with enriched data...", { duration: 3000 });
       const industriesArray = industries.split(',').map(i => i.trim()).filter(Boolean);
       const companiesArray = companies.split(',').map(c => c.trim()).filter(Boolean);
 
@@ -190,7 +190,7 @@ const Configure = () => {
           industries: industriesArray,
           companies: companiesArray,
           numTeams: parseInt(numTeams),
-          generation_run_id: generationRunId // CRITICAL: Pass Apollo generation run ID
+          generation_run_id: generationRunId // CRITICAL: Pass enriched data generation run ID
         }
       });
 

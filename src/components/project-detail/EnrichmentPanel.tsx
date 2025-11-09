@@ -30,14 +30,14 @@ export const EnrichmentPanel = ({ companyProfile, onEnrichmentComplete }: Enrich
           icon: <CheckCircle2 className="h-4 w-4 text-green-600" />,
           label: 'Fully Verified',
           color: 'bg-green-50 border-green-200 text-green-700',
-          description: 'All available data has been verified with Apollo.io'
+          description: 'All available data has been professionally verified'
         };
       case 'apollo_verified':
         return {
           icon: <Sparkles className="h-4 w-4 text-blue-600" />,
-          label: 'Apollo Verified',
+          label: 'Enhanced Data',
           color: 'bg-blue-50 border-blue-200 text-blue-700',
-          description: 'Partially enriched with Apollo.io data'
+          description: 'Partially enriched with verified data'
         };
       default:
         return {
@@ -55,7 +55,7 @@ export const EnrichmentPanel = ({ companyProfile, onEnrichmentComplete }: Enrich
   const handleEnrich = async () => {
     setEnriching(true);
     try {
-      toast.info('Starting Apollo.io enrichment...', { duration: 3000 });
+      toast.info('Enhancing company data...', { duration: 3000 });
 
       const { data, error } = await supabase.functions.invoke('enrich-apollo', {
         body: { companyProfileId: companyProfile.id }
@@ -131,17 +131,17 @@ export const EnrichmentPanel = ({ companyProfile, onEnrichmentComplete }: Enrich
               {enriching ? (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  Enriching with Apollo.io...
+                  Enhancing company data...
                 </>
               ) : (
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
-                  Maximize Data with Apollo.io
+                  Enhance Company Data
                 </>
               )}
             </Button>
             <p className="text-xs text-muted-foreground mt-2 text-center">
-              Enhance with verified contact info, org details & insights
+              Enhance with verified contact info, company details & insights
             </p>
           </div>
         )}
