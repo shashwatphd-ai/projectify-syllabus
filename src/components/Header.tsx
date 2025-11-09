@@ -94,7 +94,7 @@ export const Header = () => {
           
           <div className="flex items-center gap-4">
             <Button onClick={() => navigate("/demand-board")} variant="ghost" size="sm">
-              Marketplace
+              TalentRadar
             </Button>
             {user && (
               <>
@@ -105,7 +105,7 @@ export const Header = () => {
                   Projects
                 </Button>
                 <Button onClick={() => navigate("/my-opportunities")} variant="ghost" size="sm" className="relative">
-                  My Opportunities
+                  Joblines
                   {newMatchCount && newMatchCount > 0 && (
                     <Badge variant="destructive" className="ml-2 h-5 min-w-5 px-1.5">
                       {newMatchCount}

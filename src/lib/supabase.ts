@@ -1,12 +1,13 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export const authService = {
-  async signUp(email: string, password: string) {
+  async signUp(email: string, password: string, additionalOptions?: { data?: Record<string, any> }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/upload`,
+        ...additionalOptions,
       },
     });
     return { data, error };

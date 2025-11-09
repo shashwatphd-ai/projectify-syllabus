@@ -14,13 +14,20 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(true);
+  const [selectedRole, setSelectedRole] = useState("student");
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email.endsWith(".edu")) {
-      toast.error("Only .edu email addresses are allowed");
+    // Role-specific email validation
+    if ((selectedRole === "student" || selectedRole === "faculty") && !email.endsWith(".edu")) {
+      toast.error("Students and Faculty must use a .edu email address");
+      return;
+    }
+    
+    if (selectedRole === "employer" && email.endsWith(".edu")) {
+      toast.error("Employers should use a company email address, not .edu");
       return;
     }
 
@@ -33,9 +40,20 @@ const Auth = () => {
 
     try {
       if (isSignUp) {
-        const { error } = await authService.signUp(email, password);
+        const { error } = await authService.signUp(email, password, {
+          data: {
+            chosen_role: selectedRole
+          }
+        });
         if (error) throw error;
-        toast.success("Account created as student! Redirecting...");
+        
+        if (selectedRole === "student") {
+          toast.success("Account created as student! Redirecting...");
+        } else if (selectedRole === "faculty") {
+          toast.success("Account created! Your faculty access is pending approval. You can use the site as a student for now.");
+        } else if (selectedRole === "employer") {
+          toast.success("Account created! Please complete your company profile to request access.");
+        }
         navigate("/upload");
       } else {
         const { error } = await authService.signIn(email, password);
@@ -67,18 +85,61 @@ const Auth = () => {
           </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {isSignUp && (
+              <div className="space-y-3">
+                <Label>I am a:</Label>
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="role"
+                      value="student"
+                      checked={selectedRole === "student"}
+                      onChange={() => setSelectedRole("student")}
+                      className="w-4 h-4 text-primary"
+                    />
+                    <span className="text-sm">Student</span>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="role"
+                      value="faculty"
+                      checked={selectedRole === "faculty"}
+                      onChange={() => setSelectedRole("faculty")}
+                      className="w-4 h-4 text-primary"
+                    />
+                    <span className="text-sm">Faculty</span>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="role"
+                      value="employer"
+                      checked={selectedRole === "employer"}
+                      onChange={() => setSelectedRole("employer")}
+                      className="w-4 h-4 text-primary"
+                    />
+                    <span className="text-sm">Employer</span>
+                  </label>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="you@university.edu"
+                placeholder={selectedRole === "employer" ? "you@company.com" : "you@university.edu"}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
               <p className="text-sm text-muted-foreground">
-                Must be a valid .edu email address
+                {selectedRole === "employer" 
+                  ? "Must be a company email address" 
+                  : "Must be a valid .edu email address"}
               </p>
             </div>
 
@@ -95,9 +156,15 @@ const Auth = () => {
               />
             </div>
 
-            {isSignUp && (
+            {isSignUp && selectedRole === "faculty" && (
               <p className="text-sm text-muted-foreground">
-                All new accounts are registered as students by default for security.
+                Faculty accounts require admin approval. You'll have student access until approved.
+              </p>
+            )}
+            
+            {isSignUp && selectedRole === "employer" && (
+              <p className="text-sm text-muted-foreground">
+                Employer accounts require verification. Complete your company profile after signup.
               </p>
             )}
 
