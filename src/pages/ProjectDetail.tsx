@@ -33,32 +33,73 @@ const ProjectDetail = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Track analytics with enrichment data
-  useProjectAnalytics(
-    id || '', 
-    data?.project?.title || '', 
-    data?.company || null
-  );
+  // ============================================================================
+  // PHASE 1: ALL HOOKS (Always called unconditionally in same order)
+  // ============================================================================
 
+  // Hook #1: Authentication
   useEffect(() => {
     requireAuth();
   }, [authLoading]);
 
+  // Hook #2: Data Loading
   useEffect(() => {
     if (user && id) {
       loadProjectData();
     }
   }, [user, id]);
 
-  /**
-   * SINGLE DATA FETCH: Replaces 5 sequential queries
-   * Uses the verified get-project-detail endpoint for guaranteed clean data
-   */
+  // Hook #3: Realtime Subscription (ALWAYS called, conditionally setup INSIDE)
+  useEffect(() => {
+    // Conditional logic INSIDE the hook, not in hook placement
+    if (!data?.generation_status || 
+        (data.generation_status !== 'pending' && data.generation_status !== 'processing')) {
+      return; // No subscription needed
+    }
+    
+    console.log('[ProjectDetail] Setting up Realtime subscription for pending project');
+    
+    const channel = supabase
+      .channel(`project-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'projects',
+          filter: `id=eq.${id}`
+        },
+        (payload) => {
+          console.log('[ProjectDetail] Realtime update received:', payload);
+          // If status changed from pending_generation, reload
+          if (payload.new.status !== 'pending_generation') {
+            console.log('[ProjectDetail] Generation completed - reloading data');
+            loadProjectData();
+          }
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      console.log('[ProjectDetail] Cleaning up Realtime subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [data?.generation_status, id]);
+
+  // Hook #4: Analytics (Always called)
+  useProjectAnalytics(
+    id || '', 
+    data?.project?.title || '', 
+    data?.company || null
+  );
+
+  // ============================================================================
+  // DATA LOADING: Single fetch function
+  // ============================================================================
   const loadProjectData = async () => {
     try {
       setLoading(true);
       
-      // Single call to unified endpoint
       const { data: response, error } = await supabase.functions.invoke('get-project-detail', {
         body: { projectId: id }
       });
@@ -73,141 +114,115 @@ const ProjectDetail = () => {
       }
 
       console.log('[ProjectDetail] Received clean data:', {
-        dataQuality: response.data_quality,
-        pricingStatus: response.metadata?.pricing_breakdown?.status,
-        valueAnalysisStatus: response.metadata?.value_analysis?.status,
-        technologiesNormalized: response.data_quality?.technologies_normalized
+        generationStatus: response.generation_status || 'complete',
+        hasDataQuality: !!response.data_quality,
+        hasForms: !!response.forms,
+        hasMetadata: !!response.metadata,
+        ...(response.data_quality && {
+          dataQuality: response.data_quality,
+          pricingStatus: response.metadata?.pricing_breakdown?.status,
+          valueAnalysisStatus: response.metadata?.value_analysis?.status
+        })
       });
 
-      // Set unified data state
       setData(response);
       
     } catch (error: any) {
       console.error('[ProjectDetail] Load error:', error);
-      // Keep data as null to trigger "Not Found" UI
       setData(null);
     } finally {
       setLoading(false);
     }
   };
 
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   // ============================================================================
-  // PHASE 2: Handle pending generation gracefully with Realtime updates
+  // PHASE 2: PURE RENDERING LOGIC (No hooks here)
   // ============================================================================
-  useEffect(() => {
-    if (data?.generation_status === 'pending' || data?.generation_status === 'processing') {
-      console.log('[ProjectDetail] Setting up Realtime subscription for pending project');
-      
-      const channel = supabase
-        .channel(`project-${id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'projects',
-            filter: `id=eq.${id}`
-          },
-          (payload) => {
-            console.log('[ProjectDetail] Realtime update received:', payload);
-            // If status changed from pending_generation, reload
-            if (payload.new.status !== 'pending_generation') {
-              console.log('[ProjectDetail] Generation completed - reloading data');
-              loadProjectData();
-            }
-          }
-        )
-        .subscribe();
-      
-      return () => {
-        console.log('[ProjectDetail] Cleaning up Realtime subscription');
-        supabase.removeChannel(channel);
-      };
+  const renderContent = () => {
+    // Loading state
+    if (authLoading || loading) {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      );
     }
-  }, [data?.generation_status, id]);
 
-  // Show generating UI for pending projects
-  if (data?.generation_status === 'pending' || data?.generation_status === 'processing') {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <div className="container mx-auto px-4 py-8 max-w-2xl">
+    // Pending generation state
+    if (data?.generation_status === 'pending' || data?.generation_status === 'processing') {
+      return (
+        <div className="min-h-screen bg-background">
+          <Header />
+          <div className="container mx-auto px-4 py-8 max-w-2xl">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <div>
+                    <CardTitle>Project Generating...</CardTitle>
+                    <CardDescription>
+                      Our AI is creating this project based on course requirements. 
+                      This usually takes 2-3 minutes.
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Project ID:</strong> {data.project?.id}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Company:</strong> {data.project?.company_name || 'Unknown'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Status:</strong> {data.generation_status}
+                  </p>
+                  {data.queue_position && (
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Queued at:</strong> {new Date(data.queue_position).toLocaleString()}
+                    </p>
+                  )}
+                  {data.attempts > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Attempts:</strong> {data.attempts}
+                    </p>
+                  )}
+                </div>
+                <div className="pt-4 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    💡 You'll be automatically redirected when generation completes. 
+                    Feel free to close this tab and come back later.
+                  </p>
+                </div>
+                <Button onClick={loadProjectData} variant="outline" className="w-full">
+                  Check Status Now
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      );
+    }
+
+    // Not found state
+    if (!data || !data.project || !data.forms) {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center">
           <Card>
             <CardHeader>
-              <div className="flex items-center gap-3">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <div>
-                  <CardTitle>Project Generating...</CardTitle>
-                  <CardDescription>
-                    Our AI is creating this project based on course requirements. 
-                    This usually takes 2-3 minutes.
-                  </CardDescription>
-                </div>
-              </div>
+              <CardTitle>Project Not Found</CardTitle>
+              <CardDescription>The project you're looking for doesn't exist or you don't have access to it.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  <strong>Project ID:</strong> {data.project?.id}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  <strong>Company:</strong> {data.project?.company_name || 'Unknown'}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  <strong>Status:</strong> {data.generation_status}
-                </p>
-                {data.queue_position && (
-                  <p className="text-sm text-muted-foreground">
-                    <strong>Queued at:</strong> {new Date(data.queue_position).toLocaleString()}
-                  </p>
-                )}
-                {data.attempts > 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    <strong>Attempts:</strong> {data.attempts}
-                  </p>
-                )}
-              </div>
-              <div className="pt-4 border-t">
-                <p className="text-sm text-muted-foreground">
-                  💡 You'll be automatically redirected when generation completes. 
-                  Feel free to close this tab and come back later.
-                </p>
-              </div>
-              <Button onClick={loadProjectData} variant="outline" className="w-full">
-                Check Status Now
-              </Button>
-            </CardContent>
           </Card>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  if (!data || !data.project || !data.forms) {
+    // Full project view
+    const { project, forms, course, metadata, company, contact_info } = data;
+
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card>
-          <CardHeader>
-            <CardTitle>Project Not Found</CardTitle>
-            <CardDescription>The project you're looking for doesn't exist or you don't have access to it.</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
-
-  // Extract data for easier access (backward compatibility with existing components)
-  const { project, forms, course, metadata, company, contact_info } = data;
-
-  return (
     <div className="min-h-screen bg-background">
       <Header />
       <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -605,7 +620,13 @@ const ProjectDetail = () => {
         </Tabs>
       </div>
     </div>
-  );
+    );
+  };
+
+  // ============================================================================
+  // SINGLE RETURN: Always called, delegates to renderContent()
+  // ============================================================================
+  return renderContent();
 };
 
 export default ProjectDetail;
