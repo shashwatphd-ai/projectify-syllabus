@@ -269,6 +269,11 @@ export type Database = {
           hrs_per_week: number
           id: string
           level: string
+          location_city: string | null
+          location_country: string | null
+          location_formatted: string | null
+          location_state: string | null
+          location_zip: string | null
           outcomes: Json
           owner_id: string
           schedule: Json | null
@@ -283,6 +288,11 @@ export type Database = {
           hrs_per_week: number
           id?: string
           level: string
+          location_city?: string | null
+          location_country?: string | null
+          location_formatted?: string | null
+          location_state?: string | null
+          location_zip?: string | null
           outcomes: Json
           owner_id: string
           schedule?: Json | null
@@ -297,6 +307,11 @@ export type Database = {
           hrs_per_week?: number
           id?: string
           level?: string
+          location_city?: string | null
+          location_country?: string | null
+          location_formatted?: string | null
+          location_state?: string | null
+          location_zip?: string | null
           outcomes?: Json
           owner_id?: string
           schedule?: Json | null
@@ -985,6 +1000,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      university_domains: {
+        Row: {
+          city: string | null
+          country: string
+          created_at: string | null
+          domain: string
+          formatted_location: string
+          name: string
+          state: string | null
+          zip: string | null
+        }
+        Insert: {
+          city?: string | null
+          country: string
+          created_at?: string | null
+          domain: string
+          formatted_location: string
+          name: string
+          state?: string | null
+          zip?: string | null
+        }
+        Update: {
+          city?: string | null
+          country?: string
+          created_at?: string | null
+          domain?: string
+          formatted_location?: string
+          name?: string
+          state?: string | null
+          zip?: string | null
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

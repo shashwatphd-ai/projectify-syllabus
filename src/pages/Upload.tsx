@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Upload as UploadIcon, FileText, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,6 +17,10 @@ const Upload = () => {
   const [cityZip, setCityZip] = useState("");
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [manualEntry, setManualEntry] = useState(false);
+  const [manualCity, setManualCity] = useState("");
+  const [manualState, setManualState] = useState("");
+  const [manualZip, setManualZip] = useState("");
   const detectionAttemptedRef = useRef(false);
   const navigate = useNavigate();
 
@@ -98,6 +103,16 @@ const Upload = () => {
       return;
     }
 
+    // Phase 4: Use manual entry if provided, otherwise use auto-detected
+    const finalLocation = manualEntry && manualCity && manualZip
+      ? `${manualCity}${manualState ? ', ' + manualState : ''} ${manualZip}`
+      : cityZip;
+
+    if (!finalLocation) {
+      toast.error("Please enter or detect your location");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -113,7 +128,7 @@ const Upload = () => {
 
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('cityZip', cityZip);
+      formData.append('cityZip', finalLocation);
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-syllabus`,
@@ -191,36 +206,86 @@ const Upload = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="cityZip">City & ZIP Code</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="cityZip"
-                    placeholder="Kansas City, MO 64110"
-                    value={cityZip}
-                    onChange={(e) => setCityZip(e.target.value)}
+              {/* Phase 4: Manual Location Override */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="manual-location" 
+                    checked={manualEntry}
+                    onCheckedChange={(checked) => setManualEntry(checked as boolean)}
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      if (user?.email) {
-                        detectionAttemptedRef.current = true;
-                        detectLocationFromEmail(user.email);
-                      }
-                    }}
-                    disabled={locationLoading || !user?.email}
+                  <Label 
+                    htmlFor="manual-location" 
+                    className="text-sm font-normal cursor-pointer"
                   >
-                    {locationLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Re-detect"
-                    )}
-                  </Button>
+                    My location was not detected correctly
+                  </Label>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {locationLoading ? 'Detecting location from your email...' : 'Location auto-detected from your university email domain'}
-                </p>
+
+                {!manualEntry ? (
+                  // Auto-detected location
+                  <div className="space-y-2">
+                    <Label htmlFor="cityZip">Location (Auto-detected)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="cityZip"
+                        placeholder="Will be detected from your email..."
+                        value={cityZip}
+                        onChange={(e) => setCityZip(e.target.value)}
+                        disabled={locationLoading}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          if (user?.email) {
+                            detectionAttemptedRef.current = true;
+                            detectLocationFromEmail(user.email);
+                          }
+                        }}
+                        disabled={locationLoading || !user?.email}
+                      >
+                        {locationLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Re-detect"
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {locationLoading ? 'Detecting location from your university email...' : 'Supports universities worldwide'}
+                    </p>
+                  </div>
+                ) : (
+                  // Manual entry
+                  <div className="space-y-3">
+                    <Label>Enter Your Location Manually</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2">
+                        <Input
+                          placeholder="City (required)"
+                          value={manualCity}
+                          onChange={(e) => setManualCity(e.target.value)}
+                          required={manualEntry}
+                        />
+                      </div>
+                      <Input
+                        placeholder="State/Province"
+                        value={manualState}
+                        onChange={(e) => setManualState(e.target.value)}
+                      />
+                      <Input
+                        placeholder="ZIP/Postal Code (required)"
+                        value={manualZip}
+                        onChange={(e) => setManualZip(e.target.value)}
+                        required={manualEntry}
+                      />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Enter your institution's location in any format
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

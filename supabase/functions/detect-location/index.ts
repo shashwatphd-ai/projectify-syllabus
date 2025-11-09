@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,7 +22,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('🌍 Starting location detection for:', email);
+    console.log('🌍 Starting global location detection for:', email);
 
     // Extract domain from email (e.g., user@university.edu -> university.edu)
     const domain = email.split('@')[1];
@@ -34,16 +35,102 @@ serve(async (req) => {
       );
     }
 
-    console.log('🔎 Extracting location from domain:', domain);
+    console.log('🔎 Step 1: Checking university_domains database for domain:', domain);
 
-    // Use Nominatim to search for the university/organization
-    const searchQuery = domain.split('.')[0]; // e.g., "university" from "university.edu"
+    // Initialize Supabase client
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // PHASE 2 - STEP 1: Check local university_domains database first (fastest)
+    const { data: universityData, error: dbError } = await supabaseClient
+      .from('university_domains')
+      .select('formatted_location, city, state, zip, country, name')
+      .eq('domain', domain)
+      .maybeSingle();
+
+    if (universityData) {
+      console.log('✅ Found in database:', universityData.name);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          location: universityData.formatted_location,
+          city: universityData.city || '',
+          state: universityData.state || '',
+          zip: universityData.zip || '',
+          country: universityData.country,
+          source: 'database'
+        }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    console.log('⚠️ Not in database, trying University Domains API...');
+
+    // PHASE 2 - STEP 2: Try free University Domains API (backup)
+    try {
+      const uniApiResponse = await fetch(
+        'https://raw.githubusercontent.com/Hipo/university-domains-list/master/world_universities_and_domains.json',
+        { headers: { 'User-Agent': 'EduThree-LocationDetection/2.0' } }
+      );
+
+      if (uniApiResponse.ok) {
+        const universities = await uniApiResponse.json();
+        const match = universities.find((uni: any) => 
+          uni.domains && uni.domains.includes(domain)
+        );
+
+        if (match) {
+          console.log('✅ Found in University Domains API:', match.name);
+          
+          // Cache this result for future lookups
+          const formatted = `${match.name}, ${match.country}`;
+          await supabaseClient
+            .from('university_domains')
+            .insert({
+              domain,
+              name: match.name,
+              country: match['alpha_two_code'] || match.country,
+              formatted_location: formatted
+            })
+            .select()
+            .single();
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              location: formatted,
+              city: '',
+              state: '',
+              zip: '',
+              country: match['alpha_two_code'] || match.country,
+              source: 'api_cached'
+            }),
+            { 
+              status: 200, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+      }
+    } catch (apiError) {
+      console.warn('⚠️ University Domains API failed:', apiError);
+    }
+
+    console.log('⚠️ Not in API, falling back to Nominatim geocoding...');
+
+    // PHASE 2 - STEP 3: Fall back to Nominatim geocoding (slowest, least accurate)
+    const searchQuery = domain.split('.')[0];
     
     const searchResponse = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery + ' university')}&format=json&limit=1`,
       {
         headers: {
-          'User-Agent': 'EduThree-LocationDetection/1.0'
+          'User-Agent': 'EduThree-LocationDetection/2.0'
         }
       }
     );
@@ -58,24 +145,26 @@ serve(async (req) => {
       console.log('❌ No location results found for domain');
       return new Response(
         JSON.stringify({ 
-          error: 'Could not find location for your institution',
+          error: 'Could not find location for your institution. Please enter manually.',
           city: '',
           state: '',
-          zip: ''
+          zip: '',
+          country: '',
+          source: 'failed'
         }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const location = searchData[0];
-    console.log('✅ Found initial location:', location.display_name);
+    console.log('✅ Found location via Nominatim:', location.display_name);
     
     // Get detailed address with reverse geocoding
     const reverseResponse = await fetch(
       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${location.lat}&lon=${location.lon}`,
       {
         headers: {
-          'User-Agent': 'EduThree-LocationDetection/1.0'
+          'User-Agent': 'EduThree-LocationDetection/2.0'
         }
       }
     );
@@ -93,7 +182,9 @@ serve(async (req) => {
           error: 'Could not determine complete address',
           city: '',
           state: '',
-          zip: ''
+          zip: '',
+          country: '',
+          source: 'failed'
         }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -102,22 +193,28 @@ serve(async (req) => {
     const city = reverseData.address.city || reverseData.address.town || reverseData.address.village || '';
     const state = reverseData.address.state || '';
     const postcode = reverseData.address.postcode || '';
+    const country = reverseData.address.country_code?.toUpperCase() || 'US';
     
-    if (!city || !postcode) {
-      console.log('⚠️ Missing city or postcode in address');
+    if (!city) {
+      console.log('⚠️ Missing city in address');
       return new Response(
         JSON.stringify({ 
-          error: 'Could not determine complete address',
-          city: city || '',
-          state: state || '',
-          zip: postcode || ''
+          error: 'Could not determine complete address. Please enter manually.',
+          city: '',
+          state: '',
+          zip: '',
+          country: '',
+          source: 'failed'
         }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const detectedLocation = `${city}, ${state} ${postcode}`;
-    console.log('📍 Location detected:', detectedLocation);
+    const detectedLocation = state 
+      ? `${city}, ${state} ${postcode}` 
+      : `${city}, ${postcode}`;
+    
+    console.log('📍 Location detected via Nominatim:', detectedLocation);
 
     return new Response(
       JSON.stringify({
@@ -125,7 +222,9 @@ serve(async (req) => {
         location: detectedLocation,
         city,
         state,
-        zip: postcode
+        zip: postcode,
+        country,
+        source: 'nominatim'
       }),
       { 
         status: 200, 
