@@ -73,22 +73,23 @@ export const DemandBoardLayout = () => {
       <Header />
       
       {/* Page Header Section */}
-      <div className="border-b bg-card">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex flex-col gap-4">
+      <div className="border-b bg-card shadow-sm">
+        <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <div className="flex flex-col gap-3 sm:gap-4">
             <div>
-              <h1 className="text-3xl font-bold">Student Project Marketplace</h1>
-              <p className="text-muted-foreground mt-2">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold">Student Project Marketplace</h1>
+              <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">
                 Connect with talented students for real-world projects
               </p>
             </div>
 
             {/* Mobile Filter Toggle */}
-            <div className="md:hidden">
+            <div className="lg:hidden">
               <Button
                 variant="outline"
                 onClick={() => setShowFilters(!showFilters)}
-                className="w-full"
+                className="w-full sm:w-auto"
+                size="sm"
               >
                 <Filter className="w-4 h-4 mr-2" />
                 {showFilters ? "Hide Filters" : "Show Filters"}
@@ -98,23 +99,23 @@ export const DemandBoardLayout = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col md:flex-row gap-6">
+      <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+        <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
           {/* Filter Panel */}
           <aside
-            className={`w-full md:w-64 space-y-4 ${
-              showFilters ? "block" : "hidden md:block"
+            className={`w-full lg:w-72 ${
+              showFilters ? "block" : "hidden lg:block"
             }`}
           >
-            <Card className="p-4 space-y-4 sticky top-4">
+            <Card className="p-3 sm:p-4 space-y-3 sm:space-y-4 lg:sticky lg:top-4">
               <div className="flex items-center justify-between">
-                <h2 className="font-semibold">Filters</h2>
+                <h2 className="font-semibold text-base sm:text-lg">Filters</h2>
                 {hasActiveFilters && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={clearFilters}
-                    className="text-xs"
+                    className="text-xs h-7"
                   >
                     Clear
                   </Button>
@@ -123,14 +124,14 @@ export const DemandBoardLayout = () => {
 
               {/* Category Filter */}
               <div className="space-y-2">
-                <Label>Category</Label>
+                <Label className="text-sm">Category</Label>
                 <Select
                   value={filters.category || "all"}
                   onValueChange={(value) =>
                     handleFilterChange("category", value === "all" ? undefined : value)
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9">
                     <SelectValue placeholder="All Categories" />
                   </SelectTrigger>
                   <SelectContent>
@@ -146,14 +147,14 @@ export const DemandBoardLayout = () => {
 
               {/* Region Filter */}
               <div className="space-y-2">
-                <Label>Region</Label>
+                <Label className="text-sm">Region</Label>
                 <Select
                   value={filters.region || "all"}
                   onValueChange={(value) =>
                     handleFilterChange("region", value === "all" ? undefined : value)
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9">
                     <SelectValue placeholder="All Regions" />
                   </SelectTrigger>
                   <SelectContent>
@@ -169,11 +170,12 @@ export const DemandBoardLayout = () => {
 
               {/* Min Students Filter */}
               <div className="space-y-2">
-                <Label>Minimum Students</Label>
+                <Label className="text-sm">Minimum Students</Label>
                 <Input
                   type="number"
                   min="0"
                   placeholder="Any"
+                  className="h-9"
                   value={filters.minStudents || ""}
                   onChange={(e) =>
                     handleFilterChange(
@@ -187,18 +189,18 @@ export const DemandBoardLayout = () => {
           </aside>
 
           {/* Main Content */}
-          <main className="flex-1">
+          <main className="flex-1 min-w-0">
             {/* Loading State */}
             {isLoading && (
-              <div className="flex items-center justify-center py-12">
+              <div className="flex items-center justify-center py-12 lg:py-16">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
             )}
 
             {/* Error State */}
             {error && (
-              <Card className="p-8 text-center">
-                <p className="text-destructive">
+              <Card className="p-6 sm:p-8 text-center">
+                <p className="text-destructive text-sm sm:text-base">
                   Failed to load demand signals. Please try again later.
                 </p>
               </Card>
@@ -206,10 +208,10 @@ export const DemandBoardLayout = () => {
 
             {/* Empty State */}
             {!isLoading && !error && filteredSignals.length === 0 && (
-              <Card className="p-8 text-center">
-                <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="font-semibold text-lg mb-2">No Opportunities Found</h3>
-                <p className="text-muted-foreground">
+              <Card className="p-6 sm:p-8 text-center">
+                <Search className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 text-muted-foreground" />
+                <h3 className="font-semibold text-base sm:text-lg mb-2">No Opportunities Found</h3>
+                <p className="text-muted-foreground text-sm sm:text-base">
                   {hasActiveFilters
                     ? "Try adjusting your filters to see more opportunities."
                     : "Check back soon for new project opportunities."}
@@ -220,10 +222,10 @@ export const DemandBoardLayout = () => {
             {/* Signals Grid */}
             {!isLoading && !error && filteredSignals.length > 0 && (
               <>
-                <div className="mb-4 text-lg font-semibold">
-                  Showing {filteredSignals.length} opportunit{filteredSignals.length === 1 ? "y" : "ies"}
+                <div className="mb-3 sm:mb-4 text-base sm:text-lg font-semibold px-1">
+                  {filteredSignals.length} opportunit{filteredSignals.length === 1 ? "y" : "ies"}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-5">
                   {filteredSignals.map((signal) => (
                     <DemandSignalCard
                       key={signal.id}
