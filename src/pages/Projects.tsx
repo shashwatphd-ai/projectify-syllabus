@@ -85,7 +85,7 @@ const Projects = () => {
         // Students see only curated_live projects
         const { data, error } = await supabase
           .from('projects')
-          .select('*, course_profiles(owner_id, title)')
+          .select('*, course_profiles(owner_id, title), company_profiles(organization_logo_url)')
           .eq('status', 'curated_live')
           .order('created_at', { ascending: false });
 
@@ -96,7 +96,7 @@ const Projects = () => {
         // Faculty see all projects from courses they own (all statuses)
         let query = supabase
           .from('projects')
-          .select('*, course_profiles!inner(owner_id, title)')
+          .select('*, course_profiles!inner(owner_id, title), company_profiles(organization_logo_url)')
           .eq('course_profiles.owner_id', user!.id);
 
         if (courseId) {
@@ -112,7 +112,7 @@ const Projects = () => {
         // Admins see all projects (all statuses)
         let query = supabase
           .from('projects')
-          .select('*, course_profiles(owner_id, title)');
+          .select('*, course_profiles(owner_id, title), company_profiles(organization_logo_url)');
 
         if (courseId) {
           query = query.eq('course_id', courseId);
@@ -134,7 +134,7 @@ const Projects = () => {
         if (companyData) {
           const { data, error } = await supabase
             .from('projects')
-            .select('*, course_profiles(owner_id, title)')
+            .select('*, course_profiles(owner_id, title), company_profiles(organization_logo_url)')
             .eq('company_profile_id', companyData.id)
             .in('status', ['curated_live', 'in_progress', 'completed'])
             .order('created_at', { ascending: false });
@@ -291,7 +291,14 @@ const Projects = () => {
                       )}
                     </div>
                     <CardDescription className="flex items-center gap-2">
-                      <Briefcase className="h-4 w-4" />
+                      {project.company_profiles?.organization_logo_url && (
+                        <img 
+                          src={project.company_profiles.organization_logo_url} 
+                          alt={`${project.company_name} logo`}
+                          className="h-5 w-5 object-contain rounded"
+                        />
+                      )}
+                      {!project.company_profiles?.organization_logo_url && <Briefcase className="h-4 w-4" />}
                       {project.company_name}
                     </CardDescription>
                   </div>
