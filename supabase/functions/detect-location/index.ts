@@ -124,18 +124,75 @@ serve(async (req) => {
           const isoCode = match['alpha_two_code'] || match.country;
           const fullCountryName = countryCodeMap[isoCode] || match.country;
           
-          // Cache this result for future lookups
+          // ENHANCEMENT: Geocode the university name to get city/state
+          console.log('🔍 Step 2a: Geocoding university name for precise location...');
+          let city = '';
+          let state = '';
+          let zip = '';
+          
+          try {
+            const geoSearchResponse = await fetch(
+              `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(match.name)}&format=json&limit=1`,
+              {
+                headers: {
+                  'User-Agent': 'EduThree-LocationDetection/2.0'
+                }
+              }
+            );
+
+            if (geoSearchResponse.ok) {
+              const geoSearchData = await geoSearchResponse.json();
+              
+              if (geoSearchData && geoSearchData.length > 0) {
+                const geoLocation = geoSearchData[0];
+                console.log('✅ Geocoded:', geoLocation.display_name);
+                
+                // Get detailed address with reverse geocoding
+                const reverseResponse = await fetch(
+                  `https://nominatim.openstreetmap.org/reverse?format=json&lat=${geoLocation.lat}&lon=${geoLocation.lon}`,
+                  {
+                    headers: {
+                      'User-Agent': 'EduThree-LocationDetection/2.0'
+                    }
+                  }
+                );
+
+                if (reverseResponse.ok) {
+                  const reverseData = await reverseResponse.json();
+                  
+                  if (reverseData.address) {
+                    city = reverseData.address.city || reverseData.address.town || reverseData.address.village || '';
+                    state = reverseData.address.state || '';
+                    zip = reverseData.address.postcode || '';
+                    
+                    console.log(`  📍 Extracted: City="${city}", State="${state}", Zip="${zip}"`);
+                  }
+                }
+              }
+            }
+          } catch (geoError) {
+            console.warn('⚠️ Geocoding failed, using country-only fallback:', geoError);
+          }
+          
+          // Construct display and search locations
           const formatted = `${match.name}, ${fullCountryName}`;
-          const searchLocation = fullCountryName; // Full country name for Apollo
+          
+          // Build Apollo search location with city, state, country (if available)
+          const searchParts = [city, state, fullCountryName].filter(Boolean);
+          const searchLocation = searchParts.length > 1 ? searchParts.join(', ') : fullCountryName;
           
           console.log(`  📍 Location Format - Display: "${formatted}", Apollo Search: "${searchLocation}"`);
           
+          // Cache this result with full location data for future lookups
           await supabaseClient
             .from('university_domains')
             .insert({
               domain,
               name: match.name,
               country: isoCode,
+              city: city || null,
+              state: state || null,
+              zip: zip || null,
               formatted_location: formatted
             })
             .select()
@@ -145,10 +202,10 @@ serve(async (req) => {
             JSON.stringify({
               success: true,
               location: formatted,
-              searchLocation: searchLocation, // Apollo format (full country name)
-              city: '',
-              state: '',
-              zip: '',
+              searchLocation: searchLocation, // Apollo format with city, state, country
+              city: city,
+              state: state,
+              zip: zip,
               country: isoCode,
               source: 'api_cached'
             }),
