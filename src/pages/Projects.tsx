@@ -279,51 +279,53 @@ const Projects = () => {
               onClick={() => navigate(`/projects/${project.id}`, { state: { courseId } })}
             >
               <CardHeader>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CardTitle className="text-xl">{project.title}</CardTitle>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-3">
+                      {project.company_logo_url ? (
+                        <img 
+                          src={project.company_logo_url} 
+                          alt={`${project.company_name} logo`}
+                          className="h-10 w-10 object-contain rounded flex-shrink-0"
+                        />
+                      ) : (
+                        <Briefcase className="h-10 w-10 text-muted-foreground flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-lg leading-tight truncate">{project.company_name}</h3>
+                        <p className="text-sm text-muted-foreground truncate">{project.sector}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CardTitle className="text-base leading-snug">{project.title}</CardTitle>
                       {project.needs_review && (
-                        <Badge variant="outline" className="text-amber-600 border-amber-600">
+                        <Badge variant="outline" className="text-amber-600 border-amber-600 text-xs">
                           <AlertTriangle className="h-3 w-3 mr-1" />
                           Review
                         </Badge>
                       )}
                     </div>
-                    <CardDescription className="flex items-center gap-2">
-                      {project.company_logo_url ? (
-                        <img 
-                          src={project.company_logo_url} 
-                          alt={`${project.company_name} logo`}
-                          className="h-5 w-5 object-contain rounded"
-                        />
-                      ) : (
-                        <Briefcase className="h-4 w-4" />
-                      )}
-                      {project.company_name}
-                    </CardDescription>
                   </div>
-                  <Badge variant="secondary">{project.sector}</Badge>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">LO Coverage</span>
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-secondary" />
-                      <span className="font-semibold">{Math.round(project.lo_score * 100)}%</span>
+                    <div className="flex items-center gap-1.5">
+                      <TrendingUp className="h-3.5 w-3.5 text-secondary" />
+                      <span className="font-semibold text-sm">{Math.round(project.lo_score * 100)}%</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Budget</span>
-                    <span className="font-semibold">${project.pricing_usd.toLocaleString()}</span>
+                    <span className="font-semibold text-sm">${project.pricing_usd.toLocaleString()}</span>
                   </div>
 
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Tier</span>
-                    <Badge variant="outline">{project.tier}</Badge>
+                    <Badge variant="outline" className="text-xs py-0">{project.tier}</Badge>
                   </div>
 
                   <div className="pt-3 border-t">
