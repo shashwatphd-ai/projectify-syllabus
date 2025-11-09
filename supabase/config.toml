@@ -1,61 +1,8 @@
 project_id = "wnxjeldvzjubfgzvvzov"
 
-[functions.admin-regenerate-projects]
-verify_jwt = false
-
-[functions.get-apollo-org-id]
-verify_jwt = false
-
-[functions.job-matcher]
-verify_jwt = false
-
-[functions.competency-extractor]
-verify_jwt = false
-
-[functions.apollo-webhook-listener]
-verify_jwt = false
-
-[functions.project-suitability-scorer]
-verify_jwt = false
-
-[functions.analyze-project-value]
-verify_jwt = false
-
-[functions.get-project-detail]
-verify_jwt = false
-
-[functions.data-enrichment-pipeline]
-verify_jwt = false
-
-[functions.discover-companies]
-verify_jwt = false
-
-[functions.generate-projects]
-verify_jwt = false
-
-[functions.parse-syllabus]
-verify_jwt = false
-
-[functions.migrate-technology-format]
-verify_jwt = false
-
-[functions.aggregate-demand-signals]
-verify_jwt = false
-
+# Public endpoints - Keep verify_jwt = false
 [functions.submit-employer-interest]
 verify_jwt = false
 
-[functions.investigate-apollo-jobs]
-verify_jwt = false
-
-[functions.TEST-talent-alert]
-verify_jwt = false
-
-[functions.run-single-project-generation]
-verify_jwt = false
-
-[functions.TEST-real-email]
-verify_jwt = false
-
-[functions.portfolio-export]
+[functions.apollo-webhook-listener]
 verify_jwt = false
