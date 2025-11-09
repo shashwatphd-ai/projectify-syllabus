@@ -750,7 +750,29 @@ serve(async (req) => {
 
     // Get parameters from request body
     const { cityZip } = await req.json();
-    const targetZip = cityZip || "66006"; // Default for testing
+    
+    // Input validation
+    if (!cityZip || typeof cityZip !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Invalid cityZip parameter' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    
+    const sanitizedCityZip = cityZip.trim().slice(0, 100);
+    
+    // Validate format (US zip or city name)
+    const zipRegex = /^\d{5}(-\d{4})?$/;
+    const cityRegex = /^[a-zA-Z\s,.-]+$/;
+    
+    if (!zipRegex.test(sanitizedCityZip) && !cityRegex.test(sanitizedCityZip)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid cityZip format. Must be a valid US zip code or city name.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    
+    const targetZip = sanitizedCityZip;
 
     console.log(`Starting enrichment pipeline for ${targetZip}...`);
 
