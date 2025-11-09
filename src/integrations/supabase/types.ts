@@ -220,6 +220,13 @@ export type Database = {
             referencedRelation: "generation_runs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "company_profiles_generation_run_id_fkey"
+            columns: ["generation_run_id"]
+            isOneToOne: false
+            referencedRelation: "project_feedback_analytics"
+            referencedColumns: ["generation_run_id"]
+          },
         ]
       }
       company_signals: {
@@ -572,6 +579,9 @@ export type Database = {
           num_teams: number
           processing_time_seconds: number | null
           projects_generated: number | null
+          scoring_notes: string | null
+          scoring_version: string | null
+          scoring_weights: Json | null
           specific_companies: Json | null
           started_at: string
           status: string
@@ -593,6 +603,9 @@ export type Database = {
           num_teams: number
           processing_time_seconds?: number | null
           projects_generated?: number | null
+          scoring_notes?: string | null
+          scoring_version?: string | null
+          scoring_weights?: Json | null
           specific_companies?: Json | null
           started_at?: string
           status?: string
@@ -614,6 +627,9 @@ export type Database = {
           num_teams?: number
           processing_time_seconds?: number | null
           projects_generated?: number | null
+          scoring_notes?: string | null
+          scoring_version?: string | null
+          scoring_weights?: Json | null
           specific_companies?: Json | null
           started_at?: string
           status?: string
@@ -827,6 +843,80 @@ export type Database = {
           },
         ]
       }
+      project_generation_queue: {
+        Row: {
+          attempts: number
+          completed_at: string | null
+          course_id: string
+          created_at: string
+          error_message: string | null
+          generation_run_id: string | null
+          id: string
+          last_error_at: string | null
+          max_attempts: number
+          project_id: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          completed_at?: string | null
+          course_id: string
+          created_at?: string
+          error_message?: string | null
+          generation_run_id?: string | null
+          id?: string
+          last_error_at?: string | null
+          max_attempts?: number
+          project_id: string
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          completed_at?: string | null
+          course_id?: string
+          created_at?: string
+          error_message?: string | null
+          generation_run_id?: string | null
+          id?: string
+          last_error_at?: string | null
+          max_attempts?: number
+          project_id?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_generation_queue_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_generation_queue_generation_run_id_fkey"
+            columns: ["generation_run_id"]
+            isOneToOne: false
+            referencedRelation: "generation_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_generation_queue_generation_run_id_fkey"
+            columns: ["generation_run_id"]
+            isOneToOne: false
+            referencedRelation: "project_feedback_analytics"
+            referencedColumns: ["generation_run_id"]
+          },
+          {
+            foreignKeyName: "project_generation_queue_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_metadata: {
         Row: {
           ai_model_version: string | null
@@ -917,6 +1007,8 @@ export type Database = {
           deliverables: Json
           description: string | null
           duration_weeks: number
+          faculty_feedback: string | null
+          faculty_rating: number | null
           feasibility_score: number
           final_score: number
           generation_run_id: string | null
@@ -925,6 +1017,8 @@ export type Database = {
           mutual_benefit_score: number
           needs_review: boolean | null
           pricing_usd: number
+          rated_at: string | null
+          rating_tags: string[] | null
           sector: string
           status: Database["public"]["Enums"]["project_status"] | null
           tasks: Json
@@ -941,6 +1035,8 @@ export type Database = {
           deliverables: Json
           description?: string | null
           duration_weeks: number
+          faculty_feedback?: string | null
+          faculty_rating?: number | null
           feasibility_score: number
           final_score: number
           generation_run_id?: string | null
@@ -949,6 +1045,8 @@ export type Database = {
           mutual_benefit_score: number
           needs_review?: boolean | null
           pricing_usd: number
+          rated_at?: string | null
+          rating_tags?: string[] | null
           sector: string
           status?: Database["public"]["Enums"]["project_status"] | null
           tasks: Json
@@ -965,6 +1063,8 @@ export type Database = {
           deliverables?: Json
           description?: string | null
           duration_weeks?: number
+          faculty_feedback?: string | null
+          faculty_rating?: number | null
           feasibility_score?: number
           final_score?: number
           generation_run_id?: string | null
@@ -973,6 +1073,8 @@ export type Database = {
           mutual_benefit_score?: number
           needs_review?: boolean | null
           pricing_usd?: number
+          rated_at?: string | null
+          rating_tags?: string[] | null
           sector?: string
           status?: Database["public"]["Enums"]["project_status"] | null
           tasks?: Json
@@ -1001,6 +1103,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "generation_runs"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_generation_run_id_fkey"
+            columns: ["generation_run_id"]
+            isOneToOne: false
+            referencedRelation: "project_feedback_analytics"
+            referencedColumns: ["generation_run_id"]
           },
         ]
       }
@@ -1104,7 +1213,31 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      project_feedback_analytics: {
+        Row: {
+          all_rating_tags: string[] | null
+          avg_final_score: number | null
+          avg_lo_score: number | null
+          avg_rating: number | null
+          course_id: string | null
+          course_title: string | null
+          generation_run_id: string | null
+          high_rated_count: number | null
+          low_rated_count: number | null
+          needs_review_count: number | null
+          rated_projects: number | null
+          total_projects: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generation_runs_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       admin_assign_role: {

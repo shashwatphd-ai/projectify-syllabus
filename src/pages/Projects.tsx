@@ -3,12 +3,13 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Briefcase, TrendingUp, Loader2, AlertTriangle, Download, CheckCircle } from "lucide-react";
+import { Briefcase, TrendingUp, Loader2, AlertTriangle, Download, CheckCircle, Star } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
 import { downloadCoursePdf } from "@/lib/downloadPdf";
 import { toast } from "sonner";
+import { ProjectFeedbackDialog } from "@/components/ProjectFeedbackDialog";
 
 const Projects = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
@@ -22,6 +23,8 @@ const Projects = () => {
   const [userRole, setUserRole] = useState<'student' | 'faculty' | 'admin' | 'employer' | null>(null);
   const [appliedProjects, setAppliedProjects] = useState<Set<string>>(new Set());
   const [applyingProjectId, setApplyingProjectId] = useState<string | null>(null);
+  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
+  const [selectedProjectForFeedback, setSelectedProjectForFeedback] = useState<any>(null);
 
   useEffect(() => {
     requireAuth();
@@ -220,6 +223,16 @@ const Projects = () => {
     }
   };
 
+  const handleRateProject = (project: any, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click navigation
+    setSelectedProjectForFeedback(project);
+    setFeedbackDialogOpen(true);
+  };
+
+  const handleFeedbackSuccess = () => {
+    loadProjects(); // Reload to show updated rating
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -328,7 +341,7 @@ const Projects = () => {
                     <Badge variant="outline" className="text-xs py-0">{project.tier}</Badge>
                   </div>
 
-                  <div className="pt-3 border-t">
+                  <div className="pt-3 border-t space-y-2">
                     {userRole === 'student' ? (
                       <Button 
                         variant={appliedProjects.has(project.id) ? "outline" : "default"}
@@ -350,6 +363,39 @@ const Projects = () => {
                           'Apply Now'
                         )}
                       </Button>
+                    ) : (userRole === 'faculty' || userRole === 'admin') ? (
+                      <>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            className="flex-1"
+                            onClick={() => navigate(`/projects/${project.id}`, { state: { courseId } })}
+                          >
+                            View Details
+                          </Button>
+                          <Button 
+                            variant={project.faculty_rating ? "secondary" : "default"}
+                            size="icon"
+                            onClick={(e) => handleRateProject(project, e)}
+                            title={project.faculty_rating ? `Rated ${project.faculty_rating}★` : "Rate this project"}
+                          >
+                            <Star className={`h-4 w-4 ${project.faculty_rating ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                          </Button>
+                        </div>
+                        {project.faculty_rating && (
+                          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+                            <span>Your rating:</span>
+                            <div className="flex">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star 
+                                  key={star} 
+                                  className={`h-3 w-3 ${star <= project.faculty_rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} 
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <Button 
                         variant="outline" 
@@ -366,6 +412,20 @@ const Projects = () => {
           ))}
         </div>
       </div>
+
+      {/* PHASE 2: Feedback Dialog */}
+      {selectedProjectForFeedback && (
+        <ProjectFeedbackDialog
+          open={feedbackDialogOpen}
+          onOpenChange={setFeedbackDialogOpen}
+          projectId={selectedProjectForFeedback.id}
+          projectTitle={selectedProjectForFeedback.title}
+          currentRating={selectedProjectForFeedback.faculty_rating}
+          currentFeedback={selectedProjectForFeedback.faculty_feedback}
+          currentTags={selectedProjectForFeedback.rating_tags}
+          onSuccess={handleFeedbackSuccess}
+        />
+      )}
     </div>
   );
 };

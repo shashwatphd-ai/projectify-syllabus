@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
 import { toast } from "sonner";
+import { ProjectAnalytics } from "@/components/ProjectAnalytics";
 import {
   Select,
   SelectContent,
@@ -310,6 +311,10 @@ const AdminHub = () => {
             <TabsTrigger value="submissions">
               Employer Leads ({submissions.length})
             </TabsTrigger>
+            <TabsTrigger value="analytics">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Analytics
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="projects" className="space-y-6">
@@ -488,6 +493,17 @@ const AdminHub = () => {
                 <p className="text-muted-foreground">No employer submissions yet</p>
               </Card>
             )}
+          </TabsContent>
+
+          {/* PHASE 2: Analytics Tab */}
+          <TabsContent value="analytics" className="space-y-6">
+            <div className="mb-4">
+              <h2 className="text-xl font-semibold mb-2">Project Quality Analytics</h2>
+              <p className="text-sm text-muted-foreground">
+                Track faculty feedback and identify patterns to improve project generation quality.
+              </p>
+            </div>
+            <ProjectAnalytics />
           </TabsContent>
         </Tabs>
 

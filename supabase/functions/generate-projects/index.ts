@@ -646,21 +646,22 @@ serve(async (req) => {
       projectIds.push(projectData.id);
       console.log(`✓ Shell project ${i + 1} created with ID: ${projectData.id}`);
       
-      // Queue async generation by calling worker function
-      console.log(`  🔧 Queueing async generation...`);
-      try {
-        // Call worker function without awaiting (fire and forget)
-        serviceRoleClient.functions.invoke('run-single-project-generation', {
-          body: { 
-            project_id: projectData.id,
-            course_id: courseId,
-            generation_run_id: generationRunId
-          }
+      // PHASE 1: Queue project for async generation using database queue
+      console.log(`  🔧 Adding to generation queue...`);
+      const { error: queueError } = await serviceRoleClient
+        .from('project_generation_queue')
+        .insert({
+          project_id: projectData.id,
+          course_id: courseId,
+          generation_run_id: generationRunId,
+          status: 'pending'
         });
-        console.log(`  ✅ Generation queued for project ${projectData.id}`);
-      } catch (error) {
-        console.error(`  ⚠️ Failed to queue generation for project ${projectData.id}:`, error);
-        // Don't fail the whole request - the project will remain in pending state
+      
+      if (queueError) {
+        console.error(`  ⚠️ Failed to queue project ${projectData.id}:`, queueError);
+        // Don't fail the whole request - project will remain in pending state
+      } else {
+        console.log(`  ✅ Project queued successfully: ${projectData.id}`);
       }
     }
 
