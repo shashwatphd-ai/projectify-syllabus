@@ -162,8 +162,53 @@ Apollo.io Organization Search Filters:
 
 Return ONLY valid JSON with these filters.`;
 
-    // Use searchLocation if available (Apollo-friendly format), fallback to location
-    const apolloLocation = (context as any).searchLocation || context.location;
+    // PHASE 1: Smart location handling - convert ISO codes to full country names
+    let apolloLocation = (context as any).searchLocation || context.location;
+    
+    // Map ISO country codes to full names for Apollo API
+    const countryCodeMap: Record<string, string> = {
+      'IN': 'India',
+      'US': 'United States',
+      'GB': 'United Kingdom',
+      'CA': 'Canada',
+      'AU': 'Australia',
+      'DE': 'Germany',
+      'FR': 'France',
+      'JP': 'Japan',
+      'CN': 'China',
+      'SG': 'Singapore',
+      'AE': 'United Arab Emirates',
+      'NL': 'Netherlands',
+      'SE': 'Sweden',
+      'CH': 'Switzerland',
+      'ES': 'Spain',
+      'IT': 'Italy',
+      'BR': 'Brazil',
+      'MX': 'Mexico',
+      'KR': 'South Korea',
+      'IL': 'Israel'
+    };
+    
+    // Convert 2-letter ISO codes to full country names
+    if (apolloLocation && apolloLocation.length === 2 && apolloLocation.match(/^[A-Z]{2}$/)) {
+      const fullCountryName = countryCodeMap[apolloLocation] || apolloLocation;
+      console.log(`  🌍 Location Conversion: "${apolloLocation}" → "${fullCountryName}"`);
+      apolloLocation = fullCountryName;
+    }
+    
+    // Handle "Institution Name, Country" format - extract just the country
+    if (apolloLocation && apolloLocation.includes(',')) {
+      const parts = apolloLocation.split(',').map((p: string) => p.trim());
+      // If last part is a 2-letter code, convert it
+      const lastPart = parts[parts.length - 1];
+      if (lastPart.length === 2 && lastPart.match(/^[A-Z]{2}$/)) {
+        parts[parts.length - 1] = countryCodeMap[lastPart] || lastPart;
+        apolloLocation = parts.join(', ');
+        console.log(`  🌍 Multi-part location converted: "${apolloLocation}"`);
+      }
+    }
+    
+    console.log(`  📍 Final Apollo location: "${apolloLocation}"`);
     
     const userPrompt = `Generate Apollo search filters for ${context.targetCount}+ companies within 50 miles of ${apolloLocation}.
 

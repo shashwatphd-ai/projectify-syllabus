@@ -97,16 +97,45 @@ serve(async (req) => {
         if (match) {
           console.log('✅ Found in University Domains API:', match.name);
           
+          // PHASE 3: Map full country names for Apollo (not ISO codes)
+          const countryCodeMap: Record<string, string> = {
+            'IN': 'India',
+            'US': 'United States',
+            'GB': 'United Kingdom',
+            'CA': 'Canada',
+            'AU': 'Australia',
+            'DE': 'Germany',
+            'FR': 'France',
+            'JP': 'Japan',
+            'CN': 'China',
+            'SG': 'Singapore',
+            'AE': 'United Arab Emirates',
+            'NL': 'Netherlands',
+            'SE': 'Sweden',
+            'CH': 'Switzerland',
+            'ES': 'Spain',
+            'IT': 'Italy',
+            'BR': 'Brazil',
+            'MX': 'Mexico',
+            'KR': 'South Korea',
+            'IL': 'Israel'
+          };
+          
+          const isoCode = match['alpha_two_code'] || match.country;
+          const fullCountryName = countryCodeMap[isoCode] || match.country;
+          
           // Cache this result for future lookups
-          const formatted = `${match.name}, ${match.country}`;
-          const searchLocation = match.country; // Only country available from API
+          const formatted = `${match.name}, ${fullCountryName}`;
+          const searchLocation = fullCountryName; // Full country name for Apollo
+          
+          console.log(`  📍 Location Format - Display: "${formatted}", Apollo Search: "${searchLocation}"`);
           
           await supabaseClient
             .from('university_domains')
             .insert({
               domain,
               name: match.name,
-              country: match['alpha_two_code'] || match.country,
+              country: isoCode,
               formatted_location: formatted
             })
             .select()
@@ -116,11 +145,11 @@ serve(async (req) => {
             JSON.stringify({
               success: true,
               location: formatted,
-              searchLocation: searchLocation, // Apollo format (just country for now)
+              searchLocation: searchLocation, // Apollo format (full country name)
               city: '',
               state: '',
               zip: '',
-              country: match['alpha_two_code'] || match.country,
+              country: isoCode,
               source: 'api_cached'
             }),
             { 
@@ -227,12 +256,39 @@ serve(async (req) => {
       ? `${city}, ${state} ${postcode}` 
       : `${city}, ${postcode}`;
     
-    // Create Apollo-friendly search location
-    const searchParts = [city, state, country].filter(Boolean);
+    // PHASE 3: Map country codes to full names for Apollo
+    const countryCodeMap: Record<string, string> = {
+      'IN': 'India',
+      'US': 'United States',
+      'GB': 'United Kingdom',
+      'CA': 'Canada',
+      'AU': 'Australia',
+      'DE': 'Germany',
+      'FR': 'France',
+      'JP': 'Japan',
+      'CN': 'China',
+      'SG': 'Singapore',
+      'AE': 'United Arab Emirates',
+      'NL': 'Netherlands',
+      'SE': 'Sweden',
+      'CH': 'Switzerland',
+      'ES': 'Spain',
+      'IT': 'Italy',
+      'BR': 'Brazil',
+      'MX': 'Mexico',
+      'KR': 'South Korea',
+      'IL': 'Israel'
+    };
+    
+    const fullCountryName = countryCodeMap[country] || country;
+    
+    // Create Apollo-friendly search location with full country name
+    const searchParts = [city, state, fullCountryName].filter(Boolean);
     const searchLocation = searchParts.join(', ');
     
     console.log('📍 Location detected via Nominatim:', detectedLocation);
     console.log('🔍 Apollo search format:', searchLocation);
+    console.log(`  🌍 Country conversion: ${country} → ${fullCountryName}`);
 
     return new Response(
       JSON.stringify({

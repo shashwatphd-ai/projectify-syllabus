@@ -1001,7 +1001,9 @@ export type Database = {
         Row: {
           company_logo_url: string | null
           company_name: string
+          company_needs: Json | null
           company_profile_id: string | null
+          company_size: string | null
           course_id: string
           created_at: string
           deliverables: Json
@@ -1013,23 +1015,29 @@ export type Database = {
           final_score: number
           generation_run_id: string | null
           id: string
+          lo_alignment: string | null
           lo_score: number
+          majors: Json | null
           mutual_benefit_score: number
           needs_review: boolean | null
           pricing_usd: number
           rated_at: string | null
           rating_tags: string[] | null
           sector: string
+          skills: Json | null
           status: Database["public"]["Enums"]["project_status"] | null
           tasks: Json
           team_size: number
           tier: string
           title: string
+          website: string | null
         }
         Insert: {
           company_logo_url?: string | null
           company_name: string
+          company_needs?: Json | null
           company_profile_id?: string | null
+          company_size?: string | null
           course_id: string
           created_at?: string
           deliverables: Json
@@ -1041,23 +1049,29 @@ export type Database = {
           final_score: number
           generation_run_id?: string | null
           id?: string
+          lo_alignment?: string | null
           lo_score: number
+          majors?: Json | null
           mutual_benefit_score: number
           needs_review?: boolean | null
           pricing_usd: number
           rated_at?: string | null
           rating_tags?: string[] | null
           sector: string
+          skills?: Json | null
           status?: Database["public"]["Enums"]["project_status"] | null
           tasks: Json
           team_size: number
           tier: string
           title: string
+          website?: string | null
         }
         Update: {
           company_logo_url?: string | null
           company_name?: string
+          company_needs?: Json | null
           company_profile_id?: string | null
+          company_size?: string | null
           course_id?: string
           created_at?: string
           deliverables?: Json
@@ -1069,18 +1083,22 @@ export type Database = {
           final_score?: number
           generation_run_id?: string | null
           id?: string
+          lo_alignment?: string | null
           lo_score?: number
+          majors?: Json | null
           mutual_benefit_score?: number
           needs_review?: boolean | null
           pricing_usd?: number
           rated_at?: string | null
           rating_tags?: string[] | null
           sector?: string
+          skills?: Json | null
           status?: Database["public"]["Enums"]["project_status"] | null
           tasks?: Json
           team_size?: number
           tier?: string
           title?: string
+          website?: string | null
         }
         Relationships: [
           {

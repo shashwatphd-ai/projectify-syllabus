@@ -683,7 +683,7 @@ serve(async (req) => {
         const { data: insertedProject, error: projectError } = await serviceRoleClient
           .from('projects')
           .insert({
-            owner_id: user.id,
+            // PHASE 2 FIX: Removed owner_id (not a valid column, use course_id relationship)
             course_id: courseId,
             generation_run_id: generationRunId,
             company_profile_id: filteredCompany.id,
@@ -697,7 +697,7 @@ serve(async (req) => {
             tier: cleanedProposal.tier,
             sector: filteredCompany.sector,
             company_size: filteredCompany.size,
-            company_needs: filteredCompany.needs,
+            company_needs: filteredCompany.inferred_needs || [],
             lo_alignment: cleanedProposal.lo_alignment,
             lo_score: scores.lo_score,
             feasibility_score: scores.feasibility_score,
