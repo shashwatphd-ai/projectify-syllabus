@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { createHmac } from 'node:crypto';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -38,23 +39,69 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse the webhook payload
-    const payload: WebhookPayload = await req.json();
-    console.log('Webhook payload received:', JSON.stringify(payload, null, 2));
-
-    // Validate webhook signature (optional - implement if Apollo provides a secret)
+    // Get the raw body for signature verification
+    const bodyText = await req.text();
+    
+    // Validate webhook signature
     const webhookSecret = Deno.env.get('APOLLO_WEBHOOK_SECRET');
-    if (webhookSecret) {
-      const signature = req.headers.get('x-apollo-signature');
-      if (!signature) {
-        console.error('Missing webhook signature');
-        return new Response(
-          JSON.stringify({ error: 'Missing signature' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      // TODO: Implement signature verification if needed
+    if (!webhookSecret) {
+      console.error('❌ APOLLO_WEBHOOK_SECRET not configured');
+      return new Response(
+        JSON.stringify({
+          status: 'error',
+          message: 'Webhook secret not configured'
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
+    
+    const signature = req.headers.get('x-apollo-signature');
+    if (!signature) {
+      console.warn('⚠️ Webhook signature missing');
+      return new Response(
+        JSON.stringify({
+          status: 'error',
+          message: 'Signature verification failed'
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    
+    // Verify HMAC signature
+    const expectedSignature = createHmac('sha256', webhookSecret)
+      .update(bodyText)
+      .digest('hex');
+    
+    // Support both raw hex and sha256= prefix formats
+    const signatureValue = signature.startsWith('sha256=') ? signature.slice(7) : signature;
+    
+    if (signatureValue !== expectedSignature) {
+      console.error('❌ Invalid webhook signature');
+      console.error('Expected:', expectedSignature);
+      console.error('Received:', signatureValue);
+      return new Response(
+        JSON.stringify({
+          status: 'error',
+          message: 'Invalid signature'
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    
+    console.log('✅ Webhook signature verified');
+    
+    // Parse the webhook payload
+    const payload: WebhookPayload = JSON.parse(bodyText);
+    console.log('📦 Webhook payload:', JSON.stringify(payload, null, 2));
 
     // Determine signal type from the event
     let signalType = 'unknown';
