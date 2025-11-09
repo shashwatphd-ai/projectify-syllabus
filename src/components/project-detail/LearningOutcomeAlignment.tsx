@@ -86,32 +86,43 @@ export const LearningOutcomeAlignment = ({ project, courseProfile }: LearningOut
               </TableRow>
             </TableHeader>
             <TableBody>
-              {metadata.task_mappings?.map((task: any, idx: number) => (
-                <TableRow key={`task-${idx}`}>
-                  <TableCell className="font-medium">{task.task_text}</TableCell>
-                  <TableCell><Badge variant="outline">Task</Badge></TableCell>
-                  <TableCell>
-                    <div className="flex gap-1 flex-wrap">
-                      {task.outcome_ids.map((oid: string) => (
-                        <Badge key={oid} variant="secondary">{oid}</Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {metadata.deliverable_mappings?.map((del: any, idx: number) => (
-                <TableRow key={`del-${idx}`}>
-                  <TableCell className="font-medium">{del.deliverable_text}</TableCell>
-                  <TableCell><Badge variant="default">Deliverable</Badge></TableCell>
-                  <TableCell>
-                    <div className="flex gap-1 flex-wrap">
-                      {del.outcome_ids.map((oid: string) => (
-                        <Badge key={oid} variant="secondary">{oid}</Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {metadata.task_mappings?.map((task: any, idx: number) => {
+                const outcomeIds = [
+                  task?.primary_outcome,
+                  ...(task?.secondary_outcomes || [])
+                ].filter(Boolean);
+                
+                return (
+                  <TableRow key={`task-${idx}`}>
+                    <TableCell className="font-medium">{task?.task_text}</TableCell>
+                    <TableCell><Badge variant="outline">Task</Badge></TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 flex-wrap">
+                        {outcomeIds.map((oid: string) => (
+                          <Badge key={oid} variant="secondary">{oid}</Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {metadata.deliverable_mappings?.map((del: any, idx: number) => {
+                const outcomeId = del?.primary_outcome;
+                
+                return (
+                  <TableRow key={`del-${idx}`}>
+                    <TableCell className="font-medium">{del?.deliverable_text}</TableCell>
+                    <TableCell><Badge variant="default">Deliverable</Badge></TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 flex-wrap">
+                        {outcomeId && (
+                          <Badge variant="secondary">{outcomeId}</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
@@ -127,12 +138,12 @@ export const LearningOutcomeAlignment = ({ project, courseProfile }: LearningOut
             {metadata.outcome_mappings?.map((om: any, idx: number) => (
               <div key={idx} className="border-l-4 border-primary pl-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Badge>{om.outcome_id}</Badge>
-                  <span className="font-semibold">{om.outcome_text}</span>
+                  <Badge>{om?.outcome_id}</Badge>
+                  <span className="font-semibold">{om?.outcome_text}</span>
                 </div>
-                <p className="text-sm text-muted-foreground mb-2">{om.explanation}</p>
+                <p className="text-sm text-muted-foreground mb-2">{om?.explanation}</p>
                 <div className="text-xs text-muted-foreground">
-                  Addresses {om.aligned_tasks?.length || 0} tasks and {om.aligned_deliverables?.length || 0} deliverables
+                  Addresses {om?.aligned_tasks?.length || 0} tasks and {om?.aligned_deliverables?.length || 0} deliverables
                 </div>
               </div>
             ))}
@@ -147,7 +158,7 @@ export const LearningOutcomeAlignment = ({ project, courseProfile }: LearningOut
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {metadata.overall_coverage && Object.entries(metadata.overall_coverage).map(([lo, score]: [string, any]) => (
+            {metadata?.overall_coverage && Object.entries(metadata.overall_coverage).map(([lo, score]: [string, any]) => (
               <div key={lo}>
                 <div className="flex justify-between mb-2">
                   <span className="font-medium">{lo} Coverage</span>
@@ -165,7 +176,7 @@ export const LearningOutcomeAlignment = ({ project, courseProfile }: LearningOut
             </div>
           </div>
 
-          {metadata.gaps && metadata.gaps.length > 0 && (
+          {metadata?.gaps && metadata.gaps.length > 0 && (
             <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
               <h4 className="font-semibold mb-2">Coverage Gaps & Recommendations</h4>
               <ul className="list-disc pl-5 space-y-1">
