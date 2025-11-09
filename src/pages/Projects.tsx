@@ -61,7 +61,7 @@ const Projects = () => {
         
         if (roles.includes('admin')) {
           setUserRole('admin');
-        } else if (roles.includes('faculty')) {
+        } else if (roles.includes('faculty') || roles.includes('pending_faculty')) {
           setUserRole('faculty');
         } else if (roles.includes('employer')) {
           setUserRole('employer');
