@@ -33,6 +33,9 @@ export const DemandBoardLayout = () => {
   const { data: categories } = useDemandCategories();
   const { data: regions } = useDemandRegions();
 
+  // Filter out "Unknown" category signals
+  const filteredSignals = signals?.filter(signal => signal.project_category !== "Unknown") || [];
+
   // Track page view on mount
   useEffect(() => {
     trackDashboardEvent('view');
@@ -202,7 +205,7 @@ export const DemandBoardLayout = () => {
             )}
 
             {/* Empty State */}
-            {!isLoading && !error && signals?.length === 0 && (
+            {!isLoading && !error && filteredSignals.length === 0 && (
               <Card className="p-8 text-center">
                 <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="font-semibold text-lg mb-2">No Opportunities Found</h3>
@@ -215,13 +218,13 @@ export const DemandBoardLayout = () => {
             )}
 
             {/* Signals Grid */}
-            {!isLoading && !error && signals && signals.length > 0 && (
+            {!isLoading && !error && filteredSignals.length > 0 && (
               <>
                 <div className="mb-4 text-lg font-semibold">
-                  Showing {signals.length} opportunit{signals.length === 1 ? "y" : "ies"}
+                  Showing {filteredSignals.length} opportunit{filteredSignals.length === 1 ? "y" : "ies"}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {signals.map((signal) => (
+                  {filteredSignals.map((signal) => (
                     <DemandSignalCard
                       key={signal.id}
                       signal={signal}
