@@ -7,7 +7,8 @@ export interface CourseContext {
   outcomes: string[];
   level: string;
   topics: string[];
-  location: string;
+  location: string; // Display format (e.g., "University Name, Country")
+  searchLocation: string; // Apollo search format (e.g., "Kansas City, Missouri, United States")
   targetCount: number;
 }
 

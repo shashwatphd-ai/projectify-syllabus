@@ -60,6 +60,7 @@ Deno.test("ApolloProvider - Shield Pattern: normalizes technologies_used to stri
       level: "Advanced",
       topics: ["React", "Node.js"],
       location: "San Francisco, CA",
+      searchLocation: "San Francisco, California, United States",
       targetCount: 1
     };
 
@@ -120,6 +121,7 @@ Deno.test("ApolloProvider - Shield Pattern: handles missing technologies as empt
       level: "Advanced",
       topics: [],
       location: "SF",
+      searchLocation: "San Francisco, California, United States",
       targetCount: 1
     };
 
@@ -154,6 +156,7 @@ Deno.test("ApolloProvider - Data Contract: outputs compliant CleanCompanyProfile
       level: "Advanced",
       topics: [],
       location: "SF",
+      searchLocation: "San Francisco, California, United States",
       targetCount: 1
     };
 

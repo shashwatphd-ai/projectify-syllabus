@@ -100,7 +100,7 @@ serve(async (req) => {
       location, // Display location for logging/UI
       searchLocation, // Apollo-friendly format for searches
       targetCount: count
-    } as CourseContext & { searchLocation?: string };
+    };
 
     const discoveryResult = await provider.discover(courseContext);
 

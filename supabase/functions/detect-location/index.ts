@@ -53,30 +53,40 @@ serve(async (req) => {
     if (universityData) {
       console.log('✅ Found in database:', universityData.name);
       
-      // Create Apollo-friendly search location (city, state, country)
-      const searchParts = [
-        universityData.city,
-        universityData.state,
-        universityData.country
-      ].filter(Boolean);
-      const searchLocation = searchParts.join(', ');
+      // CACHE COMPLETENESS VALIDATION - Check if we have precise city/state data
+      const isCacheComplete = universityData.city && universityData.state;
       
-      return new Response(
-        JSON.stringify({
-          success: true,
-          location: universityData.formatted_location, // Display format
-          searchLocation: searchLocation, // Apollo format
-          city: universityData.city || '',
-          state: universityData.state || '',
-          zip: universityData.zip || '',
-          country: universityData.country,
-          source: 'database'
-        }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      if (!isCacheComplete) {
+        console.log('⚠️ Cached data is INCOMPLETE (missing city/state), re-geocoding...');
+        // Fall through to University Domains API + Geocoding path
+      } else {
+        // Use complete cached data
+        const searchParts = [
+          universityData.city,
+          universityData.state,
+          universityData.country
+        ].filter(Boolean);
+        const searchLocation = searchParts.join(', ');
+        
+        console.log(`✅ Using complete cached data: "${searchLocation}"`);
+        
+        return new Response(
+          JSON.stringify({
+            success: true,
+            location: universityData.formatted_location, // Display format
+            searchLocation: searchLocation, // Apollo format
+            city: universityData.city || '',
+            state: universityData.state || '',
+            zip: universityData.zip || '',
+            country: universityData.country,
+            source: 'database_complete'
+          }),
+          { 
+            status: 200, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
     }
 
     console.log('⚠️ Not in database, trying University Domains API...');
@@ -183,10 +193,10 @@ serve(async (req) => {
           
           console.log(`  📍 Location Format - Display: "${formatted}", Apollo Search: "${searchLocation}"`);
           
-          // Cache this result with full location data for future lookups
+          // Cache this result with full location data for future lookups (UPSERT to update existing entries)
           await supabaseClient
             .from('university_domains')
-            .insert({
+            .upsert({
               domain,
               name: match.name,
               country: isoCode,
@@ -194,9 +204,11 @@ serve(async (req) => {
               state: state || null,
               zip: zip || null,
               formatted_location: formatted
-            })
+            }, { onConflict: 'domain' })
             .select()
             .single();
+          
+          console.log('✅ Cached complete location data (UPSERT)');;
 
           return new Response(
             JSON.stringify({

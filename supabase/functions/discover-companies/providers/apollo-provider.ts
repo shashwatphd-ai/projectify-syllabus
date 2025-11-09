@@ -162,8 +162,8 @@ Apollo.io Organization Search Filters:
 
 Return ONLY valid JSON with these filters.`;
 
-    // PHASE 1: Smart location handling - convert ISO codes to full country names
-    let apolloLocation = (context as any).searchLocation || context.location;
+    // PHASE 1: Smart location handling - use precise searchLocation from detect-location
+    let apolloLocation = context.searchLocation;
     
     // Map ISO country codes to full names for Apollo API
     const countryCodeMap: Record<string, string> = {
