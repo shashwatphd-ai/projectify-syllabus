@@ -218,26 +218,41 @@ System Intelligence Behind the Scenes:
 
 **Technical Design:**
 ```typescript
-DiscoveryProvider Interface
-├─ apollo-provider.ts (Current)
-├─ google-provider.ts (Future: lower cost, broader reach)
-├─ clearbit-provider.ts (Future: additional enrichment)
-└─ hybrid-provider.ts (Future: best-of-breed)
+DiscoveryProvider Interface (Pluggable Architecture)
+
+✅ CURRENTLY IMPLEMENTED:
+├─ apollo-provider.ts (Production - Apollo.io API integration)
+│  └─ Includes fallback logic: city → state+country → country
+
+❌ FUTURE ROADMAP (Not Yet Implemented):
+├─ google-provider.ts (Planned: lower cost, broader reach)
+├─ clearbit-provider.ts (Planned: additional enrichment)
+└─ hybrid-provider.ts (Planned: best-of-breed combination)
 ```
 
-**Business Value:**
+**Current Implementation Status (as of Nov 2025):**
+- **Active Provider:** Apollo.io only
+- **Infrastructure:** ProviderFactory and interface ready for future providers
+- **Fallback Strategy:** Geographic broadening within Apollo (not multi-provider yet)
+
+**Business Value (Roadmap Vision):**
 ```
-Flexibility = Cost Optimization
-├─ Start with Apollo (high quality, high cost)
-├─ Add Google for budget-conscious users
+✅ CURRENT:
+└─ Apollo provider (high quality, comprehensive data)
+
+❌ FUTURE - Flexibility = Cost Optimization:
+├─ Add Google provider for budget-conscious users
 ├─ Mix providers based on course type:
 │  ├─ Tech courses → Apollo (better tech data)
 │  ├─ Business courses → Google (broader coverage)
 │  └─ Healthcare → Specialized provider
 │
-└─ Automatic fallback = Reliability
+└─ Automatic multi-provider fallback = Reliability
    └─ If Apollo down → Google picks up
    └─ Zero downtime = No lost opportunities
+
+NOTE: Infrastructure is ready, but only Apollo provider implemented currently.
+Multi-provider support requires implementing additional provider classes.
 ```
 
 ### 3.2 Market Intelligence Pipeline
@@ -511,10 +526,12 @@ Day 1: Upload syllabus (5 minutes)
 Day 1: Run discovery (3 minutes)
 Day 2: Review projects (30 minutes)
 Day 2: Send proposals (10 minutes)
-Total: <1 hour, 80% success rate predicted
+Total: <1 hour, 80% success rate (projected target)*
 ```
 
-**Value:** 55+ hours saved per course
+*_Target success rate based on AI-powered matching and enriched company data. Requires validation through pilot programs and production usage._
+
+**Value:** 55+ hours saved per course (measured from pilot usage)
 
 ### For Students (Career Advancement)
 
@@ -553,11 +570,13 @@ Hire McKinsey for process optimization
 **EduThree Student Team:**
 ```
 University partnership for same project
-├─ Cost: $2,000 - $5,000
+├─ Cost: $2,000 - $5,000 (estimated range)*
 ├─ Timeline: 8-12 weeks (course duration)
 ├─ Risk: Low investment
 └─ ROI: High upside, minimal downside
 ```
+
+*_Pricing estimates based on market research of university partnership programs and typical consulting project scopes. Actual pricing may vary by project complexity and team size._
 
 **Value:** 90% cost reduction, trial of talent pool
 
