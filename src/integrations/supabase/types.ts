@@ -891,6 +891,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          company_logo_url: string | null
           company_name: string
           company_profile_id: string | null
           course_id: string
@@ -914,6 +915,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          company_logo_url?: string | null
           company_name: string
           company_profile_id?: string | null
           course_id: string
@@ -937,6 +939,7 @@ export type Database = {
           title: string
         }
         Update: {
+          company_logo_url?: string | null
           company_name?: string
           company_profile_id?: string | null
           course_id?: string

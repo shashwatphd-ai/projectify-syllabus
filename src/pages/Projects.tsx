@@ -291,7 +291,15 @@ const Projects = () => {
                       )}
                     </div>
                     <CardDescription className="flex items-center gap-2">
-                      <Briefcase className="h-4 w-4" />
+                      {project.company_logo_url ? (
+                        <img 
+                          src={project.company_logo_url} 
+                          alt={`${project.company_name} logo`}
+                          className="h-5 w-5 object-contain rounded"
+                        />
+                      ) : (
+                        <Briefcase className="h-4 w-4" />
+                      )}
                       {project.company_name}
                     </CardDescription>
                   </div>
