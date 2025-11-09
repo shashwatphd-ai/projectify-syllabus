@@ -105,7 +105,7 @@ export const Header = () => {
                   Projects
                 </Button>
                 <Button onClick={() => navigate("/my-opportunities")} variant="ghost" size="sm" className="relative">
-                  Joblines
+                  JobLines
                   {newMatchCount && newMatchCount > 0 && (
                     <Badge variant="destructive" className="ml-2 h-5 min-w-5 px-1.5">
                       {newMatchCount}
