@@ -49,7 +49,7 @@ const Auth = () => {
         } else if (selectedRole === "employer") {
           toast.success("Account created! Please complete your company profile to request access.");
         }
-        navigate("/upload");
+        // Let Supabase's emailRedirectTo handle navigation to avoid double-redirect
       } else {
         const { error } = await authService.signIn(email, password);
         if (error) throw error;

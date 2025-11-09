@@ -26,8 +26,13 @@ const Upload = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Only redirect if auth is fully loaded and user is definitely not logged in
+    // Give a small delay to prevent race conditions during navigation
     if (!authLoading && !user) {
-      navigate("/auth");
+      const timer = setTimeout(() => {
+        navigate("/auth");
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [authLoading, user, navigate]);
 
