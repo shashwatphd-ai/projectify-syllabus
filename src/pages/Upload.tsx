@@ -16,6 +16,12 @@ const Upload = () => {
   const [file, setFile] = useState<File | null>(null);
   const [cityZip, setCityZip] = useState("");
   const [searchLocation, setSearchLocation] = useState("");
+  const [locationData, setLocationData] = useState({
+    city: '',
+    state: '',
+    zip: '',
+    country: 'US'
+  });
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [manualEntry, setManualEntry] = useState(false);
@@ -72,8 +78,15 @@ const Upload = () => {
       if (data.success && data.location) {
         console.log('📍 Location detected:', data.location);
         console.log('🔍 Search location format:', data.searchLocation);
+        console.log('📦 Full location data:', { city: data.city, state: data.state, zip: data.zip, country: data.country });
         setCityZip(data.location); // Display format
         setSearchLocation(data.searchLocation || data.location); // Apollo format
+        setLocationData({
+          city: data.city || '',
+          state: data.state || '',
+          zip: data.zip || '',
+          country: data.country || 'US'
+        });
         toast.success(`Location detected: ${data.city}, ${data.state || data.country}`);
       } else {
         console.log('⚠️ Location detection unsuccessful:', data.error);
@@ -136,10 +149,14 @@ const Upload = () => {
 
       const formData = new FormData();
       formData.append('file', file);
-      // Pass both location formats as JSON to parse-syllabus
+      // Pass complete location data to parse-syllabus
       formData.append('cityZip', JSON.stringify({
-        location: finalLocation, // Display format
-        searchLocation: searchLocation || finalLocation // Apollo format
+        location: finalLocation,           // Display format
+        searchLocation: searchLocation || finalLocation,    // Apollo format
+        city: manualEntry ? manualCity : locationData.city,
+        state: manualEntry ? manualState : locationData.state,
+        zip: manualEntry ? manualZip : locationData.zip,
+        country: locationData.country || 'US'
       }));
 
       const response = await fetch(

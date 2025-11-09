@@ -249,24 +249,39 @@ serve(async (req) => {
     // Parse the extracted text using AI
     const parsed = await extractTextWithAI(pdfText);
 
-    // Parse location data if it contains both formats
+    // Parse location data - extract all components for precise targeting
     let displayLocation = cityZip;
     let searchLocation = cityZip;
+    let locationCity = '';
+    let locationState = '';
+    let locationZip = '';
+    let locationCountry = 'US';
+    let locationFormatted = cityZip;
     
     try {
-      // Check if cityZip is JSON with both location formats
+      // Parse complete location data from Upload.tsx
       const locationData = JSON.parse(cityZip);
-      if (locationData.location && locationData.searchLocation) {
-        displayLocation = locationData.location;
-        searchLocation = locationData.searchLocation;
-        console.log(`📍 Parsed location formats - Display: "${displayLocation}", Search: "${searchLocation}"`);
-      }
+      displayLocation = locationData.location || cityZip;
+      searchLocation = locationData.searchLocation || cityZip;
+      locationCity = locationData.city || '';
+      locationState = locationData.state || '';
+      locationZip = locationData.zip || '';
+      locationCountry = locationData.country || 'US';
+      locationFormatted = displayLocation;
+      console.log('📍 Complete location data parsed:', { 
+        display: displayLocation, 
+        search: searchLocation, 
+        city: locationCity, 
+        state: locationState, 
+        zip: locationZip, 
+        country: locationCountry 
+      });
     } catch {
       // Not JSON, use as-is (backward compatibility)
-      console.log(`📍 Using location as-is: "${cityZip}"`);
+      console.log(`📍 Using legacy location format: "${cityZip}"`);
     }
 
-    // Insert course profile using authenticated client with RLS
+    // Insert course profile with complete location data
     // RLS policy "Users can insert own courses" allows this when owner_id = auth.uid()
     const { data: course, error: insertError } = await supabaseClient
       .from('course_profiles')
@@ -274,8 +289,13 @@ serve(async (req) => {
         owner_id: user.id,
         title: parsed.title,
         level: parsed.level,
-        city_zip: displayLocation, // Display format for backward compatibility
-        search_location: searchLocation, // Apollo-friendly format
+        city_zip: displayLocation,           // Display format (backward compat)
+        search_location: searchLocation,     // Apollo-friendly format
+        location_city: locationCity,         // Individual city component
+        location_state: locationState,       // Individual state component
+        location_zip: locationZip,           // Individual zip component
+        location_country: locationCountry,   // Country code (e.g., "US")
+        location_formatted: locationFormatted, // Formatted display string
         weeks: parsed.weeks,
         hrs_per_week: parsed.hrs_per_week,
         outcomes: parsed.outcomes,
