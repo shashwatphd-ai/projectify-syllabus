@@ -67,13 +67,15 @@ interface ProjectProposal {
 
 /**
  * Generate Project Proposal using Lovable AI
- * 
+ *
  * Creates a complete project proposal by analyzing:
- * - Company data (needs, sector, intelligence)
- * - Course requirements (outcomes, artifacts, level)
+ * - Course context (title, outcomes, artifacts, level) - PRIMARY CONSTRAINT
+ * - Company data (needs, sector, intelligence) - SECONDARY CONTEXT
  * - Constraints (duration, hours per week)
- * 
+ *
  * Returns a structured ProjectProposal with tasks, deliverables, and metadata.
+ *
+ * P0-3 FIX: Added courseTitle parameter to ensure AI generates course-relevant projects
  */
 export async function generateProjectProposal(
   company: CompanyInfo,
@@ -81,7 +83,8 @@ export async function generateProjectProposal(
   artifacts: string[],
   level: string,
   weeks: number,
-  hrsPerWeek: number
+  hrsPerWeek: number,
+  courseTitle?: string
 ): Promise<ProjectProposal> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
@@ -147,20 +150,28 @@ Return ONLY valid JSON, no markdown code blocks.`;
     }
   }
 
-  const prompt = `Design a ${weeks}-week business consulting project for ${level} students partnering with this company.
+  // P0-3 FIX: Course-first prompt structure
+  const prompt = `Design a ${weeks}-week project for ${level} students that applies COURSE CONCEPTS to solve a company's real-world problem.
 
-🚨 CRITICAL INSTRUCTION: GENERIC CONTENT = AUTOMATIC REJECTION 🚨
+🎓 PRIMARY CONSTRAINT: COURSE SUBJECT MATTER (This determines project type)
+Course Title: ${courseTitle || level}
+Academic Level: ${level}
 
-You are creating a project proposal that will be displayed to employers on a marketplace. 
-Your proposal MUST demonstrate SPECIFIC, HIGH-VALUE capabilities that justify hiring students.
+📚 COURSE LEARNING OUTCOMES (Project MUST enable students to practice these specific skills/concepts):
+${outcomes.map((o, i) => `LO${i + 1}: ${o}`).join('\n')}
 
-REJECTION TRIGGERS (Avoid these at ALL costs):
-- Any task/deliverable using words: "research", "analyze", "report", "memo", "recommendations", "findings"
-- Any skill from this list: "communication", "leadership", "teamwork", "research", "analysis"
-- Vague deliverables like "Final Report" or "Analysis Document"
-- Tasks without named frameworks/methodologies/tools
+⚠️ CRITICAL REQUIREMENT: The project tasks and deliverables must require students to APPLY the concepts and methods from THIS COURSE.
+   - If this is an ENGINEERING/SCIENCE course → Create TECHNICAL project with calculations, simulations, designs
+   - If this is a BUSINESS course → Create business strategy/analytics project with frameworks
+   - If this is a DATA/CS course → Create software/data analysis project with code, models, systems
+   - DO NOT create generic consulting projects that ignore the course subject matter
 
-COMPANY PROFILE:
+REQUIRED COURSE DELIVERABLES (must be included in final project):
+${artifacts.map(a => `- ${a}`).join('\n')}
+
+---
+
+🏢 COMPANY PARTNER PROFILE (Context for applying course concepts):
 Name: ${company.name}
 Sector: ${company.sector}
 Size: ${company.size}
@@ -168,46 +179,95 @@ Website: ${company.website || 'Not available'}
 Description: ${company.description}
 ${intelligenceSection}
 
-STRATEGIC BUSINESS NEEDS (PRIORITIZE THE MOST SPECIFIC ONE):
+COMPANY'S BUSINESS/TECHNICAL NEEDS (Select ONE that can be addressed using this course's concepts):
 ${company.needs.map((need, i) => `${i + 1}. ${need}`).join('\n')}
 
-COURSE LEARNING OUTCOMES (MUST ALIGN):
-${outcomes.map((o, i) => `LO${i + 1}: ${o}`).join('\n')}
+---
 
-COURSE DELIVERABLES REQUIREMENTS:
-${artifacts.map(a => `- ${a}`).join('\n')}
+🎯 PROJECT DESIGN STRATEGY:
+
+1. **IDENTIFY COURSE-COMPANY FIT**:
+   - Look at course title and learning outcomes to understand what students are learning
+   - Identify which company need can be addressed using THOSE SPECIFIC course concepts
+   - Create a project that requires students to apply course knowledge to solve that need
+
+2. **SUBJECT-SPECIFIC PROJECT TYPES**:
+
+   📐 For ENGINEERING/TECHNICAL Courses (Mechanical, Electrical, Civil, Aerospace, Chemical, etc.):
+   - Focus: Design, calculations, simulations, testing, optimization, analysis using engineering principles
+   - Tools: CAD software (SolidWorks, AutoCAD), simulation tools (ANSYS, MATLAB, COMSOL), lab equipment, Python/R
+   - Example Tasks: "Calculate heat transfer coefficients using convection equations", "Design structural system using finite element analysis", "Optimize circuit design using SPICE simulation"
+   - Example Deliverables: "Technical Specifications Document with CAD Drawings", "FEA Simulation Results Report", "Prototype Design with Test Data"
+   - Example Skills: "Finite Element Analysis", "Thermodynamic Calculations", "CAD Design", "Circuit Analysis"
+
+   💻 For COMPUTER SCIENCE/DATA SCIENCE Courses:
+   - Focus: Algorithms, data structures, software development, machine learning, database design, system architecture
+   - Tools: Python, Java, SQL, R, TensorFlow, cloud platforms (AWS, Azure), Git, Docker
+   - Example Tasks: "Implement recommendation algorithm using collaborative filtering on 100K+ user dataset", "Design database schema with normalization for e-commerce platform", "Build predictive model using Random Forest with 15 features"
+   - Example Deliverables: "GitHub Repository with Working Code and Unit Tests", "ML Model with Performance Metrics Dashboard", "API Documentation with Swagger"
+   - Example Skills: "Python Programming", "Machine Learning Model Development", "SQL Database Design", "RESTful API Development"
+
+   📊 For BUSINESS/MANAGEMENT Courses:
+   - Focus: Strategy, market analysis, financial modeling, operations, marketing, organizational behavior
+   - Tools: Excel, SWOT, Porter's Five Forces, PESTEL, Business Model Canvas, financial models, market research
+   - Example Tasks: "Conduct SWOT analysis of 8 competitors using public financial data", "Build DCF valuation model with sensitivity analysis", "Design customer segmentation using RFM analysis"
+   - Example Deliverables: "Market Entry Strategy Deck", "5-Year Financial Forecast Model", "Competitive Positioning Matrix"
+   - Example Skills: "SWOT Analysis", "DCF Valuation", "Market Segmentation", "Financial Forecasting"
+
+   🔬 For SCIENCE Courses (Physics, Chemistry, Biology, Environmental Science, etc.):
+   - Focus: Experiments, data collection, statistical analysis, lab techniques, scientific method application
+   - Tools: Lab equipment, statistical software (R, SPSS), data analysis tools, scientific visualization
+   - Example Tasks: "Conduct titration experiments to determine concentration with 95% confidence interval", "Analyze soil samples using spectroscopy for 10 heavy metals", "Design controlled experiment testing 5 variables with replication"
+   - Example Deliverables: "Lab Report with Statistical Analysis", "Experimental Protocol Document", "Scientific Poster with Results"
+   - Example Skills: "Experimental Design", "Statistical Analysis", "Lab Safety Protocols", "Data Visualization"
+
+   📐 For MATHEMATICS/STATISTICS Courses:
+   - Focus: Mathematical modeling, statistical inference, probability, optimization, computational methods
+   - Tools: R, Python (NumPy, SciPy), MATLAB, Mathematica, statistical software
+   - Example Tasks: "Build Monte Carlo simulation with 10,000 iterations", "Perform regression analysis on 5 years of data with 12 predictors", "Solve optimization problem using linear programming"
+   - Example Deliverables: "Mathematical Model Report with Proofs", "Statistical Analysis Report with Confidence Intervals", "Optimization Results with Sensitivity Analysis"
+   - Example Skills: "Regression Analysis", "Monte Carlo Simulation", "Linear Programming", "Hypothesis Testing"
+
+3. **AVOID MISMATCHES** (These will cause rejection):
+   ❌ Engineering course → Generic business consulting
+   ❌ Engineering course → HR/recruitment project
+   ❌ Technical course → Project with no calculations, simulations, or technical analysis
+   ❌ Business course → Overly technical engineering tasks
+   ❌ Any course → Tasks that don't require course-specific knowledge
+
+---
 
 PROJECT CONSTRAINTS:
 - Duration: ${weeks} weeks (${weeks * hrsPerWeek} total hours)
 - Effort: ${hrsPerWeek} hours/week per student
 - Academic Level: ${level}
-- Team-based consulting engagement
 
-🎯 MANDATORY DESIGN REQUIREMENTS:
-1. Select ONE specific, measurable business need from the company's needs list
-2. Create 5-7 SPECIFIC tasks with named methodologies/frameworks (e.g., "Conduct SWOT Analysis", "Build KPI Dashboard using Tableau")
-3. Define 4-6 concrete, named deliverables (e.g., "Market Entry Strategy Deck", "Customer Segmentation Model in Excel")
-4. Extract 5-7 DOMAIN-SPECIFIC skills from your tasks (NOT generic skills like "communication" or "analysis")
-5. Incorporate company's tech stack and hiring needs into project design
+---
 
-⛔ FORBIDDEN TERMS (will cause rejection):
-- Generic verbs: "research", "analyze", "investigate", "explore", "examine"
-- Generic nouns: "report", "presentation", "memo", "findings", "recommendations"  
-- Vague phrases: "industry trends", "best practices", "strategic analysis", "market research"
+🚨 QUALITY REQUIREMENTS: SPECIFIC, HIGH-VALUE CONTENT
 
-✅ REQUIRED SPECIFICITY EXAMPLES:
+REJECTION TRIGGERS (Avoid these at ALL costs):
+- Tasks/deliverables using vague words: "research", "analyze", "report", "memo", "recommendations", "findings"
+- Generic skills: "communication", "leadership", "teamwork", "research", "analysis"
+- Tasks without named frameworks/methodologies/tools/equations/software
+- Deliverables like "Final Report" or "Analysis Document"
 
-BAD Task: "Conduct market research"
-GOOD Task: "Survey 200+ target customers using Qualtrics to identify top 5 pain points in product onboarding experience"
+✅ SPECIFICITY EXAMPLES:
 
-BAD Task: "Analyze financial data"
-GOOD Task: "Build 5-year DCF valuation model in Excel with sensitivity analysis on key revenue and margin assumptions"
+BAD Task (Engineering): "Analyze the system"
+GOOD Task (Engineering): "Calculate pressure drop through piping system using Darcy-Weisbach equation for 5 configurations"
 
-BAD Deliverable: "Analysis report"
-GOOD Deliverable: "Competitive Positioning Matrix comparing 8 competitors across 12 key features"
+BAD Task (CS): "Write code for the project"
+GOOD Task (CS): "Implement binary search tree with insert, delete, and balance operations in Python with O(log n) complexity"
 
-BAD Skill: "Research"
-GOOD Skills: "Primary Customer Research", "Survey Design & Analysis", "Statistical Significance Testing"
+BAD Task (Business): "Do market research"
+GOOD Task (Business): "Survey 200+ target customers using Qualtrics to identify top 5 pain points in product onboarding"
+
+BAD Deliverable (Engineering): "Technical Report"
+GOOD Deliverable (Engineering): "Structural Analysis Report with FEA Results for 3 Load Cases and Safety Factor Calculations"
+
+BAD Skill (Engineering): "Problem solving"
+GOOD Skill (Engineering): "Finite Element Analysis", "Stress-Strain Calculations", "Material Selection Analysis"
 
 Return ONLY valid JSON (no markdown code blocks):
 {

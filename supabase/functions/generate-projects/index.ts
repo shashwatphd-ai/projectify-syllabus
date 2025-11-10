@@ -617,13 +617,15 @@ serve(async (req) => {
         
         // Generate proposal
         console.log('  → Generating AI proposal...');
+        console.log(`  📚 Course context: "${course.title || level}"`); // P0-3: Log course context
         const proposal = await generateProjectProposal(
           filteredCompany,
           outcomes,
           artifacts,
           level,
           course.weeks,
-          course.hrs_per_week
+          course.hrs_per_week,
+          course.title // P0-3 FIX: Pass course title for context-aware generation
         );
         
         // Clean and validate
