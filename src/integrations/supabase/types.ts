@@ -1266,6 +1266,33 @@ export type Database = {
         Returns: undefined
       }
       cleanup_expired_cache: { Args: never; Returns: undefined }
+      cleanup_orphaned_projects: {
+        Args: never
+        Returns: {
+          cleaned_count: number
+          project_ids: string[]
+        }[]
+      }
+      create_project_atomic: {
+        Args: {
+          p_forms_data: Json
+          p_metadata_data: Json
+          p_project_data: Json
+        }
+        Returns: {
+          error_message: string
+          project_id: string
+          success: boolean
+        }[]
+      }
+      find_orphaned_projects: {
+        Args: never
+        Returns: {
+          missing_components: string[]
+          project_id: string
+          project_title: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
