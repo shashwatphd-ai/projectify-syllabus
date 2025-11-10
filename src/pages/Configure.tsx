@@ -10,6 +10,7 @@ import { Loader2, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
+import { validateLocationFormat, normalizeLocationForApollo } from "@/utils/locationValidation";
 
 const Configure = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
@@ -152,17 +153,42 @@ const Configure = () => {
     try {
       // Step 1: Discover & enrich companies with market intelligence
       let generationRunId = null;
-      
-      // Use search_location if available (verified format), fallback to city_zip
+
+      // P0-2 FIX: Validate location format before passing to Apollo
       const locationForDiscovery = courseData?.search_location || courseData?.city_zip;
-      
+
       if (locationForDiscovery) {
+        // Validate location format
+        const validation = validateLocationFormat(locationForDiscovery);
+
+        if (!validation.isValid) {
+          console.error('❌ Invalid location format:', validation.error);
+          toast.error(`Invalid location format: ${validation.error}. Please re-configure your course.`, {
+            duration: 5000
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Normalize for Apollo API
+        const normalizedLocation = normalizeLocationForApollo(locationForDiscovery);
+
+        if (!normalizedLocation) {
+          console.error('❌ Location normalization failed');
+          toast.error('Invalid location format. Please re-configure your course.', {
+            duration: 5000
+          });
+          setLoading(false);
+          return;
+        }
+
+        console.log('✅ Location validated for Apollo:', normalizedLocation);
         toast.info("Discovering partner companies...", { duration: 3000 });
         
         const { data: discoveryData, error: discoveryError } = await supabase.functions.invoke('discover-companies', {
-          body: { 
+          body: {
             courseId: courseId,
-            location: locationForDiscovery, // Use Apollo-friendly format
+            location: normalizedLocation, // P0-2 FIX: Use validated Apollo-friendly format
             count: parseInt(numTeams)
           }
         });
