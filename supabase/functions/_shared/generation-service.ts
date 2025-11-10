@@ -81,7 +81,9 @@ export async function generateProjectProposal(
   artifacts: string[],
   level: string,
   weeks: number,
-  hrsPerWeek: number
+  hrsPerWeek: number,
+  courseTitle?: string,
+  courseCode?: string
 ): Promise<ProjectProposal> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
@@ -147,41 +149,76 @@ Return ONLY valid JSON, no markdown code blocks.`;
     }
   }
 
-  const prompt = `Design a ${weeks}-week business consulting project for ${level} students partnering with this company.
+  const prompt = `Design a ${weeks}-week project for ${level} students in the following course:
 
-🚨 CRITICAL INSTRUCTION: GENERIC CONTENT = AUTOMATIC REJECTION 🚨
+🎓 COURSE INFORMATION (PRIMARY CONSTRAINT):
+Course Code: ${courseCode || 'Not specified'}
+Course Title: ${courseTitle || level}
+Academic Level: ${level}
 
-You are creating a project proposal that will be displayed to employers on a marketplace. 
-Your proposal MUST demonstrate SPECIFIC, HIGH-VALUE capabilities that justify hiring students.
+⚠️ CRITICAL CONSTRAINT: This project MUST enable students to practice these SPECIFIC course concepts and skills. The tasks and deliverables should apply the course subject matter, NOT just generic business consulting.
 
-REJECTION TRIGGERS (Avoid these at ALL costs):
-- Any task/deliverable using words: "research", "analyze", "report", "memo", "recommendations", "findings"
-- Any skill from this list: "communication", "leadership", "teamwork", "research", "analysis"
-- Vague deliverables like "Final Report" or "Analysis Document"
-- Tasks without named frameworks/methodologies/tools
+COURSE LEARNING OUTCOMES (PROJECT MUST ADDRESS 80%+):
+${outcomes.map((o, i) => `LO${i + 1}: ${o}`).join('\n')}
 
-COMPANY PROFILE:
+REQUIRED ARTIFACTS/DELIVERABLES:
+${artifacts.map(a => `- ${a}`).join('\n')}
+
+---
+
+🏢 COMPANY PARTNER PROFILE:
 Name: ${company.name}
 Sector: ${company.sector}
 Size: ${company.size}
-Website: ${company.website || 'Not available'}
 Description: ${company.description}
+Website: ${company.website || 'Not available'}
 ${intelligenceSection}
 
-STRATEGIC BUSINESS NEEDS (PRIORITIZE THE MOST SPECIFIC ONE):
+COMPANY'S BUSINESS NEEDS (Context for project application):
 ${company.needs.map((need, i) => `${i + 1}. ${need}`).join('\n')}
 
-COURSE LEARNING OUTCOMES (MUST ALIGN):
-${outcomes.map((o, i) => `LO${i + 1}: ${o}`).join('\n')}
+---
 
-COURSE DELIVERABLES REQUIREMENTS:
-${artifacts.map(a => `- ${a}`).join('\n')}
+🎯 PROJECT DESIGN REQUIREMENTS:
+
+1. **Subject Matter Alignment** (Most Important):
+   - Identify which company need can be addressed using THIS COURSE'S concepts
+   - If this is a technical course (engineering, science, IT), create a TECHNICAL project
+   - If this is a business course, create a business strategy/analytics project
+   - DO NOT create HR/recruitment projects unless this is an HR management course
+
+2. **Task Design**:
+   - For technical courses: Include calculations, simulations, analysis using course concepts
+   - For business courses: Use frameworks like SWOT, Porter's Five Forces, etc.
+   - Every task should require applying specific course knowledge
+
+3. **Domain-Specific Frameworks**:
+   
+   For Engineering/Technical Courses:
+   - Use: Calculations, simulations, design optimization, system analysis, testing protocols
+   - Tools: CAD software, simulation tools, technical analysis software
+   - Deliverables: Technical specifications, design drawings, analysis reports, prototypes
+   
+   For Business Courses:
+   - Use: SWOT, Porter's Five Forces, PESTEL, Business Model Canvas, Value Chain
+   - Tools: Excel models, market analysis, financial projections
+   - Deliverables: Strategy decks, financial models, market research reports
+   
+   For Data/CS Courses:
+   - Use: Algorithms, data structures, machine learning models, database design
+   - Tools: Python, SQL, R, Tableau, cloud platforms
+   - Deliverables: Code repositories, data pipelines, dashboards, ML models
+   
+   For Social Science Courses:
+   - Use: Research methodologies, surveys, interviews, statistical analysis
+   - Tools: Survey platforms, statistical software
+   - Deliverables: Research reports, policy briefs, data visualizations
 
 PROJECT CONSTRAINTS:
 - Duration: ${weeks} weeks (${weeks * hrsPerWeek} total hours)
 - Effort: ${hrsPerWeek} hours/week per student
 - Academic Level: ${level}
-- Team-based consulting engagement
+- Team-based project (3-5 students typical)
 
 🎯 MANDATORY DESIGN REQUIREMENTS:
 1. Select ONE specific, measurable business need from the company's needs list

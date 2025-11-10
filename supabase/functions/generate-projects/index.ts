@@ -623,7 +623,9 @@ serve(async (req) => {
           artifacts,
           level,
           course.weeks,
-          course.hrs_per_week
+          course.hrs_per_week,
+          course.course_title,
+          course.course_code
         );
         
         // Clean and validate
