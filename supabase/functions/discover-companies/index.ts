@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { ProviderFactory } from './providers/provider-factory.ts';
 import { CourseContext } from './providers/types.ts';
+import { extractSkillsFromOutcomes, formatSkillsForDisplay } from '../_shared/skill-extraction-service.ts';
+import { mapSkillsToOnet, formatOnetMappingForDisplay, extractJobTitlesFromOnet } from '../_shared/onet-service.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -77,7 +79,43 @@ serve(async (req) => {
     const generationRunId = generationRun.id;
 
     // ====================================
-    // Step 2: Get provider configuration
+    // Step 2: PHASE 1+2: Extract skills and map to O*NET
+    // ====================================
+    console.log(`\n🧠 [Phase 1] Extracting skills from course outcomes...`);
+    const skillExtractionResult = await extractSkillsFromOutcomes(
+      outcomes,
+      course.title,
+      course.level
+    );
+    console.log(formatSkillsForDisplay(skillExtractionResult));
+
+    console.log(`\n🔍 [Phase 2] Mapping skills to O*NET occupations...`);
+    const onetMappingResult = await mapSkillsToOnet(skillExtractionResult.skills);
+    console.log(formatOnetMappingForDisplay(onetMappingResult));
+
+    // Extract job titles for intelligent filtering
+    const intelligentJobTitles = extractJobTitlesFromOnet(onetMappingResult.occupations);
+    console.log(`\n📋 Intelligent job titles: ${intelligentJobTitles.join(', ')}`);
+
+    // Store skill extraction and O*NET mapping in generation_run
+    await supabase
+      .from('generation_runs')
+      .update({
+        extracted_skills: skillExtractionResult.skills,
+        skill_extraction_method: skillExtractionResult.extractionMethod,
+        skills_extracted_at: new Date().toISOString(),
+        onet_occupations: onetMappingResult.occupations,
+        onet_mapping_method: 'keyword-search',
+        onet_mapped_at: new Date().toISOString(),
+        onet_api_calls: onetMappingResult.apiCalls,
+        onet_cache_hits: onetMappingResult.cacheHits
+      })
+      .eq('id', generationRunId);
+
+    console.log(`✅ Stored skills and O*NET data in generation_run ${generationRunId}`);
+
+    // ====================================
+    // Step 3: Get provider configuration
     // ====================================
     const providerConfig = ProviderFactory.getConfigFromEnv();
     console.log(`\n📋 Provider Configuration:`);
@@ -99,7 +137,11 @@ serve(async (req) => {
       topics,
       location, // Display location for logging/UI
       searchLocation, // Apollo-friendly format for searches
-      targetCount: count
+      targetCount: count,
+      // Phase 1+2: Include intelligent matching data
+      extractedSkills: skillExtractionResult.skills,
+      onetOccupations: onetMappingResult.occupations,
+      courseTitle: course.title
     };
 
     const discoveryResult = await provider.discover(courseContext);

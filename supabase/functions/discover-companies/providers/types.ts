@@ -3,6 +3,10 @@
  * These interfaces ensure all providers return consistent data structures
  */
 
+// Import types from shared services
+import type { ExtractedSkill } from '../../_shared/skill-extraction-service.ts';
+import type { OnetOccupation } from '../../_shared/onet-service.ts';
+
 export interface CourseContext {
   outcomes: string[];
   level: string;
@@ -10,6 +14,11 @@ export interface CourseContext {
   location: string; // Display format (e.g., "University Name, Country")
   searchLocation: string; // Apollo search format (e.g., "Kansas City, Missouri, United States")
   targetCount: number;
+
+  // Phase 1+2: Intelligent matching data (optional - providers can use or ignore)
+  extractedSkills?: ExtractedSkill[];      // Skills extracted from outcomes
+  onetOccupations?: OnetOccupation[];      // O*NET occupations mapped from skills
+  courseTitle?: string;                    // Course title for context
 }
 
 export interface DiscoveredCompany {

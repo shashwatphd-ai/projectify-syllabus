@@ -135,7 +135,16 @@ export class ApolloProvider implements DiscoveryProvider {
   }
   
   private async generateFilters(context: CourseContext): Promise<ApolloSearchFilters> {
-    // Add randomization for variety in results
+    // PHASE 2: Use O*NET data for intelligent filtering (if available)
+    const useIntelligentFilters = context.onetOccupations && context.onetOccupations.length > 0;
+
+    console.log(`\n🎯 Filter Generation Mode: ${useIntelligentFilters ? 'INTELLIGENT (O*NET)' : 'LEGACY (Random)'}`);
+
+    if (useIntelligentFilters) {
+      return await this.generateIntelligentFilters(context);
+    }
+
+    // LEGACY: Fallback to randomization if no O*NET data
     const randomSeed = Date.now() % 1000;
     const jobTitleCategories = [
       ['Director', 'VP', 'Manager', 'Lead'],
@@ -261,7 +270,181 @@ Return JSON:
 
     return JSON.parse(jsonMatch[0]);
   }
-  
+
+  /**
+   * PHASE 2: Generate intelligent filters using O*NET data
+   * Uses occupation-specific job titles and technologies instead of random categories
+   */
+  private async generateIntelligentFilters(context: CourseContext): Promise<ApolloSearchFilters> {
+    console.log(`  🧠 Using O*NET occupations for intelligent filtering...`);
+
+    const onetOccupations = context.onetOccupations!;
+
+    // Extract specific job titles from O*NET occupations
+    const specificJobTitles: string[] = [];
+    const technologiesNeeded: string[] = [];
+    const industryKeywords: string[] = [];
+
+    for (const occ of onetOccupations.slice(0, 3)) {  // Top 3 occupations
+      // Add occupation title
+      specificJobTitles.push(occ.title);
+
+      // Extract technologies
+      technologiesNeeded.push(...occ.technologies.slice(0, 5));
+
+      // Extract industry keywords from DWAs
+      const highImportanceDWAs = occ.dwas
+        .filter(dwa => dwa.importance > 70)
+        .slice(0, 5);
+
+      for (const dwa of highImportanceDWAs) {
+        // Simple keyword extraction from DWA names
+        const words = dwa.name
+          .toLowerCase()
+          .split(/\W+/)
+          .filter(w => w.length > 4 && !['design', 'develop', 'analyze', 'conduct'].includes(w));
+
+        industryKeywords.push(...words);
+      }
+    }
+
+    // Deduplicate
+    const uniqueJobTitles = [...new Set(specificJobTitles)].slice(0, 5);
+    const uniqueTechnologies = [...new Set(technologiesNeeded)].slice(0, 5);
+    const uniqueKeywords = [...new Set(industryKeywords)].slice(0, 10);
+
+    console.log(`  📋 Intelligent Job Titles: ${uniqueJobTitles.join(', ')}`);
+    console.log(`  💻 Technologies: ${uniqueTechnologies.join(', ')}`);
+    console.log(`  🏭 Industry Keywords: ${uniqueKeywords.slice(0, 5).join(', ')}`);
+
+    // Map occupation titles to industries
+    const inferredIndustries = this.mapOccupationsToIndustries(onetOccupations);
+    console.log(`  🏢 Inferred Industries: ${inferredIndustries.join(', ')}`);
+
+    // Handle location normalization
+    let apolloLocation = context.searchLocation;
+    const countryCodeMap: Record<string, string> = {
+      'IN': 'India', 'US': 'United States', 'GB': 'United Kingdom',
+      'CA': 'Canada', 'AU': 'Australia', 'DE': 'Germany', 'FR': 'France',
+      'JP': 'Japan', 'CN': 'China', 'SG': 'Singapore', 'AE': 'United Arab Emirates',
+      'NL': 'Netherlands', 'SE': 'Sweden', 'CH': 'Switzerland', 'ES': 'Spain',
+      'IT': 'Italy', 'BR': 'Brazil', 'MX': 'Mexico', 'KR': 'South Korea', 'IL': 'Israel'
+    };
+
+    if (apolloLocation && apolloLocation.length === 2 && apolloLocation.match(/^[A-Z]{2}$/)) {
+      apolloLocation = countryCodeMap[apolloLocation] || apolloLocation;
+    }
+
+    if (apolloLocation && apolloLocation.includes(',')) {
+      const parts = apolloLocation.split(',').map((p: string) => p.trim());
+      const lastPart = parts[parts.length - 1];
+      if (lastPart.length === 2 && lastPart.match(/^[A-Z]{2}$/)) {
+        parts[parts.length - 1] = countryCodeMap[lastPart] || lastPart;
+        apolloLocation = parts.join(', ');
+      }
+    }
+
+    // Build intelligent filters
+    const intelligentFilters: ApolloSearchFilters = {
+      organization_locations: [apolloLocation],
+      q_organization_keyword_tags: inferredIndustries,
+      q_organization_job_titles: uniqueJobTitles,
+      organization_num_employees_ranges: ['10,50', '51,200', '201,500'], // All sizes
+      organization_num_jobs_range: { min: 3 }
+    };
+
+    // Add technologies if we found any
+    if (uniqueTechnologies.length > 0) {
+      // Note: Apollo API uses technology UIDs, not names
+      // For now, we'll use keyword search instead
+      intelligentFilters.q_organization_keyword_tags.push(...uniqueTechnologies.map(t => t.toLowerCase()));
+    }
+
+    console.log(`  ✅ Generated intelligent filters with ${uniqueJobTitles.length} job titles`);
+
+    return intelligentFilters;
+  }
+
+  /**
+   * Map O*NET occupations to relevant industries for Apollo filtering
+   */
+  private mapOccupationsToIndustries(occupations: any[]): string[] {
+    const industries = new Set<string>();
+
+    for (const occ of occupations) {
+      const title = occ.title.toLowerCase();
+      const code = occ.code;
+
+      // SOC code mapping (https://www.bls.gov/soc/2018/major_groups.htm)
+      const majorGroup = code.substring(0, 2);
+
+      // Engineering (17-xxxx)
+      if (majorGroup === '17' || title.includes('engineer')) {
+        industries.add('engineering');
+        industries.add('manufacturing');
+        industries.add('technology');
+
+        if (title.includes('mechanical') || title.includes('thermal')) {
+          industries.add('hvac');
+          industries.add('automotive');
+          industries.add('energy');
+        }
+        if (title.includes('software') || title.includes('computer')) {
+          industries.add('software');
+          industries.add('it services');
+        }
+        if (title.includes('civil') || title.includes('structural')) {
+          industries.add('construction');
+          industries.add('infrastructure');
+        }
+      }
+
+      // Computer/IT (15-xxxx)
+      if (majorGroup === '15' || title.includes('software') || title.includes('data')) {
+        industries.add('software');
+        industries.add('technology');
+        industries.add('it services');
+        industries.add('saas');
+
+        if (title.includes('data')) {
+          industries.add('data analytics');
+          industries.add('business intelligence');
+        }
+      }
+
+      // Business/Management (11-xxxx, 13-xxxx)
+      if (majorGroup === '11' || majorGroup === '13' || title.includes('manager') || title.includes('analyst')) {
+        industries.add('consulting');
+        industries.add('business services');
+
+        if (title.includes('financial') || title.includes('accounting')) {
+          industries.add('financial services');
+          industries.add('fintech');
+        }
+        if (title.includes('marketing')) {
+          industries.add('marketing');
+          industries.add('advertising');
+        }
+      }
+
+      // Healthcare (29-xxxx, 31-xxxx)
+      if (majorGroup === '29' || majorGroup === '31') {
+        industries.add('healthcare');
+        industries.add('biotech');
+        industries.add('medical devices');
+      }
+
+      // Life Sciences (19-xxxx)
+      if (majorGroup === '19') {
+        industries.add('biotech');
+        industries.add('pharmaceuticals');
+        industries.add('research');
+      }
+    }
+
+    return Array.from(industries).slice(0, 10);  // Top 10 industries
+  }
+
   private async searchOrganizations(
     filters: ApolloSearchFilters, 
     maxResults: number
