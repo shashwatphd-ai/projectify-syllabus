@@ -4,6 +4,7 @@ import { ProviderFactory } from './providers/provider-factory.ts';
 import { CourseContext } from './providers/types.ts';
 import { extractSkillsFromOutcomes, formatSkillsForDisplay } from '../_shared/skill-extraction-service.ts';
 import { mapSkillsToOnet, formatOnetMappingForDisplay, extractJobTitlesFromOnet } from '../_shared/onet-service.ts';
+import { rankCompaniesBySimilarity, formatSemanticFilteringForDisplay, getRecommendedThreshold } from '../_shared/semantic-matching-service.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -153,9 +154,53 @@ serve(async (req) => {
     console.log(`   Provider: ${discoveryResult.stats.providerUsed}`);
 
     // ====================================
-    // Step 5: Store companies in database
+    // Step 5: PHASE 3: Semantic similarity filtering
     // ====================================
-    for (const company of discoveryResult.companies) {
+    const companiesBeforeFilter = discoveryResult.companies.length;
+    const threshold = getRecommendedThreshold(companiesBeforeFilter);
+
+    console.log(`\n🧠 [Phase 3] Applying semantic similarity filtering...`);
+    const semanticResult = await rankCompaniesBySimilarity(
+      skillExtractionResult.skills,
+      onetMappingResult.occupations,
+      discoveryResult.companies,
+      threshold
+    );
+    console.log(formatSemanticFilteringForDisplay(semanticResult));
+
+    // Update generation_run with semantic filtering stats
+    await supabase
+      .from('generation_runs')
+      .update({
+        semantic_filter_threshold: threshold,
+        semantic_filter_applied: true,
+        companies_before_filter: companiesBeforeFilter,
+        companies_after_filter: semanticResult.matches.length,
+        average_similarity_score: semanticResult.averageSimilarity,
+        semantic_processing_time_ms: semanticResult.processingTimeMs
+      })
+      .eq('id', generationRunId);
+
+    console.log(`✅ Semantic filtering: ${companiesBeforeFilter} → ${semanticResult.matches.length} companies`);
+
+    // Map semantic matches back to company objects with similarity data
+    const filteredCompanies = semanticResult.matches.map(match => {
+      const company = discoveryResult.companies.find(c => c.name === match.companyName)!;
+      return {
+        ...company,
+        // Add Phase 3 metadata
+        similarityScore: match.similarityScore,
+        matchConfidence: match.confidence,
+        matchingSkills: match.matchingSkills,
+        matchingDWAs: match.matchingDWAs,
+        matchExplanation: match.explanation
+      };
+    });
+
+    // ====================================
+    // Step 6: Store companies in database
+    // ====================================
+    for (const company of filteredCompanies) {  // Use filtered companies from Phase 3
       const companyData = {
         name: company.name,
         sector: company.sector,
@@ -211,7 +256,15 @@ serve(async (req) => {
         data_enrichment_level: company.enrichmentLevel,
         data_completeness_score: company.dataCompletenessScore,
         last_enriched_at: company.lastEnrichedAt,
-        last_verified_at: company.lastVerifiedAt
+        last_verified_at: company.lastVerifiedAt,
+
+        // Phase 3: Semantic matching data
+        similarity_score: company.similarityScore,
+        match_confidence: company.matchConfidence,
+        matching_skills: company.matchingSkills,
+        matching_dwas: company.matchingDWAs,
+        match_explanation: company.matchExplanation,
+        semantic_matched_at: new Date().toISOString()
       };
 
       // UPSERT using website as unique identifier
