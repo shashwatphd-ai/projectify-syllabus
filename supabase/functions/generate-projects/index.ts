@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { calculateApolloEnrichedPricing, calculateApolloEnrichedROI } from '../_shared/pricing-service.ts';
 import { generateProjectProposal } from '../_shared/generation-service.ts';
 import { calculateLOAlignment, calculateMarketAlignmentScore, generateLOAlignmentDetail } from '../_shared/alignment-service.ts';
+import { extractSkillsFromOutcomes, formatSkillsForDisplay } from '../_shared/skill-extraction-service.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -486,7 +487,16 @@ serve(async (req) => {
     const artifacts = course.artifacts as string[];
     const cityZip = course.city_zip;
     const level = course.level;
-    
+
+    // PHASE 1: Extract skills from course outcomes
+    console.log('\n🧠 [Phase 1] Extracting skills from course outcomes...');
+    const skillExtractionResult = await extractSkillsFromOutcomes(
+      outcomes,
+      course.title,
+      level
+    );
+    console.log(formatSkillsForDisplay(skillExtractionResult));
+
     // CRITICAL: Enforce Apollo-First Architecture - generation_run_id is MANDATORY
     const generationRunId = generation_run_id;
     
@@ -617,6 +627,7 @@ serve(async (req) => {
         
         // Generate proposal
         console.log('  → Generating AI proposal...');
+        console.log(`  📚 Course context: "${course.title || level}"`); // P0-3: Log course context
         const proposal = await generateProjectProposal(
           filteredCompany,
           outcomes,
@@ -624,8 +635,7 @@ serve(async (req) => {
           level,
           course.weeks,
           course.hrs_per_week,
-          course.course_title,
-          course.course_code
+          course.title // P0-3 FIX: Pass course title for context-aware generation
         );
         
         // Clean and validate
@@ -789,11 +799,16 @@ serve(async (req) => {
         .update({
           projects_generated: projectIds.length,
           status: 'completed',
-          completed_at: new Date().toISOString()
+          completed_at: new Date().toISOString(),
+          // Phase 1: Store extracted skills
+          extracted_skills: skillExtractionResult.skills,
+          skill_extraction_method: skillExtractionResult.extractionMethod,
+          skills_extracted_at: new Date().toISOString()
         })
         .eq('id', generationRunId);
-      
+
       console.log(`✅ Updated generation run ${generationRunId} with ${projectIds.length} projects`);
+      console.log(`✅ Stored ${skillExtractionResult.skills.length} extracted skills in database`);
     }
 
     console.log('\n========================================');
