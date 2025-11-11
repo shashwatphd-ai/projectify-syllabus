@@ -10,6 +10,7 @@ import { Upload as UploadIcon, FileText, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
+import { validateLocationFormat, needsManualLocationEntry } from "@/utils/locationValidation";
 
 const Upload = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
@@ -79,8 +80,30 @@ const Upload = () => {
         console.log('📍 Location detected:', data.location);
         console.log('🔍 Search location format:', data.searchLocation);
         console.log('📦 Full location data:', { city: data.city, state: data.state, zip: data.zip, country: data.country });
+
+        // P0-2 FIX: Validate location format before storing
+        const locationToValidate = data.searchLocation || data.location;
+        const validation = validateLocationFormat(locationToValidate);
+
+        if (!validation.isValid) {
+          console.warn('⚠️ Location format invalid:', validation.error);
+          toast.error(`Location format invalid: ${validation.error}. Please enter manually.`);
+          setManualEntry(true);
+          return;
+        }
+
+        // Check if location looks suspicious (institution name, URL, etc.)
+        if (needsManualLocationEntry(locationToValidate)) {
+          console.warn('⚠️ Location needs manual entry:', locationToValidate);
+          toast.error('Location format unclear. Please enter manually.');
+          setManualEntry(true);
+          return;
+        }
+
+        console.log('✅ Location validation passed:', validation.normalized);
+
         setCityZip(data.location); // Display format
-        setSearchLocation(data.searchLocation || data.location); // Apollo format
+        setSearchLocation(validation.normalized || locationToValidate); // Validated Apollo format
         setLocationData({
           city: data.city || '',
           state: data.state || '',

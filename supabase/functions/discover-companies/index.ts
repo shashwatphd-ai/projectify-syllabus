@@ -2,6 +2,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { ProviderFactory } from './providers/provider-factory.ts';
 import { CourseContext } from './providers/types.ts';
+import { extractSkillsFromOutcomes, formatSkillsForDisplay } from '../_shared/skill-extraction-service.ts';
+import { mapSkillsToOnet, formatOnetMappingForDisplay, extractJobTitlesFromOnet } from '../_shared/onet-service.ts';
+import { rankCompaniesBySimilarity, formatSemanticFilteringForDisplay, getRecommendedThreshold } from '../_shared/semantic-matching-service.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -77,7 +80,43 @@ serve(async (req) => {
     const generationRunId = generationRun.id;
 
     // ====================================
-    // Step 2: Get provider configuration
+    // Step 2: PHASE 1+2: Extract skills and map to O*NET
+    // ====================================
+    console.log(`\n🧠 [Phase 1] Extracting skills from course outcomes...`);
+    const skillExtractionResult = await extractSkillsFromOutcomes(
+      outcomes,
+      course.title,
+      course.level
+    );
+    console.log(formatSkillsForDisplay(skillExtractionResult));
+
+    console.log(`\n🔍 [Phase 2] Mapping skills to O*NET occupations...`);
+    const onetMappingResult = await mapSkillsToOnet(skillExtractionResult.skills);
+    console.log(formatOnetMappingForDisplay(onetMappingResult));
+
+    // Extract job titles for intelligent filtering
+    const intelligentJobTitles = extractJobTitlesFromOnet(onetMappingResult.occupations);
+    console.log(`\n📋 Intelligent job titles: ${intelligentJobTitles.join(', ')}`);
+
+    // Store skill extraction and O*NET mapping in generation_run
+    await supabase
+      .from('generation_runs')
+      .update({
+        extracted_skills: skillExtractionResult.skills,
+        skill_extraction_method: skillExtractionResult.extractionMethod,
+        skills_extracted_at: new Date().toISOString(),
+        onet_occupations: onetMappingResult.occupations,
+        onet_mapping_method: 'keyword-search',
+        onet_mapped_at: new Date().toISOString(),
+        onet_api_calls: onetMappingResult.apiCalls,
+        onet_cache_hits: onetMappingResult.cacheHits
+      })
+      .eq('id', generationRunId);
+
+    console.log(`✅ Stored skills and O*NET data in generation_run ${generationRunId}`);
+
+    // ====================================
+    // Step 3: Get provider configuration
     // ====================================
     const providerConfig = ProviderFactory.getConfigFromEnv();
     console.log(`\n📋 Provider Configuration:`);
@@ -99,7 +138,11 @@ serve(async (req) => {
       topics,
       location, // Display location for logging/UI
       searchLocation, // Apollo-friendly format for searches
-      targetCount: count
+      targetCount: count,
+      // Phase 1+2: Include intelligent matching data
+      extractedSkills: skillExtractionResult.skills,
+      onetOccupations: onetMappingResult.occupations,
+      courseTitle: course.title
     };
 
     const discoveryResult = await provider.discover(courseContext);
@@ -111,9 +154,53 @@ serve(async (req) => {
     console.log(`   Provider: ${discoveryResult.stats.providerUsed}`);
 
     // ====================================
-    // Step 5: Store companies in database
+    // Step 5: PHASE 3: Semantic similarity filtering
     // ====================================
-    for (const company of discoveryResult.companies) {
+    const companiesBeforeFilter = discoveryResult.companies.length;
+    const threshold = getRecommendedThreshold(companiesBeforeFilter);
+
+    console.log(`\n🧠 [Phase 3] Applying semantic similarity filtering...`);
+    const semanticResult = await rankCompaniesBySimilarity(
+      skillExtractionResult.skills,
+      onetMappingResult.occupations,
+      discoveryResult.companies,
+      threshold
+    );
+    console.log(formatSemanticFilteringForDisplay(semanticResult));
+
+    // Update generation_run with semantic filtering stats
+    await supabase
+      .from('generation_runs')
+      .update({
+        semantic_filter_threshold: threshold,
+        semantic_filter_applied: true,
+        companies_before_filter: companiesBeforeFilter,
+        companies_after_filter: semanticResult.matches.length,
+        average_similarity_score: semanticResult.averageSimilarity,
+        semantic_processing_time_ms: semanticResult.processingTimeMs
+      })
+      .eq('id', generationRunId);
+
+    console.log(`✅ Semantic filtering: ${companiesBeforeFilter} → ${semanticResult.matches.length} companies`);
+
+    // Map semantic matches back to company objects with similarity data
+    const filteredCompanies = semanticResult.matches.map(match => {
+      const company = discoveryResult.companies.find(c => c.name === match.companyName)!;
+      return {
+        ...company,
+        // Add Phase 3 metadata
+        similarityScore: match.similarityScore,
+        matchConfidence: match.confidence,
+        matchingSkills: match.matchingSkills,
+        matchingDWAs: match.matchingDWAs,
+        matchExplanation: match.explanation
+      };
+    });
+
+    // ====================================
+    // Step 6: Store companies in database
+    // ====================================
+    for (const company of filteredCompanies) {  // Use filtered companies from Phase 3
       const companyData = {
         name: company.name,
         sector: company.sector,
@@ -169,7 +256,15 @@ serve(async (req) => {
         data_enrichment_level: company.enrichmentLevel,
         data_completeness_score: company.dataCompletenessScore,
         last_enriched_at: company.lastEnrichedAt,
-        last_verified_at: company.lastVerifiedAt
+        last_verified_at: company.lastVerifiedAt,
+
+        // Phase 3: Semantic matching data
+        similarity_score: company.similarityScore,
+        match_confidence: company.matchConfidence,
+        matching_skills: company.matchingSkills,
+        matching_dwas: company.matchingDWAs,
+        match_explanation: company.matchExplanation,
+        semantic_matched_at: new Date().toISOString()
       };
 
       // UPSERT using website as unique identifier
