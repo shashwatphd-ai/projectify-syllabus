@@ -83,6 +83,9 @@ export type Database = {
           last_enriched_at: string
           last_verified_at: string | null
           linkedin_profile: string | null
+          match_confidence: string | null
+          matching_dwas: Json | null
+          matching_skills: Json | null
           name: string
           open_roles: Json | null
           organization_employee_count: string | null
@@ -96,6 +99,7 @@ export type Database = {
           owner_user_id: string | null
           recent_news: string | null
           sector: string | null
+          similarity_score: number | null
           size: string | null
           source: string | null
           technologies: Json | null
@@ -137,6 +141,9 @@ export type Database = {
           last_enriched_at?: string
           last_verified_at?: string | null
           linkedin_profile?: string | null
+          match_confidence?: string | null
+          matching_dwas?: Json | null
+          matching_skills?: Json | null
           name: string
           open_roles?: Json | null
           organization_employee_count?: string | null
@@ -150,6 +157,7 @@ export type Database = {
           owner_user_id?: string | null
           recent_news?: string | null
           sector?: string | null
+          similarity_score?: number | null
           size?: string | null
           source?: string | null
           technologies?: Json | null
@@ -191,6 +199,9 @@ export type Database = {
           last_enriched_at?: string
           last_verified_at?: string | null
           linkedin_profile?: string | null
+          match_confidence?: string | null
+          matching_dwas?: Json | null
+          matching_skills?: Json | null
           name?: string
           open_roles?: Json | null
           organization_employee_count?: string | null
@@ -204,6 +215,7 @@ export type Database = {
           owner_user_id?: string | null
           recent_news?: string | null
           sector?: string | null
+          similarity_score?: number | null
           size?: string | null
           source?: string | null
           technologies?: Json | null
@@ -567,72 +579,105 @@ export type Database = {
           ai_models_used: Json | null
           ai_tokens_consumed: number | null
           apollo_credits_used: number | null
+          average_similarity_score: number | null
+          companies_after_filtering: number | null
+          companies_before_filtering: number | null
           companies_discovered: number | null
           companies_enriched: number | null
           completed_at: string | null
           course_id: string
           created_at: string
           error_message: string | null
+          extracted_skills: Json | null
           id: string
           industries: Json | null
           location: string | null
           num_teams: number
+          occupation_mapping_confidence: number | null
+          occupation_mapping_provider: string | null
+          onet_occupations: Json | null
           processing_time_seconds: number | null
           projects_generated: number | null
           scoring_notes: string | null
           scoring_version: string | null
           scoring_weights: Json | null
+          semantic_filter_applied: boolean | null
+          semantic_filter_threshold: number | null
+          skill_extraction_model: string | null
           specific_companies: Json | null
           started_at: string
           status: string
+          unmapped_skills: Json | null
           updated_at: string
         }
         Insert: {
           ai_models_used?: Json | null
           ai_tokens_consumed?: number | null
           apollo_credits_used?: number | null
+          average_similarity_score?: number | null
+          companies_after_filtering?: number | null
+          companies_before_filtering?: number | null
           companies_discovered?: number | null
           companies_enriched?: number | null
           completed_at?: string | null
           course_id: string
           created_at?: string
           error_message?: string | null
+          extracted_skills?: Json | null
           id?: string
           industries?: Json | null
           location?: string | null
           num_teams: number
+          occupation_mapping_confidence?: number | null
+          occupation_mapping_provider?: string | null
+          onet_occupations?: Json | null
           processing_time_seconds?: number | null
           projects_generated?: number | null
           scoring_notes?: string | null
           scoring_version?: string | null
           scoring_weights?: Json | null
+          semantic_filter_applied?: boolean | null
+          semantic_filter_threshold?: number | null
+          skill_extraction_model?: string | null
           specific_companies?: Json | null
           started_at?: string
           status?: string
+          unmapped_skills?: Json | null
           updated_at?: string
         }
         Update: {
           ai_models_used?: Json | null
           ai_tokens_consumed?: number | null
           apollo_credits_used?: number | null
+          average_similarity_score?: number | null
+          companies_after_filtering?: number | null
+          companies_before_filtering?: number | null
           companies_discovered?: number | null
           companies_enriched?: number | null
           completed_at?: string | null
           course_id?: string
           created_at?: string
           error_message?: string | null
+          extracted_skills?: Json | null
           id?: string
           industries?: Json | null
           location?: string | null
           num_teams?: number
+          occupation_mapping_confidence?: number | null
+          occupation_mapping_provider?: string | null
+          onet_occupations?: Json | null
           processing_time_seconds?: number | null
           projects_generated?: number | null
           scoring_notes?: string | null
           scoring_version?: string | null
           scoring_weights?: Json | null
+          semantic_filter_applied?: boolean | null
+          semantic_filter_threshold?: number | null
+          skill_extraction_model?: string | null
           specific_companies?: Json | null
           started_at?: string
           status?: string
+          unmapped_skills?: Json | null
           updated_at?: string
         }
         Relationships: [
