@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { ProviderFactory } from './providers/provider-factory.ts';
 import { CourseContext } from './providers/types.ts';
 import { extractSkillsFromOutcomes, formatSkillsForDisplay } from '../_shared/skill-extraction-service.ts';
-import { mapSkillsToOnet, formatOnetMappingForDisplay, extractJobTitlesFromOnet } from '../_shared/onet-service.ts';
+import { createDefaultCoordinator, formatCoordinatedResultsForDisplay } from '../_shared/occupation-coordinator.ts';
 import { rankCompaniesBySimilarity, formatSemanticFilteringForDisplay, getRecommendedThreshold } from '../_shared/semantic-matching-service.ts';
 
 const corsHeaders = {
@@ -80,7 +80,7 @@ serve(async (req) => {
     const generationRunId = generationRun.id;
 
     // ====================================
-    // Step 2: PHASE 1+2: Extract skills and map to O*NET
+    // Step 2: PHASE 1+2: Extract skills and map to occupations (Multi-Provider)
     // ====================================
     console.log(`\n🧠 [Phase 1] Extracting skills from course outcomes...`);
     const skillExtractionResult = await extractSkillsFromOutcomes(
@@ -90,30 +90,60 @@ serve(async (req) => {
     );
     console.log(formatSkillsForDisplay(skillExtractionResult));
 
-    console.log(`\n🔍 [Phase 2] Mapping skills to O*NET occupations...`);
-    const onetMappingResult = await mapSkillsToOnet(skillExtractionResult.skills);
-    console.log(formatOnetMappingForDisplay(onetMappingResult));
+    console.log(`\n🔍 [Phase 2] Mapping skills to occupations (Multi-Provider)...`);
+    // Check if O*NET credentials are available
+    const onetUsername = Deno.env.get('ONET_USERNAME');
+    const onetPassword = Deno.env.get('ONET_PASSWORD');
+    const enableOnet = !!(onetUsername && onetPassword);
+
+    if (enableOnet) {
+      console.log(`   O*NET credentials found - enabling O*NET provider`);
+    } else {
+      console.log(`   O*NET credentials not found - using ESCO + Skills-ML`);
+    }
+
+    // Create multi-provider coordinator
+    const coordinator = await createDefaultCoordinator({
+      enableOnet: enableOnet,
+      enableEsco: true,
+      enableSkillsML: true
+    });
+
+    // Map skills using coordination layer
+    const coordinatedResult = await coordinator.mapSkillsToOccupations(skillExtractionResult.skills);
+    console.log(formatCoordinatedResultsForDisplay(coordinatedResult));
 
     // Extract job titles for intelligent filtering
-    const intelligentJobTitles = extractJobTitlesFromOnet(onetMappingResult.occupations);
-    console.log(`\n📋 Intelligent job titles: ${intelligentJobTitles.join(', ')}`);
+    const intelligentJobTitles = new Set<string>();
+    for (const occupation of coordinatedResult.occupations.slice(0, 5)) {
+      intelligentJobTitles.add(occupation.title);
+    }
+    console.log(`\n📋 Intelligent job titles: ${Array.from(intelligentJobTitles).join(', ')}`);
 
-    // Store skill extraction and O*NET mapping in generation_run
+    // Calculate total API calls across all providers
+    let totalApiCalls = 0;
+    let totalCacheHits = 0;
+    for (const [provider, result] of coordinatedResult.providerResults) {
+      totalApiCalls += result.apiCalls;
+      totalCacheHits += result.cacheHits;
+    }
+
+    // Store skill extraction and multi-provider mapping in generation_run
     await supabase
       .from('generation_runs')
       .update({
         extracted_skills: skillExtractionResult.skills,
         skill_extraction_method: skillExtractionResult.extractionMethod,
         skills_extracted_at: new Date().toISOString(),
-        onet_occupations: onetMappingResult.occupations,
-        onet_mapping_method: 'keyword-search',
+        onet_occupations: coordinatedResult.occupations, // Store coordinated results
+        onet_mapping_method: `multi-provider(${coordinatedResult.providersUsed.join('+')})`,
         onet_mapped_at: new Date().toISOString(),
-        onet_api_calls: onetMappingResult.apiCalls,
-        onet_cache_hits: onetMappingResult.cacheHits
+        onet_api_calls: totalApiCalls,
+        onet_cache_hits: totalCacheHits
       })
       .eq('id', generationRunId);
 
-    console.log(`✅ Stored skills and O*NET data in generation_run ${generationRunId}`);
+    console.log(`✅ Stored skills and multi-provider occupation data in generation_run ${generationRunId}`);
 
     // ====================================
     // Step 3: Get provider configuration
@@ -139,9 +169,9 @@ serve(async (req) => {
       location, // Display location for logging/UI
       searchLocation, // Apollo-friendly format for searches
       targetCount: count,
-      // Phase 1+2: Include intelligent matching data
+      // Phase 1+2: Include intelligent matching data from multi-provider coordination
       extractedSkills: skillExtractionResult.skills,
-      onetOccupations: onetMappingResult.occupations,
+      onetOccupations: coordinatedResult.occupations, // Use coordinated results
       courseTitle: course.title
     };
 
@@ -162,7 +192,7 @@ serve(async (req) => {
     console.log(`\n🧠 [Phase 3] Applying semantic similarity filtering...`);
     const semanticResult = await rankCompaniesBySimilarity(
       skillExtractionResult.skills,
-      onetMappingResult.occupations,
+      coordinatedResult.occupations, // Use coordinated results
       discoveryResult.companies,
       threshold
     );

@@ -5,7 +5,7 @@
 
 // Import types from shared services
 import type { ExtractedSkill } from '../../_shared/skill-extraction-service.ts';
-import type { OnetOccupation } from '../../_shared/onet-service.ts';
+import type { StandardOccupation } from '../../_shared/occupation-provider-interface.ts';
 
 export interface CourseContext {
   outcomes: string[];
@@ -16,9 +16,9 @@ export interface CourseContext {
   targetCount: number;
 
   // Phase 1+2: Intelligent matching data (optional - providers can use or ignore)
-  extractedSkills?: ExtractedSkill[];      // Skills extracted from outcomes
-  onetOccupations?: OnetOccupation[];      // O*NET occupations mapped from skills
-  courseTitle?: string;                    // Course title for context
+  extractedSkills?: ExtractedSkill[];          // Skills extracted from outcomes
+  onetOccupations?: StandardOccupation[];      // Occupations from multi-provider coordination
+  courseTitle?: string;                        // Course title for context
 }
 
 export interface DiscoveredCompany {
