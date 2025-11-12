@@ -12,7 +12,20 @@
  */
 
 import { ExtractedSkill } from './skill-extraction-service.ts';
-import { OnetOccupation } from './onet-service.ts';
+import { StandardOccupation } from './occupation-provider-interface.ts';
+import { computeSemanticSimilarity } from './embedding-service.ts';
+
+// ========================================
+// FEATURE FLAG: Toggle between keyword and embedding-based matching
+// ========================================
+const USE_SEMANTIC_EMBEDDINGS = Deno.env.get('USE_SEMANTIC_EMBEDDINGS') === 'true';
+const EMBEDDING_FALLBACK_ENABLED = Deno.env.get('EMBEDDING_FALLBACK_ENABLED') !== 'false'; // Default: true
+
+// Log current mode on module load
+console.log(`\n🔧 [Semantic Matching] Mode: ${USE_SEMANTIC_EMBEDDINGS ? 'EMBEDDINGS' : 'KEYWORDS'}`);
+if (USE_SEMANTIC_EMBEDDINGS && EMBEDDING_FALLBACK_ENABLED) {
+  console.log('   Fallback to keywords: ENABLED');
+}
 
 export interface SemanticMatch {
   companyId?: string;
@@ -35,26 +48,55 @@ export interface SemanticFilteringResult {
 
 /**
  * Compute semantic similarity between course and company
- * Uses cosine similarity of Sentence-BERT embeddings
+ *
+ * Dual-mode support:
+ * - USE_SEMANTIC_EMBEDDINGS=true → Sentence-BERT embeddings (with fallback)
+ * - USE_SEMANTIC_EMBEDDINGS=false → Keyword matching (default, always works)
  */
 export async function computeCourseSimilarity(
   courseSkills: ExtractedSkill[],
-  onetOccupations: OnetOccupation[],
+  occupations: StandardOccupation[],
   companyJobPostings: any[],
   companyDescription: string,
   companyTechnologies: string[] = []
 ): Promise<number> {
-  // Build course text from skills and O*NET data
-  const courseText = buildCourseText(courseSkills, onetOccupations);
+  // Build course text from skills and occupation data
+  const courseText = buildCourseText(courseSkills, occupations);
 
   // Build company text from job postings and description
   const companyText = buildCompanyText(companyJobPostings, companyDescription, companyTechnologies);
 
-  // Compute similarity using simple keyword matching (placeholder for embeddings)
-  // TODO: Replace with actual Sentence-BERT embeddings when @xenova/transformers is available
-  const similarity = computeKeywordSimilarity(courseText, companyText);
+  // Choose similarity computation method based on feature flag
+  if (USE_SEMANTIC_EMBEDDINGS) {
+    // Try embedding-based similarity with automatic fallback
+    return await computeSimilarityWithFallback(courseText, companyText);
+  } else {
+    // Use keyword-based similarity (default, no breaking changes)
+    return computeKeywordSimilarity(courseText, companyText);
+  }
+}
 
-  return similarity;
+/**
+ * Compute similarity using embeddings with automatic fallback to keywords
+ * This ensures the system never breaks if embeddings fail
+ */
+async function computeSimilarityWithFallback(
+  text1: string,
+  text2: string
+): Promise<number> {
+  try {
+    // Try embedding-based similarity
+    const similarity = await computeSemanticSimilarity(text1, text2);
+    return similarity;
+  } catch (error) {
+    if (EMBEDDING_FALLBACK_ENABLED) {
+      console.warn(`⚠️  [Semantic Matching] Embeddings failed, falling back to keywords:`, error);
+      return computeKeywordSimilarity(text1, text2);
+    } else {
+      // Fallback disabled - propagate error
+      throw error;
+    }
+  }
 }
 
 /**
@@ -62,7 +104,7 @@ export async function computeCourseSimilarity(
  */
 export async function rankCompaniesBySimilarity(
   courseSkills: ExtractedSkill[],
-  onetOccupations: OnetOccupation[],
+  occupations: StandardOccupation[],
   companies: any[],
   threshold: number = 0.7
 ): Promise<SemanticFilteringResult> {
@@ -76,7 +118,7 @@ export async function rankCompaniesBySimilarity(
   for (const company of companies) {
     const similarity = await computeCourseSimilarity(
       courseSkills,
-      onetOccupations,
+      occupations,
       company.job_postings || company.jobPostings || [],
       company.description || company.organizationDescription || '',
       company.technologies_used || company.technologiesUsed || []
@@ -90,7 +132,7 @@ export async function rankCompaniesBySimilarity(
 
     // Identify matching skills and DWAs
     const matchingSkills = findMatchingSkills(courseSkills, company);
-    const matchingDWAs = findMatchingDWAs(onetOccupations, company);
+    const matchingDWAs = findMatchingDWAs(occupations, company);
 
     // Generate explanation
     const explanation = generateMatchExplanation(similarity, matchingSkills, matchingDWAs);
@@ -149,7 +191,7 @@ export async function rankCompaniesBySimilarity(
 /**
  * Build course text from skills and O*NET data
  */
-function buildCourseText(skills: ExtractedSkill[], occupations: OnetOccupation[]): string {
+function buildCourseText(skills: ExtractedSkill[], occupations: StandardOccupation[]): string {
   const parts: string[] = [];
 
   // Add skills
@@ -309,7 +351,7 @@ function findMatchingSkills(courseSkills: ExtractedSkill[], company: any): strin
 /**
  * Find DWAs that match between O*NET and company
  */
-function findMatchingDWAs(onetOccupations: OnetOccupation[], company: any): string[] {
+function findMatchingDWAs(occupations: StandardOccupation[], company: any): string[] {
   const matches: string[] = [];
 
   const companyText = (
@@ -317,7 +359,7 @@ function findMatchingDWAs(onetOccupations: OnetOccupation[], company: any): stri
     (company.jobPostings || []).map((jp: any) => jp.title).join(' ')
   ).toLowerCase();
 
-  for (const occ of onetOccupations) {
+  for (const occ of occupations) {
     for (const dwa of occ.dwas) {
       if (dwa.importance > 70) {
         const dwaTokens = dwa.name.toLowerCase().split(/\s+/);

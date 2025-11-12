@@ -11,6 +11,13 @@
  */
 
 import { ExtractedSkill } from './skill-extraction-service.ts';
+import {
+  OccupationProvider,
+  OccupationMappingResult,
+  StandardOccupation,
+  StandardSkill,
+  StandardDWA
+} from './occupation-provider-interface.ts';
 
 export interface OnetOccupation {
   code: string;              // SOC code (e.g., "17-2141.00")
@@ -517,4 +524,136 @@ export function extractIndustryKeywordsFromDWAs(dwas: DetailedWorkActivity[]): s
   }
 
   return Array.from(keywords);
+}
+
+/**
+ * O*NET Provider Implementation (implements OccupationProvider interface)
+ */
+export class OnetProvider implements OccupationProvider {
+  readonly name = 'onet';
+  readonly version = '28.0'; // O*NET database version
+
+  /**
+   * Check if O*NET credentials are configured
+   */
+  isConfigured(): boolean {
+    const username = Deno.env.get('ONET_USERNAME');
+    const password = Deno.env.get('ONET_PASSWORD');
+    return !!(username && password);
+  }
+
+  /**
+   * Health check - verify O*NET API is accessible
+   */
+  async healthCheck(): Promise<boolean> {
+    if (!this.isConfigured()) {
+      console.warn('⚠️  [O*NET] Credentials not configured');
+      return false;
+    }
+
+    try {
+      // Try a simple API call
+      const url = `${ONET_API_BASE}/${ONET_VERSION}/about`;
+      const response = await callOnetAPI(url);
+      return !!response;
+    } catch (error) {
+      console.error('❌ [O*NET] Health check failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Map skills to O*NET occupations (implements interface method)
+   */
+  async mapSkillsToOccupations(
+    skills: ExtractedSkill[]
+  ): Promise<OccupationMappingResult> {
+    const startTime = Date.now();
+
+    // Call existing mapSkillsToOnet function
+    const onetResult = await mapSkillsToOnet(skills);
+
+    // Convert OnetMappingResult to OccupationMappingResult (standardized format)
+    const standardOccupations: StandardOccupation[] = onetResult.occupations.map(occ => ({
+      code: occ.code,
+      title: occ.title,
+      description: occ.description,
+      matchScore: occ.matchScore,
+      skills: occ.skills.map(s => ({
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        category: 'technical',
+        importance: s.importance,
+        level: s.level
+      })),
+      dwas: occ.dwas.map(dwa => ({
+        id: dwa.id,
+        name: dwa.name,
+        description: dwa.description,
+        importance: dwa.importance,
+        level: dwa.level
+      })),
+      tools: occ.tools,
+      technologies: occ.technologies, // Map technologies from O*NET
+      tasks: occ.tasks,
+      provider: this.name,
+      confidence: 0.95 // O*NET has very high quality data
+    }));
+
+    const processingTimeMs = Date.now() - startTime;
+
+    return {
+      occupations: standardOccupations,
+      totalMapped: standardOccupations.length,
+      unmappedSkills: onetResult.unmappedSkills,
+      provider: this.name,
+      apiCalls: onetResult.apiCalls,
+      cacheHits: onetResult.cacheHits,
+      processingTimeMs,
+      metadata: {
+        onetVersion: this.version,
+        apiBase: ONET_API_BASE
+      }
+    };
+  }
+
+  /**
+   * Get occupation details by SOC code
+   */
+  async getOccupationDetails(code: string): Promise<StandardOccupation | null> {
+    try {
+      const details = await getOccupationDetails(code);
+
+      return {
+        code,
+        title: '', // Would need to fetch from API
+        description: '',
+        matchScore: 1.0,
+        skills: details.skills.map(s => ({
+          id: s.id,
+          name: s.name,
+          description: s.description,
+          category: 'technical',
+          importance: s.importance,
+          level: s.level
+        })),
+        dwas: details.dwas.map(dwa => ({
+          id: dwa.id,
+          name: dwa.name,
+          description: dwa.description,
+          importance: dwa.importance,
+          level: dwa.level
+        })),
+        tools: details.tools,
+        technologies: details.technologies,
+        tasks: details.tasks,
+        provider: this.name,
+        confidence: 0.95
+      };
+    } catch (error) {
+      console.error(`❌ [O*NET] Failed to fetch details for ${code}:`, error);
+      return null;
+    }
+  }
 }
