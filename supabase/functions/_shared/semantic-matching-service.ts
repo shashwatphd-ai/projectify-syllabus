@@ -116,13 +116,21 @@ export async function rankCompaniesBySimilarity(
   const matches: SemanticMatch[] = [];
 
   for (const company of companies) {
-    const similarity = await computeCourseSimilarity(
+    let similarity = await computeCourseSimilarity(
       courseSkills,
       occupations,
       company.job_postings || company.jobPostings || [],
       company.description || company.organizationDescription || '',
       company.technologies_used || company.technologiesUsed || []
     );
+
+    // INDUSTRY VALIDATION: Penalize companies from irrelevant industries
+    const companySector = (company.sector || '').toLowerCase();
+    const industryPenalty = calculateIndustryPenalty(occupations, companySector);
+    if (industryPenalty > 0) {
+      console.log(`   ⚠️  ${company.name}: ${companySector} → ${(industryPenalty * 100).toFixed(0)}% penalty`);
+      similarity = Math.max(0, similarity - industryPenalty);
+    }
 
     // Determine confidence level
     let confidence: 'high' | 'medium' | 'low';
@@ -270,7 +278,8 @@ function computeKeywordSimilarity(text1: string, text2: string): number {
   const importantTerms2 = extractImportantTerms(text2);
 
   const importantMatches = importantTerms1.filter(t => importantTerms2.includes(t)).length;
-  const importantBonus = Math.min(0.3, importantMatches * 0.1);
+  // REDUCED BONUS: Was 0.3 → Now 0.10 to prevent generic terms from inflating scores
+  const importantBonus = Math.min(0.10, importantMatches * 0.05);
 
   return Math.min(1.0, jaccard + importantBonus);
 }
@@ -422,12 +431,101 @@ export function formatSemanticFilteringForDisplay(result: SemanticFilteringResul
 }
 
 /**
+ * Calculate industry penalty based on occupation-industry mismatch
+ * Returns a penalty (0.0 to 0.5) to subtract from similarity score
+ */
+function calculateIndustryPenalty(occupations: StandardOccupation[], companySector: string): number {
+  if (!companySector || occupations.length === 0) return 0;
+
+  // Map occupations to expected industries
+  const expectedIndustries = new Set<string>();
+
+  for (const occ of occupations) {
+    const title = occ.title.toLowerCase();
+    const code = occ.code;
+    const majorGroup = code.substring(0, 2);
+
+    // Engineering occupations (17-xxxx)
+    if (majorGroup === '17' || title.includes('engineer')) {
+      expectedIndustries.add('engineering');
+      expectedIndustries.add('manufacturing');
+      expectedIndustries.add('construction');
+      expectedIndustries.add('automotive');
+      expectedIndustries.add('aerospace');
+      expectedIndustries.add('energy');
+      expectedIndustries.add('hvac');
+      expectedIndustries.add('mechanical');
+      expectedIndustries.add('industrial');
+      expectedIndustries.add('renewables');
+      expectedIndustries.add('environment');
+
+      // Specific engineering types
+      if (title.includes('mechanical') || title.includes('thermal')) {
+        expectedIndustries.add('thermal');
+        expectedIndustries.add('fluid');
+        expectedIndustries.add('power generation');
+      }
+      if (title.includes('software') || title.includes('computer')) {
+        expectedIndustries.add('software');
+        expectedIndustries.add('technology');
+        expectedIndustries.add('it services');
+      }
+    }
+
+    // Computer/IT occupations (15-xxxx)
+    if (majorGroup === '15' || title.includes('software') || title.includes('data')) {
+      expectedIndustries.add('software');
+      expectedIndustries.add('technology');
+      expectedIndustries.add('information technology');
+      expectedIndustries.add('it services');
+    }
+  }
+
+  // Irrelevant industries that should be heavily penalized
+  const irrelevantIndustries = [
+    'recruitment', 'human resources', 'hr', 'staffing',
+    'marketing', 'advertising', 'public relations',
+    'retail', 'e-commerce', 'consumer goods',
+    'hospitality', 'tourism', 'entertainment',
+    'real estate', 'property', 'insurance',
+    'legal services', 'law firm',
+    'education', 'training' // Unless explicitly teaching-focused
+  ];
+
+  // Check if company is in an irrelevant industry
+  for (const irrelevant of irrelevantIndustries) {
+    if (companySector.includes(irrelevant)) {
+      return 0.40; // Heavy penalty (40%) for clearly irrelevant industries
+    }
+  }
+
+  // Check if company is in an expected industry
+  for (const expected of expectedIndustries) {
+    if (companySector.includes(expected)) {
+      return 0; // No penalty for relevant industries
+    }
+  }
+
+  // Mild penalty for unclear/generic industries
+  const genericIndustries = ['services', 'consulting', 'solutions', 'systems'];
+  for (const generic of genericIndustries) {
+    if (companySector.includes(generic)) {
+      return 0.15; // Mild penalty (15%) for generic industries
+    }
+  }
+
+  // Default: small penalty for unknown industries
+  return 0.20; // 20% penalty for unrecognized industries
+}
+
+/**
  * Get recommended threshold based on company count
  */
 export function getRecommendedThreshold(companyCount: number): number {
-  // If we have many companies, be more selective
-  if (companyCount > 20) return 0.75;
-  if (companyCount > 10) return 0.70;
-  // If we have few companies, be more lenient
-  return 0.65;
+  // STRICTER THRESHOLDS: Prevent irrelevant industries from passing
+  // Increased from 0.65-0.75 to 0.75-0.85 to filter out IT/Recruitment companies
+  if (companyCount > 20) return 0.85;  // Was 0.75 → Now 0.85
+  if (companyCount > 10) return 0.80;  // Was 0.70 → Now 0.80
+  // Even with few companies, maintain quality
+  return 0.75;  // Was 0.65 → Now 0.75
 }
