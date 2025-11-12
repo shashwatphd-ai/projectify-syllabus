@@ -595,6 +595,7 @@ export class OnetProvider implements OccupationProvider {
         level: dwa.level
       })),
       tools: occ.tools,
+      technologies: occ.technologies, // Map technologies from O*NET
       tasks: occ.tasks,
       provider: this.name,
       confidence: 0.95 // O*NET has very high quality data
@@ -645,6 +646,7 @@ export class OnetProvider implements OccupationProvider {
           level: dwa.level
         })),
         tools: details.tools,
+        technologies: details.technologies,
         tasks: details.tasks,
         provider: this.name,
         confidence: 0.95

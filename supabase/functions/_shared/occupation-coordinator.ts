@@ -241,15 +241,17 @@ export class OccupationCoordinator {
         current.confidence > best.confidence ? current : best
       );
 
-      // Combine skills and DWAs from all providers
+      // Combine skills, DWAs, tools, and technologies from all providers
       const allSkills = new Map<string, any>();
       const allDWAs = new Map<string, any>();
       const allTools = new Set<string>();
+      const allTechnologies = new Set<string>();
 
       for (const occ of occupations) {
         occ.skills.forEach(s => allSkills.set(s.name.toLowerCase(), s));
         occ.dwas.forEach(d => allDWAs.set(d.name.toLowerCase(), d));
         occ.tools.forEach(t => allTools.add(t));
+        occ.technologies.forEach(tech => allTechnologies.add(tech));
       }
 
       const mergedOccupation: StandardOccupation = {
@@ -258,6 +260,7 @@ export class OccupationCoordinator {
         skills: Array.from(allSkills.values()),
         dwas: Array.from(allDWAs.values()),
         tools: Array.from(allTools),
+        technologies: Array.from(allTechnologies),
         provider: `coordinated(${occupations.map(o => o.provider).join('+')})`,
         confidence: coordinationScore
       };
@@ -375,11 +378,11 @@ export function formatCoordinatedResultsForDisplay(
 /**
  * Create default coordinator with all providers
  */
-export function createDefaultCoordinator(options?: {
+export async function createDefaultCoordinator(options?: {
   enableOnet?: boolean;
   enableEsco?: boolean;
   enableSkillsML?: boolean;
-}): OccupationCoordinator {
+}): Promise<OccupationCoordinator> {
   const providers: OccupationProvider[] = [];
 
   // Import providers lazily

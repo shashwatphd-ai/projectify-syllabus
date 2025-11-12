@@ -258,6 +258,7 @@ export class SkillsMLProvider implements OccupationProvider {
           level: 0
         })),
         tools: occ.tools,
+        technologies: occ.tools, // Skills-ML doesn't distinguish; use same list for technologies
         tasks: occ.dwas,
         provider: this.name,
         confidence: this.calculateConfidence(match.matchScore)
@@ -370,6 +371,7 @@ export class SkillsMLProvider implements OccupationProvider {
         level: 0
       })),
       tools: occ.tools,
+      technologies: occ.tools, // Skills-ML doesn't distinguish; use same list for technologies
       tasks: occ.dwas,
       provider: this.name,
       confidence: 0.9

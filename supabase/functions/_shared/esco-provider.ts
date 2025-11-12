@@ -248,6 +248,7 @@ export class ESCOProvider implements OccupationProvider {
         skills: this.parseEscoSkills(data.hasEssentialSkill || [], data.hasOptionalSkill || []),
         dwas: this.parseEscoDWAs(data.broaderRelations || []),
         tools: [], // ESCO doesn't have explicit tools
+        technologies: [], // ESCO doesn't have explicit technologies
         tasks: [], // ESCO doesn't have explicit tasks
         provider: this.name,
         confidence: 0.85 // ESCO has good quality data

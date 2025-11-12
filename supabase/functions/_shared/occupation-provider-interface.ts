@@ -19,7 +19,8 @@ export interface StandardOccupation {
   matchScore: number;        // 0.0 to 1.0 - how well it matches extracted skills
   skills: StandardSkill[];   // Skills for this occupation
   dwas: StandardDWA[];       // Detailed work activities
-  tools: string[];           // Tools and technologies
+  tools: string[];           // Physical and software tools
+  technologies: string[];    // Technologies and platforms (e.g., "Python", "AWS", "React")
   tasks: string[];           // Common tasks
   provider: string;          // 'onet', 'esco', 'skills-ml'
   confidence: number;        // 0.0 to 1.0 - provider's confidence in mapping
