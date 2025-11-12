@@ -104,24 +104,30 @@ export class ApolloProvider implements DiscoveryProvider {
   
   async discover(context: CourseContext): Promise<DiscoveryResult> {
     const startTime = Date.now();
-    
+
     if (!this.isConfigured()) {
       throw new Error('Apollo provider not configured. Missing: ' + this.getRequiredSecrets().join(', '));
     }
-    
+
     console.log(`🚀 Apollo Provider: Discovering companies for ${context.location}`);
-    
-    // Step 1: Generate Apollo search filters using AI
-    const filters = await this.generateFilters(context);
-    
-    // Step 2: Search Apollo for organizations
-    const organizations = await this.searchOrganizations(filters, context.targetCount * 3);
-    
-    // Step 3: Enrich organizations with contacts and market intelligence
+    console.log(`   Course: "${context.courseTitle || 'Unknown'}"`);
+
+    // Step 1: Calculate course-specific seed for diversity
+    const courseSeed = this.generateCourseSeed(context);
+    console.log(`   🎲 Course Seed: ${courseSeed} (ensures unique companies per course)`);
+
+    // Step 2: Generate Apollo search filters using AI
+    const filters = await this.generateFilters(context, courseSeed);
+
+    // Step 3: Search Apollo for organizations with smart pagination
+    const pageOffset = this.calculatePageOffset(courseSeed);
+    const organizations = await this.searchOrganizations(filters, context.targetCount * 3, pageOffset);
+
+    // Step 4: Enrich organizations with contacts and market intelligence
     const companies = await this.enrichOrganizations(organizations, context.targetCount);
-    
+
     const processingTime = (Date.now() - startTime) / 1000;
-    
+
     return {
       companies,
       stats: {
@@ -134,18 +140,82 @@ export class ApolloProvider implements DiscoveryProvider {
     };
   }
   
-  private async generateFilters(context: CourseContext): Promise<ApolloSearchFilters> {
+  /**
+   * Generate deterministic course-specific seed for diversity
+   * Same course always gets same seed (reproducibility)
+   * Different courses get different seeds (variety)
+   */
+  private generateCourseSeed(context: CourseContext): number {
+    const courseIdentifier = `${context.courseTitle}_${context.level}_${context.topics.join('_')}`;
+
+    // Simple hash function
+    let hash = 0;
+    for (let i = 0; i < courseIdentifier.length; i++) {
+      const char = courseIdentifier.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+
+    return Math.abs(hash);
+  }
+
+  /**
+   * Calculate page offset for smart pagination
+   * Distributes courses across pages 1-5 to maximize diversity
+   */
+  private calculatePageOffset(courseSeed: number): number {
+    const pageNumber = (courseSeed % 5) + 1; // Pages 1-5
+    console.log(`   📄 Page Offset: ${pageNumber} (diversifies company pool)`);
+    return pageNumber;
+  }
+
+  /**
+   * Extract course-specific keywords from title and topics
+   * Adds specificity to Apollo search beyond just occupation titles
+   */
+  private extractCourseKeywords(context: CourseContext): string[] {
+    const keywords = new Set<string>();
+
+    // Extract from title (skip common words)
+    const commonWords = ['course', 'introduction', 'advanced', 'fundamentals', 'principles', 'the', 'and', 'or', 'in', 'to', 'for'];
+    const titleWords = (context.courseTitle || '')
+      .toLowerCase()
+      .split(/\W+/)
+      .filter(w => w.length > 3 && !commonWords.includes(w));
+
+    titleWords.forEach(w => keywords.add(w));
+
+    // Extract from topics (first 5 topics only)
+    context.topics.slice(0, 5).forEach(topic => {
+      const topicWords = topic
+        .toLowerCase()
+        .split(/\W+/)
+        .filter(w => w.length > 4 && !commonWords.includes(w));
+
+      topicWords.forEach(w => keywords.add(w));
+    });
+
+    const courseKeywords = Array.from(keywords).slice(0, 8); // Max 8 keywords
+
+    if (courseKeywords.length > 0) {
+      console.log(`   🔑 Course-Specific Keywords: ${courseKeywords.join(', ')}`);
+    }
+
+    return courseKeywords;
+  }
+
+  private async generateFilters(context: CourseContext, courseSeed: number): Promise<ApolloSearchFilters> {
     // PHASE 2: Use O*NET data for intelligent filtering (if available)
     const useIntelligentFilters = context.onetOccupations && context.onetOccupations.length > 0;
 
-    console.log(`\n🎯 Filter Generation Mode: ${useIntelligentFilters ? 'INTELLIGENT (O*NET)' : 'LEGACY (Random)'}`);
+    console.log(`\n🎯 Filter Generation Mode: ${useIntelligentFilters ? 'INTELLIGENT (O*NET)' : 'LEGACY (Course-Specific)'}`);
 
     if (useIntelligentFilters) {
-      return await this.generateIntelligentFilters(context);
+      return await this.generateIntelligentFilters(context, courseSeed);
     }
 
-    // LEGACY: Fallback to randomization if no O*NET data
-    const randomSeed = Date.now() % 1000;
+    // LEGACY: Use course-specific seed instead of timestamp
+    const randomSeed = courseSeed % 1000;
     const jobTitleCategories = [
       ['Director', 'VP', 'Manager', 'Lead'],
       ['Engineer', 'Analyst', 'Specialist', 'Coordinator'],
@@ -274,11 +344,15 @@ Return JSON:
   /**
    * PHASE 2: Generate intelligent filters using O*NET data
    * Uses occupation-specific job titles and technologies instead of random categories
+   * NOW WITH COURSE-SPECIFIC DIVERSITY: Adds course keywords for differentiation
    */
-  private async generateIntelligentFilters(context: CourseContext): Promise<ApolloSearchFilters> {
+  private async generateIntelligentFilters(context: CourseContext, courseSeed: number): Promise<ApolloSearchFilters> {
     console.log(`  🧠 Using O*NET occupations for intelligent filtering...`);
 
     const onetOccupations = context.onetOccupations!;
+
+    // Extract course-specific keywords for additional diversity
+    const courseKeywords = this.extractCourseKeywords(context);
 
     // Extract specific job titles from O*NET occupations
     const specificJobTitles: string[] = [];
@@ -360,7 +434,14 @@ Return JSON:
       intelligentFilters.q_organization_keyword_tags.push(...uniqueTechnologies.map(t => t.toLowerCase()));
     }
 
-    console.log(`  ✅ Generated intelligent filters with ${uniqueJobTitles.length} job titles`);
+    // DIVERSITY ENHANCEMENT: Add course-specific keywords
+    // This ensures different courses (even with same occupation) get different companies
+    if (courseKeywords.length > 0) {
+      intelligentFilters.q_organization_keyword_tags.push(...courseKeywords);
+      console.log(`  🎯 Added ${courseKeywords.length} course-specific keywords for diversity`);
+    }
+
+    console.log(`  ✅ Generated intelligent filters with ${uniqueJobTitles.length} job titles + ${courseKeywords.length} course keywords`);
 
     return intelligentFilters;
   }
@@ -446,43 +527,45 @@ Return JSON:
   }
 
   private async searchOrganizations(
-    filters: ApolloSearchFilters, 
-    maxResults: number
+    filters: ApolloSearchFilters,
+    maxResults: number,
+    pageOffset: number = 1
   ): Promise<ApolloOrganization[]> {
     const originalLocation = filters.organization_locations[0];
-    console.log(`  🔍 Searching Apollo for ${maxResults} organizations...`);
-    
+    console.log(`  🔍 Searching Apollo for ${maxResults} organizations (Page ${pageOffset})...`);
+
     // Try with original location first
-    let organizations = await this.trySearch(filters, maxResults);
-    
+    let organizations = await this.trySearch(filters, maxResults, pageOffset);
+
     // If no results and location has multiple parts, try broader searches
     if (organizations.length === 0 && originalLocation.includes(',')) {
       const locationParts = originalLocation.split(',').map(p => p.trim());
-      
+
       // Try state + country (e.g., "Tamil Nadu, India")
       if (locationParts.length >= 3) {
         const broaderLocation = locationParts.slice(-2).join(', ');
         console.log(`  🔄 No results for "${originalLocation}", trying broader: "${broaderLocation}"`);
         filters.organization_locations = [broaderLocation];
-        organizations = await this.trySearch(filters, maxResults);
+        organizations = await this.trySearch(filters, maxResults, pageOffset);
       }
-      
+
       // Try just country (e.g., "India")
       if (organizations.length === 0 && locationParts.length >= 2) {
         const countryOnly = locationParts[locationParts.length - 1];
         console.log(`  🔄 Still no results, trying country-wide: "${countryOnly}"`);
         filters.organization_locations = [countryOnly];
-        organizations = await this.trySearch(filters, maxResults);
+        organizations = await this.trySearch(filters, maxResults, pageOffset);
       }
     }
-    
-    console.log(`  ✓ Found ${organizations.length} organizations`);
+
+    console.log(`  ✓ Found ${organizations.length} organizations from page ${pageOffset}`);
     return organizations;
   }
-  
+
   private async trySearch(
     filters: ApolloSearchFilters,
-    maxResults: number
+    maxResults: number,
+    pageOffset: number = 1
   ): Promise<ApolloOrganization[]> {
     const response = await fetch(
       'https://api.apollo.io/v1/mixed_companies/search',
@@ -495,7 +578,7 @@ Return JSON:
         },
         body: JSON.stringify({
           ...filters,
-          page: 1,
+          page: pageOffset, // CRITICAL FIX: Use dynamic page instead of always page 1
           per_page: Math.min(maxResults, 100)
         })
       }
