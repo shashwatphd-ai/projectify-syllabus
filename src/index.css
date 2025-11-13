@@ -38,6 +38,21 @@ All colors MUST be HSL.
 
     --radius: 0.75rem;
 
+    /* Quality Indicators (semantic matching scores) */
+    --quality-excellent: 142 76% 36%;  /* Green - 0.85+ similarity */
+    --quality-good: 47 84% 58%;        /* Yellow - 0.70-0.84 similarity */
+    --quality-poor: 0 84% 60%;         /* Red - <0.70 similarity */
+
+    /* Stakeholder Colors (for value analysis cards) */
+    --stakeholder-student: 142 76% 36%;   /* Green - Learning/Growth */
+    --stakeholder-faculty: 217 91% 60%;   /* Blue - Academic (existing primary) */
+    --stakeholder-industry: 25 95% 53%;   /* Orange - Business/Energy */
+
+    /* Status Progression */
+    --status-pending: 240 10% 95%;     /* Gray */
+    --status-processing: 217 91% 60%;  /* Blue */
+    --status-complete: 142 76% 36%;    /* Green */
+
     --gradient-hero: linear-gradient(135deg, hsl(217 91% 60%), hsl(200 85% 55%));
     --gradient-accent: linear-gradient(135deg, hsl(217 91% 60%), hsl(205 85% 58%));
     --gradient-subtle: linear-gradient(180deg, hsl(240 20% 98%), hsl(240 15% 96%));
@@ -74,6 +89,21 @@ All colors MUST be HSL.
     --border: 240 8% 18%;
     --input: 240 8% 18%;
     --ring: 217 91% 65%;
+
+    /* Quality Indicators (dark mode) */
+    --quality-excellent: 142 70% 45%;  /* Lighter green for dark bg */
+    --quality-good: 47 80% 65%;        /* Lighter yellow for dark bg */
+    --quality-poor: 0 75% 65%;         /* Lighter red for dark bg */
+
+    /* Stakeholder Colors (dark mode) */
+    --stakeholder-student: 142 70% 45%;   /* Lighter green */
+    --stakeholder-faculty: 217 91% 65%;   /* Lighter blue (existing) */
+    --stakeholder-industry: 25 90% 60%;   /* Lighter orange */
+
+    /* Status Progression (dark mode) */
+    --status-pending: 240 8% 14%;      /* Dark gray */
+    --status-processing: 217 91% 65%;  /* Blue */
+    --status-complete: 142 70% 45%;    /* Green */
   }
 }
 
