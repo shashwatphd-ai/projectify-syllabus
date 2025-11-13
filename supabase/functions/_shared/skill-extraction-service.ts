@@ -81,11 +81,11 @@ function extractSkillsFromText(text: string, courseContext: string): ExtractedSk
     /(?:using|with|via)\s+([A-Z][A-Z]+(?:\s+[A-Z][A-Z]+)*|[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/g,
   ];
   
-  // BLACKLIST: Skip extraction for these patterns (verbs + names, unit conversions)
+  // BLACKLIST: Skip extraction for these patterns (specific problematic terms only)
   const blacklistPatterns = [
-    /convert\s+english/i,  // "Convert English" → Skip
-    /explain\s+[A-Z][a-z]+\s+[A-Z][a-z]+/i,  // "Explain Blaise Pascal" → Skip
-    /convert\s+units/i,  // "Convert units" → Skip (not a skill, just a task)
+    /^convert\s+english$/i,        // "Convert English" → Skip (exact match)
+    /^explain\s+blaise\s+pascal$/i, // "Explain Blaise Pascal" → Skip (exact match)
+    /^convert\s+units$/i,           // "Convert units" → Skip (exact match)
   ];
 
   actionPatterns.forEach(pattern => {
@@ -93,8 +93,8 @@ function extractSkillsFromText(text: string, courseContext: string): ExtractedSk
     for (const match of matches) {
       const skill = match[1].trim();
       
-      // Check blacklist - skip garbage skills
-      const isBlacklisted = blacklistPatterns.some(bp => bp.test(skill) || bp.test(text));
+      // Check blacklist - only test the skill itself, not the full text
+      const isBlacklisted = blacklistPatterns.some(bp => bp.test(skill));
       if (isBlacklisted) {
         console.log(`  ⚠️  Skipping blacklisted skill: "${skill}"`);
         continue;
@@ -120,8 +120,8 @@ function extractSkillsFromText(text: string, courseContext: string): ExtractedSk
   for (const match of technicalMatches) {
     const term = match[1].trim();
     
-    // Check blacklist - skip garbage terms
-    const isBlacklisted = blacklistPatterns.some(bp => bp.test(term) || bp.test(text));
+    // Check blacklist - only test the term itself, not the full text
+    const isBlacklisted = blacklistPatterns.some(bp => bp.test(term));
     if (isBlacklisted) {
       console.log(`  ⚠️  Skipping blacklisted term: "${term}"`);
       continue;
