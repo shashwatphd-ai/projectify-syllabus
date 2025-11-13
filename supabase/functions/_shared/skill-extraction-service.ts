@@ -276,6 +276,20 @@ function categorizeSkill(skill: string, courseContext: string): SkillCategory {
 function isTechnicalTerm(term: string, courseContext: string): boolean {
   const lower = term.toLowerCase();
 
+  // Technical term patterns that should ALWAYS be accepted
+  const technicalWhitelist = [
+    /\b(analysis|dynamics|mechanics|simulation|optimization|modeling)\b/i,
+    /\b(design|testing|validation|integration|implementation)\b/i,
+    /\b(thermal|fluid|structural|mechanical|electrical|civil)\b/i,
+    /\b(stress|strain|flow|pressure|velocity|force|energy)\b/i,
+    /\b(control|systems|processing|manufacturing|fabrication)\b/i
+  ];
+
+  // Check whitelist first - if it's a technical term, always accept
+  if (technicalWhitelist.some(pattern => pattern.test(term))) {
+    return true;
+  }
+
   // Filter out common non-technical words
   const commonWords = [
     'the', 'and', 'for', 'with', 'this', 'that', 'from', 'have', 'will',
@@ -287,15 +301,18 @@ function isTechnicalTerm(term: string, courseContext: string): boolean {
     return false;
   }
   
-  // Reject phrases starting with action verbs (these are instructions, not technical terms)
-  const actionVerbs = [
-    'convert', 'explain', 'define', 'describe', 'identify', 'formulate',
-    'solve', 'derive', 'calculate', 'analyze', 'distinguish', 'determine',
-    'apply', 'understand', 'develop', 'implement', 'create', 'design'
+  // Only reject PURE INSTRUCTIONS (verb + article + generic object)
+  // Example: "Explain the concept" ✓ reject
+  // Example: "Flow Analysis" ✗ keep (it's a technical term)
+  const instructionPatterns = [
+    /^(convert|explain|define|describe|state|list)\s+(the|a|an)\s+/i,
+    /^(solve|calculate|derive|determine)\s+(for|the)\s+/i,
+    /^(identify|distinguish|formulate)\s+(the|all|various|different)\s+/i,
+    /^(understand|apply)\s+(the|concepts?|principles?)\s+/i
   ];
-  
-  const firstWord = term.split(' ')[0].toLowerCase();
-  if (actionVerbs.includes(firstWord)) {
+
+  // Reject only if it matches instruction pattern
+  if (instructionPatterns.some(pattern => pattern.test(term))) {
     return false;
   }
 
