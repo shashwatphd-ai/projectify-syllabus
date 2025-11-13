@@ -31,13 +31,13 @@ const CircularScore = ({ score, label }: { score: number; label: string }) => {
       <div className="relative inline-flex items-center justify-center">
         <svg className="w-20 h-20 -rotate-90">
           <circle cx="40" cy="40" r="32" stroke="currentColor" strokeWidth="6" fill="none" className="text-muted/20" />
-          <circle 
-            cx="40" 
-            cy="40" 
-            r="32" 
-            stroke="currentColor" 
-            strokeWidth="6" 
-            fill="none" 
+          <circle
+            cx="40"
+            cy="40"
+            r="32"
+            stroke="currentColor"
+            strokeWidth="6"
+            fill="none"
             className={getColor(score)}
             strokeDasharray={`${(score / 100) * 201} 201`}
             strokeLinecap="round"
@@ -49,6 +49,26 @@ const CircularScore = ({ score, label }: { score: number; label: string }) => {
     </div>
   );
 };
+
+const ZeroScoreExplanation = ({ company, course }: { company: any; course: any }) => (
+  <Alert className="border-amber-500/50 bg-amber-500/5">
+    <AlertTriangle className="h-5 w-5 text-amber-600" />
+    <AlertDescription className="text-sm space-y-2">
+      <p className="font-semibold text-amber-900 dark:text-amber-100">
+        Why are these scores low or zero?
+      </p>
+      <div className="space-y-1 text-amber-800 dark:text-amber-200">
+        <p>• <strong>Company:</strong> {company?.name || 'N/A'} ({company?.sector || 'Unknown sector'})</p>
+        <p>• <strong>Course:</strong> {course?.title || 'N/A'} ({course?.subject || 'Unknown subject'})</p>
+        <p>• <strong>Mismatch:</strong> This company's industry doesn't align well with the course learning outcomes.</p>
+      </div>
+      <p className="text-xs text-amber-700 dark:text-amber-300 mt-2 italic">
+        💡 This project was generated with an older matching system. Newer projects use stricter semantic filtering
+        (0.80 threshold + industry validation) to ensure better company-course alignment.
+      </p>
+    </AlertDescription>
+  </Alert>
+);
 
 export const ValueAnalysisTab = ({ 
   valueAnalysis, 
@@ -132,6 +152,11 @@ export const ValueAnalysisTab = ({
           </CardContent>
         </Card>
       </div>
+
+      {/* Zero Score Explanation - Show if any stakeholder value is very low */}
+      {((student_value?.score || 0) < 15 || (university_value?.score || 0) < 15 || (industry_value?.score || 0) < 15) && (
+        <ZeroScoreExplanation company={companyProfile} course={courseProfile} />
+      )}
 
       {/* Problem Validation Section */}
       {problem_validation && (

@@ -11,6 +11,20 @@ import { downloadCoursePdf } from "@/lib/downloadPdf";
 import { toast } from "sonner";
 import { ProjectFeedbackDialog } from "@/components/ProjectFeedbackDialog";
 
+const getQualityBorder = (similarity: number) => {
+  if (similarity >= 0.80) return 'border-l-4 border-l-green-500';
+  if (similarity >= 0.70) return 'border-l-4 border-l-yellow-500';
+  return 'border-l-4 border-l-red-400';
+};
+
+const getQualityBadge = (similarity: number) => {
+  if (similarity >= 0.85) return { text: 'A+', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' };
+  if (similarity >= 0.80) return { text: 'A', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' };
+  if (similarity >= 0.75) return { text: 'B+', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' };
+  if (similarity >= 0.70) return { text: 'B', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' };
+  return { text: 'C', color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' };
+};
+
 const Projects = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
   const location = useLocation();
@@ -288,7 +302,7 @@ const Projects = () => {
           {projects.map((project: any) => (
             <Card
               key={project.id}
-              className="shadow-[var(--shadow-card)] hover:shadow-lg transition-shadow cursor-pointer"
+              className={`shadow-[var(--shadow-card)] hover:shadow-lg transition-shadow cursor-pointer ${project.similarity_score ? getQualityBorder(project.similarity_score) : ''}`}
               onClick={() => navigate(`/projects/${project.id}`, { state: { courseId } })}
             >
               <CardHeader>
@@ -319,6 +333,18 @@ const Projects = () => {
                       )}
                     </div>
                   </div>
+
+                  {/* Quality Badge */}
+                  {project.similarity_score && (
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge className={`${getQualityBadge(project.similarity_score).color} font-semibold`}>
+                        {getQualityBadge(project.similarity_score).text}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {Math.round(project.similarity_score * 100)}% match
+                      </span>
+                    </div>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>

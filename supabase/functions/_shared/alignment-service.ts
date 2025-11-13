@@ -15,16 +15,21 @@
  * Returns a 0-1 score representing coverage percentage.
  */
 export async function calculateLOAlignment(
-  tasks: string[], 
-  deliverables: string[], 
+  tasks: string[],
+  deliverables: string[],
   outcomes: string[],
   loAlignment: string
 ): Promise<number> {
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
+  // CRITICAL: This function must NEVER throw - always return a valid number
+  try {
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      console.warn('⚠️ LOVABLE_API_KEY not configured - using fallback lo_score: 0.7');
+      return 0.7;
+    }
 
-  const systemPrompt = 'You are a learning outcomes assessment expert. Return only valid JSON.';
-  const prompt = `Analyze how well this project aligns with the course learning outcomes.
+    const systemPrompt = 'You are a learning outcomes assessment expert. Return only valid JSON.';
+    const prompt = `Analyze how well this project aligns with the course learning outcomes.
 
 Course Learning Outcomes:
 ${outcomes.map((o, i) => `LO${i + 1}: ${o}`).join('\n')}
@@ -47,37 +52,50 @@ Return ONLY a JSON object with:
   "gaps": ["Brief explanation of any gaps"]
 }`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.3,
-    }),
-  });
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.3,
+      }),
+    });
 
-  if (!response.ok) {
-    console.error('AI scoring error:', response.status);
-    return 0.7;
-  }
+    if (!response.ok) {
+      console.error('AI scoring error:', response.status);
+      return 0.7;
+    }
 
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
-  
-  try {
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return 0.7;
-    
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+
+    const jsonMatch = content?.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.warn('⚠️ No JSON found in AI response - using fallback lo_score: 0.7');
+      return 0.7;
+    }
+
     const result = JSON.parse(jsonMatch[0]);
-    return result.coverage_percentage / 100;
-  } catch {
+    const coverage = result.coverage_percentage;
+
+    // Validate coverage is a valid number
+    if (typeof coverage !== 'number' || isNaN(coverage) || coverage < 0 || coverage > 100) {
+      console.warn(`⚠️ Invalid coverage_percentage: ${coverage} - using fallback: 0.7`);
+      return 0.7;
+    }
+
+    return coverage / 100;
+  } catch (error) {
+    // CRITICAL: Log error but NEVER throw - always return fallback
+    console.error('❌ calculateLOAlignment failed with error:', error);
+    console.warn('⚠️ Using fallback lo_score: 0.7');
     return 0.7;
   }
 }

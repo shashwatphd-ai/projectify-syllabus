@@ -8,6 +8,14 @@ interface ProjectHeaderProps {
   project: any;
 }
 
+const getMatchQuality = (similarity: number) => {
+  if (similarity >= 0.85) return { grade: 'A+', label: 'EXCELLENT MATCH', color: 'hsl(var(--quality-excellent))' };
+  if (similarity >= 0.80) return { grade: 'A', label: 'GREAT MATCH', color: 'hsl(var(--quality-excellent))' };
+  if (similarity >= 0.75) return { grade: 'B+', label: 'GOOD MATCH', color: 'hsl(var(--quality-good))' };
+  if (similarity >= 0.70) return { grade: 'B', label: 'FAIR MATCH', color: 'hsl(var(--quality-good))' };
+  return { grade: 'C', label: 'WEAK MATCH', color: 'hsl(var(--quality-poor))' };
+};
+
 export const ProjectHeader = ({ project }: ProjectHeaderProps) => {
   const navigate = useNavigate();
   
@@ -23,14 +31,38 @@ export const ProjectHeader = ({ project }: ProjectHeaderProps) => {
       </Button>
       
       <div className="flex items-start justify-between mb-4">
-        <div>
+        <div className="flex-1">
           <h1 className="text-3xl font-bold mb-2">{project.title}</h1>
           <p className="text-muted-foreground flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             {project.company_name}
           </p>
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex gap-3 items-start">
+          {/* Match Quality Badge */}
+          {project.similarity_score && (
+            <div className="flex flex-col items-end gap-1">
+              <Badge
+                variant="outline"
+                className="text-base px-3 py-1 font-semibold border-2"
+                style={{
+                  backgroundColor: `${getMatchQuality(project.similarity_score).color}15`,
+                  color: getMatchQuality(project.similarity_score).color,
+                  borderColor: getMatchQuality(project.similarity_score).color
+                }}
+              >
+                {getMatchQuality(project.similarity_score).grade}
+              </Badge>
+              <span className="text-xs font-medium" style={{ color: getMatchQuality(project.similarity_score).color }}>
+                {getMatchQuality(project.similarity_score).label}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {Math.round(project.similarity_score * 100)}% Similarity
+              </span>
+            </div>
+          )}
+
           <Badge variant="secondary" className="text-lg px-4 py-2">
             {project.sector}
           </Badge>
