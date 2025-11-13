@@ -119,6 +119,14 @@ function extractSkillsFromText(text: string, courseContext: string): ExtractedSk
 
   for (const match of technicalMatches) {
     const term = match[1].trim();
+    
+    // Check blacklist - skip garbage terms
+    const isBlacklisted = blacklistPatterns.some(bp => bp.test(term) || bp.test(text));
+    if (isBlacklisted) {
+      console.log(`  ⚠️  Skipping blacklisted term: "${term}"`);
+      continue;
+    }
+    
     if (isTechnicalTerm(term, courseContext)) {
       skills.push({
         skill: normalizeSkillName(term),
@@ -276,6 +284,18 @@ function isTechnicalTerm(term: string, courseContext: string): boolean {
   ];
 
   if (commonWords.includes(lower)) {
+    return false;
+  }
+  
+  // Reject phrases starting with action verbs (these are instructions, not technical terms)
+  const actionVerbs = [
+    'convert', 'explain', 'define', 'describe', 'identify', 'formulate',
+    'solve', 'derive', 'calculate', 'analyze', 'distinguish', 'determine',
+    'apply', 'understand', 'develop', 'implement', 'create', 'design'
+  ];
+  
+  const firstWord = term.split(' ')[0].toLowerCase();
+  if (actionVerbs.includes(firstWord)) {
     return false;
   }
 
