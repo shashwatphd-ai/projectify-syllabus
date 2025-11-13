@@ -368,7 +368,7 @@ Return JSON:
 
       // Extract industry keywords from DWAs
       const highImportanceDWAs = occ.dwas
-        .filter(dwa => dwa.importance > 70)
+        .filter(dwa => dwa.importance && dwa.importance > 70)
         .slice(0, 5);
 
       for (const dwa of highImportanceDWAs) {

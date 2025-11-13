@@ -215,7 +215,7 @@ function buildCourseText(skills: ExtractedSkill[], occupations: StandardOccupati
     parts.push('\nWork activities:');
     const topDWAs = occupations
       .flatMap(o => o.dwas)
-      .filter(dwa => dwa.importance > 70)
+      .filter(dwa => dwa.importance && dwa.importance > 70)
       .slice(0, 10);
     parts.push(topDWAs.map(dwa => dwa.description).join('; '));
 
@@ -370,7 +370,7 @@ function findMatchingDWAs(occupations: StandardOccupation[], company: any): stri
 
   for (const occ of occupations) {
     for (const dwa of occ.dwas) {
-      if (dwa.importance > 70) {
+      if (dwa.importance && dwa.importance > 70) {
         const dwaTokens = dwa.name.toLowerCase().split(/\s+/);
         const hasMatch = dwaTokens.some(token => companyText.includes(token));
 
