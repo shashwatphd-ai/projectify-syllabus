@@ -71,18 +71,35 @@ export async function extractSkillsFromOutcomes(
 function extractSkillsFromText(text: string, courseContext: string): ExtractedSkill[] {
   const skills: ExtractedSkill[] = [];
 
-  // Pattern 1: Action verb + technical term
-  // "Apply Bernoulli's equation to..." → "Bernoulli's Equation Application"
-  // "Calculate Reynolds number..." → "Reynolds Number Calculation"
+  // Pattern 1: Extract technical nouns and concepts (ignore action verbs)
+  // Extract: "fluid properties", "viscosity", "pressure", "hydrostatics"
+  // Skip: "Convert English", "Explain Pascal" (verbs + proper nouns)
   const actionPatterns = [
-    /(?:apply|use|implement|develop|design|create|build|analyze|calculate|compute|solve|model|simulate|optimize)\s+([A-Z][a-z]+(?:'s)?\s+(?:equation|theorem|principle|law|method|algorithm|model|analysis|system|framework|technique))/gi,
-    /(?:using|with|via)\s+([A-Z][A-Z]+|[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})/g, // "using MATLAB", "using Python"
+    // Match: "Apply [technical term]'s [concept]" → "technical term's concept"
+    /(?:apply|use|implement|develop|design|create|build|analyze|calculate|compute|solve|model|simulate|optimize)\s+([A-Z][a-z]+(?:'s)?\s+(?:equation|theorem|principle|law|method|algorithm|model|analysis|system|framework|technique|method))/gi,
+    // Match: "using [TOOL]" or "using [Multi Word Tool]"
+    /(?:using|with|via)\s+([A-Z][A-Z]+(?:\s+[A-Z][A-Z]+)*|[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/g,
+  ];
+  
+  // BLACKLIST: Skip extraction for these patterns (verbs + names, unit conversions)
+  const blacklistPatterns = [
+    /convert\s+english/i,  // "Convert English" → Skip
+    /explain\s+[A-Z][a-z]+\s+[A-Z][a-z]+/i,  // "Explain Blaise Pascal" → Skip
+    /convert\s+units/i,  // "Convert units" → Skip (not a skill, just a task)
   ];
 
   actionPatterns.forEach(pattern => {
     const matches = text.matchAll(pattern);
     for (const match of matches) {
       const skill = match[1].trim();
+      
+      // Check blacklist - skip garbage skills
+      const isBlacklisted = blacklistPatterns.some(bp => bp.test(skill) || bp.test(text));
+      if (isBlacklisted) {
+        console.log(`  ⚠️  Skipping blacklisted skill: "${skill}"`);
+        continue;
+      }
+      
       if (skill.length > 3) { // Filter out short matches
         skills.push({
           skill: normalizeSkillName(skill),
