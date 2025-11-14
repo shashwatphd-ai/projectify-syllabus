@@ -420,7 +420,9 @@ function calculateMatchScore(
   occupationTitle: string,
   occupationTags: string[]
 ): number {
-  const allTerms = [occupationTitle, ...occupationTags]
+  // Ensure occupationTags is always an array
+  const tags = Array.isArray(occupationTags) ? occupationTags : [];
+  const allTerms = [occupationTitle, ...tags]
     .join(' ')
     .toLowerCase();
 
