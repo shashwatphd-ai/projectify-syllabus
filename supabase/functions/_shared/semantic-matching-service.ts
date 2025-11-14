@@ -100,6 +100,26 @@ async function computeSimilarityWithFallback(
 }
 
 /**
+ * Check if semantic filtering should be skipped
+ * SURGICAL FIX: Skip filtering when we have insufficient data
+ */
+export function shouldSkipSemanticFiltering(
+  courseSkills: any[],
+  occupations: any[]
+): boolean {
+  const hasSkills = courseSkills && courseSkills.length > 0;
+  const hasOccupations = occupations && occupations.length > 0;
+  
+  if (!hasSkills && !hasOccupations) {
+    console.log(`   ⚠️  [Semantic Filtering] Insufficient data - skipping filtering`);
+    console.log(`      Skills: ${courseSkills?.length || 0}, Occupations: ${occupations?.length || 0}`);
+    return true;
+  }
+  
+  return false;
+}
+
+/**
  * Rank companies by semantic similarity to course
  */
 export async function rankCompaniesBySimilarity(
@@ -520,12 +540,14 @@ function calculateIndustryPenalty(occupations: StandardOccupation[], companySect
 
 /**
  * Get recommended threshold based on company count
+ * SURGICAL FIX: Lowered thresholds to prevent filtering out all companies
  */
 export function getRecommendedThreshold(companyCount: number): number {
-  // STRICTER THRESHOLDS: Prevent irrelevant industries from passing
-  // Increased from 0.65-0.75 to 0.75-0.85 to filter out IT/Recruitment companies
-  if (companyCount > 20) return 0.85;  // Was 0.75 → Now 0.85
-  if (companyCount > 10) return 0.80;  // Was 0.70 → Now 0.80
-  // Even with few companies, maintain quality
-  return 0.75;  // Was 0.65 → Now 0.75
+  // GRACEFUL DEGRADATION: Lower thresholds when we have few companies
+  // Prevents filtering out ALL companies when O*NET data is sparse
+  if (companyCount > 20) return 0.65;  // Good sample → maintain higher quality
+  if (companyCount > 10) return 0.60;  // Moderate sample → balance quality/quantity
+  if (companyCount > 5) return 0.55;   // Small sample → prioritize coverage
+  // Very few companies → accept lower matches to ensure we have SOME results
+  return 0.50;  // Was 0.75 → Now 0.50 (surgical fix for 0 companies issue)
 }

@@ -164,18 +164,27 @@ export function mapCourseToSOC(
   
   const matches: Array<SOCMapping & { matchScore: number }> = [];
   
-  // Check each discipline
+  // Check each discipline with stem variations
   for (const [discipline, socMappings] of Object.entries(DISCIPLINE_SOC_MAP)) {
-    // Check if discipline appears in title or outcomes
-    if (allText.includes(discipline)) {
-      console.log(`   ✓ Matched discipline: "${discipline}"`);
+    // Add stem variations for better matching
+    const disciplineStems = [
+      discipline,
+      discipline + 's',      // mechanical → mechanicals
+      discipline + 'al',     // mechanic → mechanical
+      discipline.slice(0, -1) // mechanics → mechanic
+    ];
+    
+    // Check if any discipline stem appears in title or outcomes
+    const matchedStem = disciplineStems.find(stem => allText.includes(stem));
+    if (matchedStem) {
+      console.log(`   ✓ Matched discipline: "${discipline}" (via stem: ${matchedStem})`);
       
       for (const mapping of socMappings) {
         // Calculate match score based on keyword overlap
         let matchScore = 0;
         
         // Title match is strongest
-        if (titleLower.includes(discipline)) {
+        if (titleLower.includes(discipline) || disciplineStems.some(s => titleLower.includes(s))) {
           matchScore += 50;
         }
         
@@ -247,4 +256,50 @@ export function getIndustryKeywordsFromSOC(socMappings: SOCMapping[]): string[] 
  */
 export function getJobTitlesFromSOC(socMappings: SOCMapping[]): string[] {
   return socMappings.map(m => m.title);
+}
+
+/**
+ * Generate fallback skills from SOC code when O*NET API fails
+ * Uses SOC mapping keywords and industries as synthetic skills
+ */
+export function generateFallbackSkillsFromSOC(socMapping: SOCMapping): Array<{
+  skill: string;
+  category: 'technical' | 'analytical' | 'domain' | 'tool' | 'framework';
+  confidence: number;
+  source: string;
+  keywords: string[];
+}> {
+  const fallbackSkills = [];
+
+  // Use SOC keywords as technical skills
+  for (const keyword of socMapping.keywords.slice(0, 8)) {
+    fallbackSkills.push({
+      skill: keyword,
+      category: 'technical' as const,
+      confidence: 0.7,
+      source: `soc:${socMapping.socCode}`,
+      keywords: [keyword.toLowerCase()]
+    });
+  }
+
+  // Use industries as domain skills
+  for (const industry of socMapping.industries.slice(0, 5)) {
+    fallbackSkills.push({
+      skill: `${industry} industry knowledge`,
+      category: 'domain' as const,
+      confidence: 0.65,
+      source: `soc:${socMapping.socCode}`,
+      keywords: [industry.toLowerCase()]
+    });
+  }
+
+  return fallbackSkills;
+}
+
+/**
+ * Generate fallback technologies from SOC code
+ */
+export function generateFallbackTechnologiesFromSOC(socMapping: SOCMapping): string[] {
+  // Use a subset of keywords as technology placeholders
+  return socMapping.keywords.slice(0, 5);
 }

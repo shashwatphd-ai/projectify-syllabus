@@ -4,7 +4,7 @@ import { ProviderFactory } from './providers/provider-factory.ts';
 import { CourseContext } from './providers/types.ts';
 import { extractSkillsFromOutcomes, formatSkillsForDisplay } from '../_shared/skill-extraction-service.ts';
 import { createDefaultCoordinator, formatCoordinatedResultsForDisplay } from '../_shared/occupation-coordinator.ts';
-import { rankCompaniesBySimilarity, formatSemanticFilteringForDisplay, getRecommendedThreshold } from '../_shared/semantic-matching-service.ts';
+import { rankCompaniesBySimilarity, formatSemanticFilteringForDisplay, getRecommendedThreshold, shouldSkipSemanticFiltering } from '../_shared/semantic-matching-service.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -182,19 +182,42 @@ serve(async (req) => {
       });
     }
     
+    // SURGICAL FIX: Add fallback skills if O*NET returned empty data
+    if (extractedSkills.length === 0) {
+      console.log(`   ⚠️  O*NET returned empty skills for all occupations`);
+      console.log(`   📦 Activating fallback: Generating skills from SOC mappings...`);
+      
+      const { generateFallbackSkillsFromSOC } = await import('../_shared/course-soc-mapping.ts');
+      
+      for (const socMapping of socMappings.slice(0, 3)) {
+        const fallbackSkills = generateFallbackSkillsFromSOC(socMapping);
+        console.log(`   📦 Generated ${fallbackSkills.length} fallback skills for ${socMapping.title}`);
+        extractedSkills.push(...fallbackSkills);
+      }
+    }
+    
     // Remove duplicates
     const uniqueSkills = Array.from(
       new Map(extractedSkills.map(s => [s.skill.toLowerCase(), s])).values()
     );
     
+    const onetSkillCount = extractedSkills.filter(s => s.source.startsWith('onet')).length;
+    const fallbackSkillCount = extractedSkills.filter(s => s.source.startsWith('soc')).length;
+    
     const skillExtractionResult = {
       skills: uniqueSkills,
       totalExtracted: uniqueSkills.length,
-      sources: { onet: uniqueSkills.length },
-      extractionMethod: 'soc-direct-mapping'
+      sources: { 
+        onet: onetSkillCount,
+        fallback: fallbackSkillCount
+      },
+      extractionMethod: fallbackSkillCount > 0 ? 'soc-fallback' : 'soc-direct-mapping'
     };
     
     console.log(`   ✅ Extracted ${uniqueSkills.length} skills from O*NET via SOC mapping`);
+    if (fallbackSkillCount > 0) {
+      console.log(`   📊 Sources: ${onetSkillCount} from O*NET, ${fallbackSkillCount} from fallback`);
+    }
     console.log(`   Top skills: ${uniqueSkills.slice(0, 5).map(s => s.skill).join(', ')}`);
 
     // ====================================
@@ -281,12 +304,35 @@ serve(async (req) => {
     const threshold = getRecommendedThreshold(companiesBeforeFilter);
 
     console.log(`\n🧠 [Phase 3] Applying semantic similarity filtering...`);
-    const semanticResult = await rankCompaniesBySimilarity(
-      skillExtractionResult.skills,
-      primaryOccupations, // Use O*NET direct results
-      discoveryResult.companies,
-      threshold
-    );
+    
+    // SURGICAL FIX: Skip semantic filtering if we have no skills/occupations
+    let semanticResult;
+    if (shouldSkipSemanticFiltering(skillExtractionResult.skills, primaryOccupations)) {
+      console.log(`   ⚠️  Skipping semantic filtering - returning all companies with default scores`);
+      semanticResult = {
+        matches: discoveryResult.companies.map((company: any) => ({
+          companyId: company.id,
+          companyName: company.name || company.companyName,
+          similarityScore: 0.5,
+          confidence: 'medium' as const,
+          matchingSkills: [],
+          matchingDWAs: [],
+          explanation: 'No semantic filtering applied (insufficient course data)'
+        })),
+        totalCompanies: discoveryResult.companies.length,
+        filteredCount: 0,
+        averageSimilarity: 0.5,
+        threshold: 0,
+        processingTimeMs: 0
+      };
+    } else {
+      semanticResult = await rankCompaniesBySimilarity(
+        skillExtractionResult.skills,
+        primaryOccupations, // Use O*NET direct results
+        discoveryResult.companies,
+        threshold
+      );
+    }
     console.log(formatSemanticFilteringForDisplay(semanticResult));
 
     // Update generation_run with semantic filtering stats
