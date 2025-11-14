@@ -161,10 +161,11 @@ export class ApolloProvider implements DiscoveryProvider {
 
   /**
    * Calculate page offset for smart pagination
-   * Distributes courses across pages 1-5 to maximize diversity
+   * FIXED: Use pages 1-2 instead of 1-5 to avoid skipping valid results
+   * Still provides diversity but doesn't jump too far into result set
    */
   private calculatePageOffset(courseSeed: number): number {
-    const pageNumber = (courseSeed % 5) + 1; // Pages 1-5
+    const pageNumber = (courseSeed % 2) + 1; // Pages 1-2 (was 1-5)
     console.log(`   📄 Page Offset: ${pageNumber} (diversifies company pool)`);
     return pageNumber;
   }
@@ -176,12 +177,20 @@ export class ApolloProvider implements DiscoveryProvider {
   private extractCourseKeywords(context: CourseContext): string[] {
     const keywords = new Set<string>();
 
-    // Extract from title (skip common words)
+    // Extract from title (skip common words, course codes, and generic verbs)
     const commonWords = ['course', 'introduction', 'advanced', 'fundamentals', 'principles', 'the', 'and', 'or', 'in', 'to', 'for'];
+    const genericVerbs = ['analyze', 'design', 'develop', 'understand', 'acquire', 'take', 'create', 'build', 'make', 'learn', 'study', 'explore'];
+
     const titleWords = (context.courseTitle || '')
       .toLowerCase()
       .split(/\W+/)
-      .filter(w => w.length > 3 && !commonWords.includes(w));
+      .filter(w =>
+        w.length > 3 &&
+        !commonWords.includes(w) &&
+        !genericVerbs.includes(w) &&
+        !/^\d/.test(w) &&  // Reject words starting with numbers (e.g., "106")
+        /^[a-z]+$/.test(w)  // Only allow pure alphabetic words
+      );
 
     titleWords.forEach(w => keywords.add(w));
 
@@ -190,7 +199,13 @@ export class ApolloProvider implements DiscoveryProvider {
       const topicWords = topic
         .toLowerCase()
         .split(/\W+/)
-        .filter(w => w.length > 4 && !commonWords.includes(w));
+        .filter(w =>
+          w.length > 4 &&
+          !commonWords.includes(w) &&
+          !genericVerbs.includes(w) &&
+          !/^\d/.test(w) &&  // Reject words starting with numbers
+          /^[a-z]+$/.test(w)  // Only allow pure alphabetic words
+        );
 
       topicWords.forEach(w => keywords.add(w));
     });
@@ -199,9 +214,65 @@ export class ApolloProvider implements DiscoveryProvider {
 
     if (courseKeywords.length > 0) {
       console.log(`   🔑 Course-Specific Keywords: ${courseKeywords.join(', ')}`);
+    } else {
+      console.warn(`   ⚠️ No keywords extracted from course title/topics`);
+      console.warn(`      Title: "${context.courseTitle}"`);
+      console.warn(`      Topics: ${context.topics.slice(0, 3).join(', ')}`);
     }
 
     return courseKeywords;
+  }
+
+  /**
+   * Infer likely industries based on course title and keywords
+   * Helps Apollo find relevant companies even when O*NET mapping is weak
+   */
+  private inferIndustries(courseTitle: string, keywords: string[]): string[] {
+    const industries: string[] = [];
+    const titleLower = courseTitle.toLowerCase();
+    const allTerms = [titleLower, ...keywords].join(' ');
+
+    // Engineering disciplines
+    if (/mechanical|thermal|fluid|hvac/i.test(allTerms)) {
+      industries.push('Machinery Manufacturing', 'Industrial Equipment', 'HVAC', 'Aerospace', 'Automotive');
+    }
+    if (/electrical|electronics|circuit/i.test(allTerms)) {
+      industries.push('Electronics Manufacturing', 'Semiconductor', 'Power Systems', 'Telecommunications');
+    }
+    if (/chemical|process|materials/i.test(allTerms)) {
+      industries.push('Chemical Manufacturing', 'Pharmaceuticals', 'Materials Science', 'Petrochemical');
+    }
+    if (/civil|structural|construction/i.test(allTerms)) {
+      industries.push('Construction', 'Infrastructure', 'Architecture', 'Civil Engineering');
+    }
+    if (/software|computer|programming|algorithm/i.test(allTerms)) {
+      industries.push('Software Development', 'Information Technology', 'Computer Systems', 'SaaS');
+    }
+    if (/data|analytics|machine learning|artificial intelligence/i.test(allTerms)) {
+      industries.push('Data Analytics', 'Artificial Intelligence', 'Machine Learning', 'Business Intelligence');
+    }
+    if (/biomedical|medical|healthcare|pharmaceutical/i.test(allTerms)) {
+      industries.push('Medical Devices', 'Healthcare', 'Biotechnology', 'Pharmaceuticals');
+    }
+
+    // Business/Management disciplines
+    if (/business|management|finance|accounting/i.test(allTerms)) {
+      industries.push('Financial Services', 'Consulting', 'Business Services', 'Management');
+    }
+    if (/marketing|advertising|brand/i.test(allTerms)) {
+      industries.push('Marketing', 'Advertising', 'Digital Marketing', 'Brand Management');
+    }
+
+    // Return top 5 unique industries
+    const uniqueIndustries = [...new Set(industries)].slice(0, 5);
+
+    if (uniqueIndustries.length > 0) {
+      console.log(`   🏭 Course-Title Inferred Industries: ${uniqueIndustries.join(', ')}`);
+    } else {
+      console.warn(`   ⚠️ No industries inferred from course title: "${courseTitle}"`);
+    }
+
+    return uniqueIndustries;
   }
 
   private async generateFilters(context: CourseContext, courseSeed: number): Promise<ApolloSearchFilters> {
@@ -392,7 +463,13 @@ Return JSON:
     console.log(`  🏭 Industry Keywords: ${uniqueKeywords.slice(0, 5).join(', ')}`);
 
     // Map occupation titles to industries
-    const inferredIndustries = this.mapOccupationsToIndustries(onetOccupations);
+    const occupationIndustries = this.mapOccupationsToIndustries(onetOccupations);
+
+    // ENHANCEMENT: Add course-title-based industry inference as supplement
+    const courseTitleIndustries = this.inferIndustries(context.courseTitle, courseKeywords);
+
+    // Combine and deduplicate industries (prioritize occupation-based, then course-based)
+    const inferredIndustries = [...new Set([...occupationIndustries, ...courseTitleIndustries])].slice(0, 5);
     console.log(`  🏢 Inferred Industries: ${inferredIndustries.join(', ')}`);
 
     // Handle location normalization
@@ -559,6 +636,20 @@ Return JSON:
     }
 
     console.log(`  ✓ Found ${organizations.length} organizations from page ${pageOffset}`);
+
+    // ENHANCED LOGGING: Explain why 0 results if that's the case
+    if (organizations.length === 0) {
+      console.warn(`  ⚠️ ZERO COMPANIES FOUND - Debugging Info:`);
+      console.warn(`     Location tried: "${filters.organization_locations.join(', ')}"`);
+      console.warn(`     Job titles: ${filters.q_organization_job_titles?.slice(0, 3).join(', ') || 'none'}`);
+      console.warn(`     Industries: ${filters.q_organization_keyword_tags?.slice(0, 3).join(', ') || 'none'}`);
+      console.warn(`     Page: ${pageOffset}`);
+      console.warn(`  💡 Suggestions:`);
+      console.warn(`     - Check if location "${originalLocation}" has companies in Apollo`);
+      console.warn(`     - Verify job titles match actual positions at companies`);
+      console.warn(`     - Consider if industries are too specific`);
+    }
+
     return organizations;
   }
 
