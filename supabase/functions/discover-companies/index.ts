@@ -339,8 +339,8 @@ serve(async (req) => {
         .update({
           semantic_filter_threshold: null,
           semantic_filter_applied: false,
-          companies_before_filter: companiesBeforeFilter,
-          companies_after_filter: filteredCompanies.length,
+          companies_before_filtering: companiesBeforeFilter,
+          companies_after_filtering: filteredCompanies.length,
           average_similarity_score: 0.5,
           semantic_processing_time_ms: 0
         })
@@ -368,8 +368,8 @@ serve(async (req) => {
         .update({
           semantic_filter_threshold: threshold,
           semantic_filter_applied: true,
-          companies_before_filter: companiesBeforeFilter,
-          companies_after_filter: semanticResult.matches.length,
+          companies_before_filtering: companiesBeforeFilter,
+          companies_after_filtering: semanticResult.matches.length,
           average_similarity_score: semanticResult.averageSimilarity,
           semantic_processing_time_ms: semanticResult.processingTimeMs
         })
