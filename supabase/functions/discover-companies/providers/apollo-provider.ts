@@ -160,12 +160,14 @@ export class ApolloProvider implements DiscoveryProvider {
   }
 
   /**
-   * Calculate page offset for smart pagination
-   * Distributes courses across pages 1-5 to maximize diversity
+   * FIXED: Always start with page 1 to ensure we don't skip relevant results
+   * For narrow searches, higher pages may have no results
    */
   private calculatePageOffset(courseSeed: number): number {
-    const pageNumber = (courseSeed % 5) + 1; // Pages 1-5
-    console.log(`   📄 Page Offset: ${pageNumber} (diversifies company pool)`);
+    // SURGICAL FIX: Always use page 1
+    // Diversity will be achieved through result randomization instead
+    const pageNumber = 1;
+    console.log(`   📄 Page Offset: ${pageNumber} (starting with most relevant results)`);
     return pageNumber;
   }
 
