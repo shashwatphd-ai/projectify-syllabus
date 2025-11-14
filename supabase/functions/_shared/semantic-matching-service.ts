@@ -100,26 +100,6 @@ async function computeSimilarityWithFallback(
 }
 
 /**
- * Check if semantic filtering should be skipped
- * SURGICAL FIX: Skip filtering when we have insufficient data
- */
-export function shouldSkipSemanticFiltering(
-  courseSkills: any[],
-  occupations: any[]
-): boolean {
-  const hasSkills = courseSkills && courseSkills.length > 0;
-  const hasOccupations = occupations && occupations.length > 0;
-  
-  if (!hasSkills && !hasOccupations) {
-    console.log(`   ⚠️  [Semantic Filtering] Insufficient data - skipping filtering`);
-    console.log(`      Skills: ${courseSkills?.length || 0}, Occupations: ${occupations?.length || 0}`);
-    return true;
-  }
-  
-  return false;
-}
-
-/**
  * Rank companies by semantic similarity to course
  */
 export async function rankCompaniesBySimilarity(
@@ -550,4 +530,29 @@ export function getRecommendedThreshold(companyCount: number): number {
   if (companyCount > 5) return 0.55;   // Small sample → prioritize coverage
   // Very few companies → accept lower matches to ensure we have SOME results
   return 0.50;  // Was 0.75 → Now 0.50 (surgical fix for 0 companies issue)
+}
+
+/**
+ * Check if semantic filtering should be skipped
+ * Skip filtering when we have no meaningful data to filter with
+ */
+export function shouldSkipSemanticFiltering(
+  skills: ExtractedSkill[],
+  occupations: StandardOccupation[]
+): boolean {
+  const hasSkills = skills.length > 0;
+  const hasOccupations = occupations.length > 0;
+  const hasOccupationData = occupations.some(occ =>
+    (occ.skills && occ.skills.length > 0) ||
+    (occ.dwas && occ.dwas.length > 0)
+  );
+
+  // Skip if we have no skills AND no occupation data
+  if (!hasSkills && !hasOccupationData) {
+    console.warn(`   ⚠️  [Semantic Filtering] No skills or occupation data available`);
+    console.warn(`   Skipping semantic filtering to avoid filtering out all companies`);
+    return true;
+  }
+
+  return false;
 }

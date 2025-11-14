@@ -160,6 +160,7 @@ export class ApolloProvider implements DiscoveryProvider {
   }
 
   /**
+   * Calculate page offset for smart pagination
    * FIXED: Always start with page 1 to ensure we don't skip relevant results
    * For narrow searches, higher pages may have no results
    */
@@ -389,13 +390,22 @@ Return JSON:
     const uniqueTechnologies = [...new Set(technologiesNeeded)].slice(0, 5);
     const uniqueKeywords = [...new Set(industryKeywords)].slice(0, 10);
 
-    console.log(`  📋 Intelligent Job Titles: ${uniqueJobTitles.join(', ')}`);
-    console.log(`  💻 Technologies: ${uniqueTechnologies.join(', ')}`);
-    console.log(`  🏭 Industry Keywords: ${uniqueKeywords.slice(0, 5).join(', ')}`);
+    console.log(`  📋 Intelligent Job Titles: ${uniqueJobTitles.join(', ') || '(NONE)'}`);
+    console.log(`  💻 Technologies from O*NET: ${uniqueTechnologies.join(', ') || '(NONE)'}`);
+    console.log(`  🏭 Industry Keywords from DWAs: ${uniqueKeywords.slice(0, 5).join(', ') || '(NONE)'}`);
 
     // Map occupation titles to industries
-    const inferredIndustries = this.mapOccupationsToIndustries(onetOccupations);
-    console.log(`  🏢 Inferred Industries: ${inferredIndustries.join(', ')}`);
+    let inferredIndustries = this.mapOccupationsToIndustries(onetOccupations);
+
+    // SURGICAL FIX #8: Use SOC mapping industries as fallback when O*NET inference fails
+    if (inferredIndustries.length === 0 && context.socMappings && context.socMappings.length > 0) {
+      console.log(`  ⚠️  No industries inferred from O*NET, using SOC mapping fallback...`);
+      const socIndustries = context.socMappings.flatMap(soc => soc.industries);
+      inferredIndustries = [...new Set(socIndustries)].slice(0, 10);
+      console.log(`  📦 Fallback Industries from SOC: ${inferredIndustries.join(', ')}`);
+    }
+
+    console.log(`  🏢 Final Industries: ${inferredIndustries.join(', ')}`);
 
     // Handle location normalization
     let apolloLocation = context.searchLocation;

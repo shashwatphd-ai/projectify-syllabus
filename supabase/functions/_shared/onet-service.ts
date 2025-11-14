@@ -381,10 +381,17 @@ async function callOnetAPI(url: string): Promise<any> {
   if (!username || !password) {
     console.error('❌ O*NET credentials not configured');
     console.error('   Set ONET_USERNAME and ONET_PASSWORD in Supabase secrets');
+    console.error('   Username present:', !!username);
+    console.error('   Password present:', !!password);
     throw new Error('O*NET credentials missing');
   }
 
   const authString = btoa(`${username}:${password}`);
+
+  console.log(`   🌐 O*NET API Request: ${url}`);
+  console.log(`   🔑 Auth: Using credentials for user: ${username.substring(0, 3)}***`);
+
+  const startTime = Date.now();
 
   try {
     const response = await fetch(url, {
@@ -395,19 +402,48 @@ async function callOnetAPI(url: string): Promise<any> {
       }
     });
 
+    const elapsed = Date.now() - startTime;
+    console.log(`   ⏱️  O*NET Response: ${response.status} (${elapsed}ms)`);
+
     if (!response.ok) {
+      const errorBody = await response.text();
+      console.error(`   ❌ O*NET Error Response (${response.status}):`, errorBody.substring(0, 200));
+
       if (response.status === 401) {
+        console.error('   🔐 Authentication failed - credentials may be invalid');
         throw new Error('O*NET authentication failed - check credentials');
       }
       if (response.status === 429) {
+        console.error('   ⏳ Rate limit exceeded - max 1000 requests/day');
         throw new Error('O*NET rate limit exceeded (1000/day)');
+      }
+      if (response.status === 404) {
+        console.warn(`   ⚠️  Resource not found: ${url}`);
+        return null; // Return null instead of throwing for 404s
       }
       throw new Error(`O*NET API error: ${response.status} ${response.statusText}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+
+    // Log data structure for debugging
+    if (data) {
+      const keys = Object.keys(data);
+      console.log(`   📦 Response contains: ${keys.join(', ')}`);
+
+      // Log array lengths if applicable
+      if (data.skill) console.log(`      Skills: ${data.skill.length} items`);
+      if (data.technology) console.log(`      Technologies: ${data.technology.length} items`);
+      if (data.work_activity) console.log(`      Work Activities: ${data.work_activity.length} items`);
+      if (data.task) console.log(`      Tasks: ${data.task.length} items`);
+    }
+
+    return data;
   } catch (error) {
-    console.error(`❌ O*NET API call failed: ${url}`, error);
+    const elapsed = Date.now() - startTime;
+    console.error(`   ❌ O*NET API call failed after ${elapsed}ms`);
+    console.error(`   URL: ${url}`);
+    console.error(`   Error: ${error instanceof Error ? error.message : String(error)}`);
     return null;
   }
 }
@@ -624,8 +660,22 @@ export class OnetProvider implements OccupationProvider {
    * Get occupation details by SOC code
    */
   async getOccupationDetails(code: string): Promise<StandardOccupation | null> {
+    console.log(`\n🔍 [O*NET Provider] Fetching occupation details for SOC: ${code}`);
+
     try {
       const details = await getOccupationDetails(code);
+
+      console.log(`   📊 Retrieved data for ${code}:`);
+      console.log(`      Skills: ${details.skills.length}`);
+      console.log(`      DWAs: ${details.dwas.length}`);
+      console.log(`      Tools: ${details.tools.length}`);
+      console.log(`      Technologies: ${details.technologies.length}`);
+      console.log(`      Tasks: ${details.tasks.length}`);
+
+      if (details.skills.length === 0 && details.technologies.length === 0) {
+        console.warn(`   ⚠️  WARNING: O*NET returned empty skills and technologies for ${code}`);
+        console.warn(`   This occupation may not exist in O*NET database or API call failed silently`);
+      }
 
       return {
         code,
@@ -654,7 +704,9 @@ export class OnetProvider implements OccupationProvider {
         confidence: 0.95
       };
     } catch (error) {
-      console.error(`❌ [O*NET] Failed to fetch details for ${code}:`, error);
+      console.error(`❌ [O*NET Provider] Failed to fetch details for ${code}`);
+      console.error(`   Error type: ${error instanceof Error ? error.constructor.name : typeof error}`);
+      console.error(`   Error message: ${error instanceof Error ? error.message : String(error)}`);
       return null;
     }
   }
