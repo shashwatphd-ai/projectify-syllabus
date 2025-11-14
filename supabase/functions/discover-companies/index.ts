@@ -50,7 +50,11 @@ serve(async (req) => {
     if (courseError) throw courseError;
 
     const outcomes = course.outcomes || [];
-    const topics = course.artifacts?.topics || [];
+    // Extract topics from course title and outcomes for O*NET keyword search
+    const topics = [
+      course.title,
+      ...(outcomes || []).slice(0, 2)
+    ].filter(Boolean);
     
     // Use search_location if available (Apollo-friendly), fallback to location parameter
     const searchLocation = course.search_location || location;
@@ -95,10 +99,12 @@ serve(async (req) => {
     };
     
     // Extract keywords from course title and topics for O*NET search
+    const stopWords = ['course', 'introduction', 'advanced', 'able', 'skill', 'part', 'requisite'];
     const titleKeywords = course.title
       .toLowerCase()
+      .replace(/[:\-]/g, ' ')  // Replace separators with spaces
       .split(/\s+/)
-      .filter((word: string) => word.length > 3 && !['course', 'introduction', 'advanced'].includes(word))
+      .filter((word: string) => word.length > 3 && !stopWords.includes(word) && !/^\d+$/.test(word))
       .slice(0, 5);
     
     const topicKeywords = topics
@@ -106,11 +112,11 @@ serve(async (req) => {
       .flatMap((topic: string) => 
         topic.toLowerCase()
           .split(/\s+/)
-          .filter((word: string) => word.length > 3)
+          .filter((word: string) => word.length > 3 && !stopWords.includes(word))
       )
-      .slice(0, 5);
+      .slice(0, 10);
     
-    const searchKeywords = [...new Set([...titleKeywords, ...topicKeywords])].slice(0, 5);
+    const searchKeywords = [...new Set([...titleKeywords, ...topicKeywords])].slice(0, 8);
     console.log(`   Keywords for O*NET: ${searchKeywords.join(', ')}`);
     
     // Create simple keyword "skills" for O*NET search
