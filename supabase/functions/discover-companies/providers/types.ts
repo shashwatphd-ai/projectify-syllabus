@@ -19,6 +19,7 @@ export interface CourseContext {
   extractedSkills?: ExtractedSkill[];          // Skills extracted from outcomes
   onetOccupations?: StandardOccupation[];      // Occupations from multi-provider coordination
   courseTitle?: string;                        // Course title for context
+  socMappings?: any[];                          // SOC mapping results for industry-based search
 }
 
 export interface DiscoveredCompany {
