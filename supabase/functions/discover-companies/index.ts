@@ -4,7 +4,7 @@ import { ProviderFactory } from './providers/provider-factory.ts';
 import { CourseContext } from './providers/types.ts';
 import { extractSkillsFromOutcomes, formatSkillsForDisplay } from '../_shared/skill-extraction-service.ts';
 import { createDefaultCoordinator, formatCoordinatedResultsForDisplay } from '../_shared/occupation-coordinator.ts';
-import { rankCompaniesBySimilarity, formatSemanticFilteringForDisplay, getRecommendedThreshold } from '../_shared/semantic-matching-service.ts';
+import { rankCompaniesBySimilarity, formatSemanticFilteringForDisplay, getRecommendedThreshold, shouldSkipSemanticFiltering } from '../_shared/semantic-matching-service.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -89,7 +89,7 @@ serve(async (req) => {
     console.log(`\n🎯 [Phase 1] Direct SOC Code Mapping (replacing flawed keyword search)...`);
     
     // Import SOC mapping service
-    const { mapCourseToSOC, getIndustryKeywordsFromSOC, getJobTitlesFromSOC } = 
+    const { mapCourseToSOC, getIndustryKeywordsFromSOC, getJobTitlesFromSOC, generateFallbackSkillsFromSOC, generateFallbackTechnologiesFromSOC } =
       await import('../_shared/course-soc-mapping.ts');
     
     // Map course directly to correct SOC codes
@@ -108,8 +108,10 @@ serve(async (req) => {
       try {
         // Fetch occupation details using O*NET provider
         const occDetails = await onetProvider.getOccupationDetails(socMapping.socCode);
-        
-        if (occDetails) {
+
+        if (occDetails && occDetails.skills && occDetails.skills.length > 0) {
+          // O*NET returned valid data
+          console.log(`   ✅ O*NET data retrieved for ${socMapping.socCode}: ${occDetails.skills.length} skills, ${occDetails.technologies.length} technologies`);
           onetOccupations.push({
             code: occDetails.code || socMapping.socCode,
             title: occDetails.title || socMapping.title,
@@ -123,22 +125,42 @@ serve(async (req) => {
             provider: 'onet',
             confidence: socMapping.confidence
           });
+        } else {
+          // O*NET returned empty data - use fallback
+          console.warn(`   ⚠️  O*NET returned empty data for ${socMapping.socCode}, using SOC-based fallback`);
+          const fallbackTechs = generateFallbackTechnologiesFromSOC(socMapping);
+          onetOccupations.push({
+            code: socMapping.socCode,
+            title: socMapping.title,
+            description: `${socMapping.title} in ${socMapping.industries.join(', ')} industries`,
+            matchScore: socMapping.confidence,
+            skills: [], // Will be populated by fallback skills below
+            dwas: [],
+            tools: [],
+            technologies: fallbackTechs,
+            tasks: [],
+            provider: 'soc-fallback',
+            confidence: socMapping.confidence * 0.8, // Lower confidence for fallback
+            _socMapping: socMapping // Store for fallback skill generation
+          });
         }
       } catch (error) {
         console.warn(`   ⚠️  Failed to fetch O*NET details for ${socMapping.socCode}:`, error);
-        // Add basic mapping even if O*NET fetch fails
+        // Use fallback when O*NET API fails
+        const fallbackTechs = generateFallbackTechnologiesFromSOC(socMapping);
         onetOccupations.push({
           code: socMapping.socCode,
           title: socMapping.title,
-          description: '',
+          description: `${socMapping.title} in ${socMapping.industries.join(', ')} industries`,
           matchScore: socMapping.confidence,
           skills: [],
           dwas: [],
           tools: [],
-          technologies: [],
+          technologies: fallbackTechs,
           tasks: [],
-          provider: 'onet',
-          confidence: socMapping.confidence
+          provider: 'soc-fallback',
+          confidence: socMapping.confidence * 0.8,
+          _socMapping: socMapping
         });
       }
     }
@@ -155,46 +177,58 @@ serve(async (req) => {
     };
     
     const extractedSkills: ExtractedSkill[] = [];
-    
+
     for (const occ of onetOccupations) {
-      console.log(`   Extracting skills from: ${occ.title}`);
-      
-      // Add top skills
-      occ.skills.slice(0, 10).forEach((skill: any) => {
-        extractedSkills.push({
-          skill: skill.name,
-          category: 'technical',
-          confidence: 0.9,
-          source: `onet:${occ.code}`,
-          keywords: [skill.name.toLowerCase()]
+      console.log(`   Extracting skills from: ${occ.title} (provider: ${occ.provider})`);
+
+      if (occ.provider === 'soc-fallback' && occ._socMapping) {
+        // Use fallback skills when O*NET data is unavailable
+        console.log(`   📦 Using fallback skills for ${occ.code}`);
+        const fallbackSkills = generateFallbackSkillsFromSOC(occ._socMapping);
+        extractedSkills.push(...fallbackSkills);
+      } else {
+        // Use O*NET data
+        // Add top skills
+        occ.skills.slice(0, 10).forEach((skill: any) => {
+          extractedSkills.push({
+            skill: skill.name,
+            category: 'technical',
+            confidence: 0.9,
+            source: `onet:${occ.code}`,
+            keywords: [skill.name.toLowerCase()]
+          });
         });
-      });
-      
-      // Add technologies
-      occ.technologies.slice(0, 5).forEach((tech: string) => {
-        extractedSkills.push({
-          skill: tech,
-          category: 'tool',
-          confidence: 0.85,
-          source: `onet:${occ.code}:tech`,
-          keywords: [tech.toLowerCase()]
+
+        // Add technologies
+        occ.technologies.slice(0, 5).forEach((tech: string) => {
+          extractedSkills.push({
+            skill: tech,
+            category: 'tool',
+            confidence: 0.85,
+            source: `onet:${occ.code}:tech`,
+            keywords: [tech.toLowerCase()]
+          });
         });
-      });
+      }
     }
-    
+
     // Remove duplicates
     const uniqueSkills = Array.from(
       new Map(extractedSkills.map(s => [s.skill.toLowerCase(), s])).values()
     );
-    
+
     const skillExtractionResult = {
       skills: uniqueSkills,
       totalExtracted: uniqueSkills.length,
-      sources: { onet: uniqueSkills.length },
-      extractionMethod: 'soc-direct-mapping'
+      sources: {
+        onet: uniqueSkills.filter(s => s.source.startsWith('onet')).length,
+        fallback: uniqueSkills.filter(s => s.source.startsWith('soc-fallback')).length
+      },
+      extractionMethod: 'soc-direct-mapping-with-fallback'
     };
-    
-    console.log(`   ✅ Extracted ${uniqueSkills.length} skills from O*NET via SOC mapping`);
+
+    console.log(`   ✅ Extracted ${uniqueSkills.length} skills via SOC mapping`);
+    console.log(`   Sources: ${skillExtractionResult.sources.onet} from O*NET, ${skillExtractionResult.sources.fallback} from fallback`);
     console.log(`   Top skills: ${uniqueSkills.slice(0, 5).map(s => s.skill).join(', ')}`);
 
     // ====================================
@@ -275,48 +309,88 @@ serve(async (req) => {
     console.log(`   Provider: ${discoveryResult.stats.providerUsed}`);
 
     // ====================================
-    // Step 5: PHASE 3: Semantic similarity filtering
+    // Step 5: PHASE 3: Semantic similarity filtering (WITH GRACEFUL DEGRADATION)
     // ====================================
     const companiesBeforeFilter = discoveryResult.companies.length;
-    const threshold = getRecommendedThreshold(companiesBeforeFilter);
 
-    console.log(`\n🧠 [Phase 3] Applying semantic similarity filtering...`);
-    const semanticResult = await rankCompaniesBySimilarity(
+    // SURGICAL FIX: Check if we should skip semantic filtering
+    const skipFiltering = shouldSkipSemanticFiltering(
       skillExtractionResult.skills,
-      primaryOccupations, // Use O*NET direct results
-      discoveryResult.companies,
-      threshold
+      primaryOccupations
     );
-    console.log(formatSemanticFilteringForDisplay(semanticResult));
 
-    // Update generation_run with semantic filtering stats
-    await supabase
-      .from('generation_runs')
-      .update({
-        semantic_filter_threshold: threshold,
-        semantic_filter_applied: true,
-        companies_before_filter: companiesBeforeFilter,
-        companies_after_filter: semanticResult.matches.length,
-        average_similarity_score: semanticResult.averageSimilarity,
-        semantic_processing_time_ms: semanticResult.processingTimeMs
-      })
-      .eq('id', generationRunId);
+    let filteredCompanies;
 
-    console.log(`✅ Semantic filtering: ${companiesBeforeFilter} → ${semanticResult.matches.length} companies`);
-
-    // Map semantic matches back to company objects with similarity data
-    const filteredCompanies = semanticResult.matches.map(match => {
-      const company = discoveryResult.companies.find(c => c.name === match.companyName)!;
-      return {
+    if (skipFiltering || companiesBeforeFilter === 0) {
+      // Skip semantic filtering - use all companies
+      console.log(`\n⚠️  [Phase 3] Skipping semantic filtering (insufficient data or 0 companies)`);
+      filteredCompanies = discoveryResult.companies.map(company => ({
         ...company,
-        // Add Phase 3 metadata
-        similarityScore: match.similarityScore,
-        matchConfidence: match.confidence,
-        matchingSkills: match.matchingSkills,
-        matchingDWAs: match.matchingDWAs,
-        matchExplanation: match.explanation
-      };
-    });
+        similarityScore: 0.5, // Default score when filtering is skipped
+        matchConfidence: 'medium' as const,
+        matchingSkills: [],
+        matchingDWAs: [],
+        matchExplanation: 'Semantic filtering skipped due to insufficient O*NET data'
+      }));
+
+      // Update generation_run
+      await supabase
+        .from('generation_runs')
+        .update({
+          semantic_filter_threshold: null,
+          semantic_filter_applied: false,
+          companies_before_filter: companiesBeforeFilter,
+          companies_after_filter: filteredCompanies.length,
+          average_similarity_score: 0.5,
+          semantic_processing_time_ms: 0
+        })
+        .eq('id', generationRunId);
+
+      console.log(`   Returning all ${filteredCompanies.length} companies without filtering`);
+    } else {
+      // Apply semantic filtering normally
+      const threshold = getRecommendedThreshold(companiesBeforeFilter);
+
+      console.log(`\n🧠 [Phase 3] Applying semantic similarity filtering...`);
+      console.log(`   Threshold: ${(threshold * 100).toFixed(0)}% (adaptive based on ${companiesBeforeFilter} companies)`);
+
+      const semanticResult = await rankCompaniesBySimilarity(
+        skillExtractionResult.skills,
+        primaryOccupations, // Use O*NET direct results
+        discoveryResult.companies,
+        threshold
+      );
+      console.log(formatSemanticFilteringForDisplay(semanticResult));
+
+      // Update generation_run with semantic filtering stats
+      await supabase
+        .from('generation_runs')
+        .update({
+          semantic_filter_threshold: threshold,
+          semantic_filter_applied: true,
+          companies_before_filter: companiesBeforeFilter,
+          companies_after_filter: semanticResult.matches.length,
+          average_similarity_score: semanticResult.averageSimilarity,
+          semantic_processing_time_ms: semanticResult.processingTimeMs
+        })
+        .eq('id', generationRunId);
+
+      console.log(`✅ Semantic filtering: ${companiesBeforeFilter} → ${semanticResult.matches.length} companies`);
+
+      // Map semantic matches back to company objects with similarity data
+      filteredCompanies = semanticResult.matches.map(match => {
+        const company = discoveryResult.companies.find(c => c.name === match.companyName)!;
+        return {
+          ...company,
+          // Add Phase 3 metadata
+          similarityScore: match.similarityScore,
+          matchConfidence: match.confidence,
+          matchingSkills: match.matchingSkills,
+          matchingDWAs: match.matchingDWAs,
+          matchExplanation: match.explanation
+        };
+      });
+    }
 
     // ====================================
     // Step 6: Store companies in database

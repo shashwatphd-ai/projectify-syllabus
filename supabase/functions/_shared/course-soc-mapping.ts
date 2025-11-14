@@ -157,57 +157,81 @@ export function mapCourseToSOC(
   courseLevel: string = ''
 ): SOCMapping[] {
   console.log(`\n🎯 [SOC Mapping] Course: "${courseTitle}"`);
-  
+
   const titleLower = courseTitle.toLowerCase();
   const outcomesText = outcomes.join(' ').toLowerCase();
   const allText = `${titleLower} ${outcomesText}`;
-  
+
   const matches: Array<SOCMapping & { matchScore: number }> = [];
-  
+
+  // Discipline stem variations for better matching
+  const disciplineStems: Record<string, string[]> = {
+    'mechanical': ['mechanical', 'mechanics', 'mechanic'],
+    'systems': ['systems', 'system'],
+    'computer': ['computer', 'computing', 'computation'],
+    'electrical': ['electrical', 'electric', 'electronics', 'electronic'],
+    'civil': ['civil'],
+    'chemical': ['chemical', 'chemistry'],
+    'data': ['data'],
+    'business': ['business', 'management', 'mba']
+  };
+
   // Check each discipline
   for (const [discipline, socMappings] of Object.entries(DISCIPLINE_SOC_MAP)) {
-    // Check if discipline appears in title or outcomes
-    if (allText.includes(discipline)) {
-      console.log(`   ✓ Matched discipline: "${discipline}"`);
-      
+    // Check if discipline or its stems appear in title or outcomes
+    const stems = disciplineStems[discipline] || [discipline];
+    const disciplineMatch = stems.some(stem => allText.includes(stem));
+
+    if (disciplineMatch) {
+      console.log(`   ✓ Matched discipline: "${discipline}" (via stems: ${stems.join('/')})`);
+
       for (const mapping of socMappings) {
         // Calculate match score based on keyword overlap
         let matchScore = 0;
-        
+
         // Title match is strongest
-        if (titleLower.includes(discipline)) {
+        if (stems.some(stem => titleLower.includes(stem))) {
           matchScore += 50;
         }
-        
+
         // Keyword matches
         for (const keyword of mapping.keywords) {
           if (allText.includes(keyword)) {
             matchScore += 10;
           }
         }
-        
+
         matches.push({ ...mapping, matchScore });
       }
     }
   }
   
-  // If no matches, try keyword-based fallback
+  // If no matches, try keyword-based fallback with weighted scoring
   if (matches.length === 0) {
     console.log(`   ⚠️  No discipline match, trying keyword fallback...`);
-    
+
     for (const [discipline, socMappings] of Object.entries(DISCIPLINE_SOC_MAP)) {
       for (const mapping of socMappings) {
         let matchScore = 0;
-        
+        let keywordMatches: string[] = [];
+
         // Check if any mapping keywords appear in text
         for (const keyword of mapping.keywords) {
           if (allText.includes(keyword)) {
-            matchScore += 15;
+            // Weight longer keywords more heavily (more specific)
+            const weight = keyword.length > 6 ? 20 : 15;
+            matchScore += weight;
+            keywordMatches.push(keyword);
           }
         }
-        
+
+        // Bonus for title-specific keywords
+        if (titleLower.split(/\s+/).some(word => mapping.keywords.includes(word))) {
+          matchScore += 25;
+        }
+
         if (matchScore > 0) {
-          console.log(`   ✓ Keyword match: ${mapping.title} (score: ${matchScore})`);
+          console.log(`   ✓ Keyword match: ${mapping.title} (score: ${matchScore}, keywords: ${keywordMatches.join(', ')})`);
           matches.push({ ...mapping, matchScore });
         }
       }
@@ -247,4 +271,69 @@ export function getIndustryKeywordsFromSOC(socMappings: SOCMapping[]): string[] 
  */
 export function getJobTitlesFromSOC(socMappings: SOCMapping[]): string[] {
   return socMappings.map(m => m.title);
+}
+
+/**
+ * Generate fallback skills from SOC code when O*NET API fails
+ * Uses SOC mapping keywords and industries as synthetic skills
+ */
+export function generateFallbackSkillsFromSOC(socMapping: SOCMapping): Array<{
+  skill: string;
+  category: 'technical' | 'analytical' | 'domain' | 'tool' | 'framework';
+  confidence: number;
+  source: string;
+  keywords: string[];
+}> {
+  const fallbackSkills = [];
+
+  // Use SOC keywords as technical skills
+  for (const keyword of socMapping.keywords.slice(0, 8)) {
+    fallbackSkills.push({
+      skill: keyword,
+      category: 'technical' as const,
+      confidence: 0.7, // Lower confidence for fallback
+      source: `soc-fallback:${socMapping.socCode}`,
+      keywords: [keyword.toLowerCase()]
+    });
+  }
+
+  // Use industries as domain knowledge
+  for (const industry of socMapping.industries.slice(0, 5)) {
+    fallbackSkills.push({
+      skill: `${industry} domain knowledge`,
+      category: 'domain' as const,
+      confidence: 0.6,
+      source: `soc-fallback:${socMapping.socCode}:industry`,
+      keywords: [industry.toLowerCase()]
+    });
+  }
+
+  return fallbackSkills;
+}
+
+/**
+ * Generate fallback technologies from SOC code industries
+ */
+export function generateFallbackTechnologiesFromSOC(socMapping: SOCMapping): string[] {
+  // Map industries to common technologies
+  const industryTechMap: Record<string, string[]> = {
+    'aerospace': ['CAD', 'MATLAB', 'ANSYS', 'SolidWorks', 'CFD Software'],
+    'automotive': ['CAD', 'CAE', 'CATIA', 'AutoCAD', 'Simulation Software'],
+    'manufacturing': ['CAD', 'CAM', 'PLC', 'SCADA', 'ERP Systems'],
+    'software': ['JavaScript', 'Python', 'Git', 'AWS', 'Docker'],
+    'data': ['Python', 'SQL', 'Tableau', 'R', 'Machine Learning'],
+    'cloud': ['AWS', 'Azure', 'Kubernetes', 'Docker', 'Terraform'],
+    'finance': ['Excel', 'SQL', 'Python', 'Bloomberg Terminal', 'VBA']
+  };
+
+  const technologies = new Set<string>();
+
+  for (const industry of socMapping.industries) {
+    const techs = industryTechMap[industry.toLowerCase()];
+    if (techs) {
+      techs.forEach(t => technologies.add(t));
+    }
+  }
+
+  return Array.from(technologies).slice(0, 10);
 }

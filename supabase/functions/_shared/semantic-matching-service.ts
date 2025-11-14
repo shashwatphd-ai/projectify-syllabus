@@ -520,12 +520,39 @@ function calculateIndustryPenalty(occupations: StandardOccupation[], companySect
 
 /**
  * Get recommended threshold based on company count
+ * SURGICAL FIX: Lowered thresholds to prevent filtering out all companies
  */
 export function getRecommendedThreshold(companyCount: number): number {
-  // STRICTER THRESHOLDS: Prevent irrelevant industries from passing
-  // Increased from 0.65-0.75 to 0.75-0.85 to filter out IT/Recruitment companies
-  if (companyCount > 20) return 0.85;  // Was 0.75 → Now 0.85
-  if (companyCount > 10) return 0.80;  // Was 0.70 → Now 0.80
-  // Even with few companies, maintain quality
-  return 0.75;  // Was 0.65 → Now 0.75
+  // GRACEFUL DEGRADATION: Lower thresholds when we have few companies
+  // Prevents filtering out ALL companies when O*NET data is sparse
+  if (companyCount > 20) return 0.65;  // Good sample → maintain higher quality
+  if (companyCount > 10) return 0.60;  // Moderate sample → balance quality/quantity
+  if (companyCount > 5) return 0.55;   // Small sample → prioritize coverage
+  // Very few companies → accept lower matches to ensure we have SOME results
+  return 0.50;  // Was 0.75 → Now 0.50 (surgical fix for 0 companies issue)
+}
+
+/**
+ * Check if semantic filtering should be skipped
+ * Skip filtering when we have no meaningful data to filter with
+ */
+export function shouldSkipSemanticFiltering(
+  skills: ExtractedSkill[],
+  occupations: StandardOccupation[]
+): boolean {
+  const hasSkills = skills.length > 0;
+  const hasOccupations = occupations.length > 0;
+  const hasOccupationData = occupations.some(occ =>
+    (occ.skills && occ.skills.length > 0) ||
+    (occ.dwas && occ.dwas.length > 0)
+  );
+
+  // Skip if we have no skills AND no occupation data
+  if (!hasSkills && !hasOccupationData) {
+    console.warn(`   ⚠️  [Semantic Filtering] No skills or occupation data available`);
+    console.warn(`   Skipping semantic filtering to avoid filtering out all companies`);
+    return true;
+  }
+
+  return false;
 }
