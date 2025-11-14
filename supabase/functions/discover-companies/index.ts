@@ -267,45 +267,74 @@ serve(async (req) => {
     // Step 5: PHASE 3: Semantic similarity filtering
     // ====================================
     const companiesBeforeFilter = discoveryResult.companies.length;
-    const threshold = getRecommendedThreshold(companiesBeforeFilter);
-
-    console.log(`\n🧠 [Phase 3] Applying semantic similarity filtering...`);
-    const semanticResult = await rankCompaniesBySimilarity(
-      skillExtractionResult.skills,
-      coordinatedResult.occupations, // Use coordinated results
-      discoveryResult.companies,
-      threshold
-    );
-    console.log(formatSemanticFilteringForDisplay(semanticResult));
-
-    // Update generation_run with semantic filtering stats
-    await supabase
-      .from('generation_runs')
-      .update({
-        semantic_filter_threshold: threshold,
-        semantic_filter_applied: true,
-        companies_before_filter: companiesBeforeFilter,
-        companies_after_filter: semanticResult.matches.length,
-        average_similarity_score: semanticResult.averageSimilarity,
-        semantic_processing_time_ms: semanticResult.processingTimeMs
-      })
-      .eq('id', generationRunId);
-
-    console.log(`✅ Semantic filtering: ${companiesBeforeFilter} → ${semanticResult.matches.length} companies`);
-
-    // Map semantic matches back to company objects with similarity data
-    const filteredCompanies = semanticResult.matches.map(match => {
-      const company = discoveryResult.companies.find(c => c.name === match.companyName)!;
-      return {
+    
+    // Skip semantic filtering if no occupations found (fallback mode)
+    let filteredCompanies;
+    if (coordinatedResult.occupations.length === 0) {
+      console.log(`\n⚠️ [Phase 3] Skipping semantic filtering (no occupations found)`);
+      console.log(`   Using all ${companiesBeforeFilter} discovered companies`);
+      
+      // Use all companies without filtering
+      filteredCompanies = discoveryResult.companies.map(company => ({
         ...company,
-        // Add Phase 3 metadata
-        similarityScore: match.similarityScore,
-        matchConfidence: match.confidence,
-        matchingSkills: match.matchingSkills,
-        matchingDWAs: match.matchingDWAs,
-        matchExplanation: match.explanation
-      };
-    });
+        similarityScore: null,
+        matchConfidence: 'low',
+        matchingSkills: [],
+        matchingDWAs: [],
+        matchExplanation: 'No occupation data available for semantic matching'
+      }));
+      
+      await supabase
+        .from('generation_runs')
+        .update({
+          semantic_filter_applied: false,
+          companies_before_filter: companiesBeforeFilter,
+          companies_after_filter: companiesBeforeFilter,
+          average_similarity_score: null
+        })
+        .eq('id', generationRunId);
+        
+    } else {
+      // Normal semantic filtering path
+      const threshold = getRecommendedThreshold(companiesBeforeFilter);
+      
+      console.log(`\n🧠 [Phase 3] Applying semantic similarity filtering...`);
+      const semanticResult = await rankCompaniesBySimilarity(
+        skillExtractionResult.skills,
+        coordinatedResult.occupations,
+        discoveryResult.companies,
+        threshold
+      );
+      console.log(formatSemanticFilteringForDisplay(semanticResult));
+
+      // Update generation_run with semantic filtering stats
+      await supabase
+        .from('generation_runs')
+        .update({
+          semantic_filter_threshold: threshold,
+          semantic_filter_applied: true,
+          companies_before_filter: companiesBeforeFilter,
+          companies_after_filter: semanticResult.matches.length,
+          average_similarity_score: semanticResult.averageSimilarity,
+          semantic_processing_time_ms: semanticResult.processingTimeMs
+        })
+        .eq('id', generationRunId);
+
+      console.log(`✅ Semantic filtering: ${companiesBeforeFilter} → ${semanticResult.matches.length} companies`);
+      
+      // Map semantic matches to company objects
+      filteredCompanies = semanticResult.matches.map(match => {
+        const company = discoveryResult.companies.find(c => c.name === match.companyName)!;
+        return {
+          ...company,
+          similarityScore: match.similarityScore,
+          matchConfidence: match.confidence,
+          matchingSkills: match.matchingSkills,
+          matchingDWAs: match.matchingDWAs,
+          matchExplanation: match.explanation
+        };
+      });
+    }
 
     // ====================================
     // Step 6: Store companies in database
