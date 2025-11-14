@@ -170,60 +170,62 @@ serve(async (req) => {
     console.log(`   ✅ Extracted ${uniqueSkills.length} skills from O*NET`);
     console.log(`   Top skills: ${uniqueSkills.slice(0, 5).map(s => s.skill).join(', ')}`);
 
-    console.log(`\n🔍 [Phase 2] Mapping skills to occupations (Multi-Provider)...`);
-    // Check if O*NET credentials are available
-    const onetUsername = Deno.env.get('ONET_USERNAME');
-    const onetPassword = Deno.env.get('ONET_PASSWORD');
-    const enableOnet = !!(onetUsername && onetPassword);
-
-    if (enableOnet) {
-      console.log(`   O*NET credentials found - enabling O*NET provider`);
-    } else {
-      console.log(`   O*NET credentials not found - using ESCO + Skills-ML`);
-    }
-
-    // Create multi-provider coordinator
-    const coordinator = await createDefaultCoordinator({
-      enableOnet: enableOnet,
-      enableEsco: true,
-      enableSkillsML: true
-    });
-
-    // Map skills using coordination layer
-    const coordinatedResult = await coordinator.mapSkillsToOccupations(skillExtractionResult.skills);
-    console.log(formatCoordinatedResultsForDisplay(coordinatedResult));
-
+    console.log(`\n🔍 [Phase 2] O*NET Direct Occupation Mapping (Option 1)...`);
+    
+    // Use O*NET occupations directly from Phase 1 for semantic filtering
+    // Convert to StandardOccupation format for consistency
+    const primaryOccupations = onetResult.occupations.map(occ => ({
+      code: occ.code,
+      title: occ.title,
+      description: occ.description,
+      matchScore: occ.matchScore,
+      skills: occ.skills.map(s => ({
+        id: s.id,
+        name: s.name,
+        description: s.description || '',
+        importance: s.importance,
+        level: s.level
+      })),
+      dwas: occ.dwas.map(d => ({
+        id: d.id,
+        name: d.name,
+        description: d.description,
+        importance: d.importance,
+        level: d.level
+      })),
+      tools: occ.tools,
+      technologies: occ.technologies,
+      tasks: occ.tasks || [],
+      provider: 'onet',
+      confidence: occ.matchScore
+    }));
+    
+    console.log(`   ✅ Using ${primaryOccupations.length} O*NET occupations for semantic filtering`);
+    console.log(`   Top occupations: ${primaryOccupations.slice(0, 3).map(o => o.title).join(', ')}`);
+    
     // Extract job titles for intelligent filtering
     const intelligentJobTitles = new Set<string>();
-    for (const occupation of coordinatedResult.occupations.slice(0, 5)) {
+    for (const occupation of primaryOccupations.slice(0, 5)) {
       intelligentJobTitles.add(occupation.title);
     }
-    console.log(`\n📋 Intelligent job titles: ${Array.from(intelligentJobTitles).join(', ')}`);
-
-    // Calculate total API calls across all providers
-    let totalApiCalls = 0;
-    let totalCacheHits = 0;
-    for (const [provider, result] of coordinatedResult.providerResults) {
-      totalApiCalls += result.apiCalls;
-      totalCacheHits += result.cacheHits;
-    }
-
-    // Store skill extraction and multi-provider mapping in generation_run
+    console.log(`   📋 Job titles for matching: ${Array.from(intelligentJobTitles).join(', ')}`);
+    
+    // Store O*NET mapping in generation_run
     await supabase
       .from('generation_runs')
       .update({
         extracted_skills: skillExtractionResult.skills,
         skill_extraction_method: skillExtractionResult.extractionMethod,
         skills_extracted_at: new Date().toISOString(),
-        onet_occupations: coordinatedResult.occupations, // Store coordinated results
-        onet_mapping_method: `multi-provider(${coordinatedResult.providersUsed.join('+')})`,
+        onet_occupations: primaryOccupations,
+        onet_mapping_method: 'onet-direct',
         onet_mapped_at: new Date().toISOString(),
-        onet_api_calls: totalApiCalls,
-        onet_cache_hits: totalCacheHits
+        onet_api_calls: onetResult.apiCalls,
+        onet_cache_hits: onetResult.cacheHits
       })
       .eq('id', generationRunId);
 
-    console.log(`✅ Stored skills and multi-provider occupation data in generation_run ${generationRunId}`);
+    console.log(`   ✅ Stored O*NET occupation data in generation_run ${generationRunId}`);
 
     // ====================================
     // Step 3: Get provider configuration
@@ -249,9 +251,9 @@ serve(async (req) => {
       location, // Display location for logging/UI
       searchLocation, // Apollo-friendly format for searches
       targetCount: count,
-      // Phase 1+2: Include intelligent matching data from multi-provider coordination
+      // Phase 1+2: Include intelligent matching data from O*NET
       extractedSkills: skillExtractionResult.skills,
-      onetOccupations: coordinatedResult.occupations, // Use coordinated results
+      onetOccupations: primaryOccupations, // Use O*NET direct results
       courseTitle: course.title
     };
 
@@ -267,74 +269,45 @@ serve(async (req) => {
     // Step 5: PHASE 3: Semantic similarity filtering
     // ====================================
     const companiesBeforeFilter = discoveryResult.companies.length;
-    
-    // Skip semantic filtering if no occupations found (fallback mode)
-    let filteredCompanies;
-    if (coordinatedResult.occupations.length === 0) {
-      console.log(`\n⚠️ [Phase 3] Skipping semantic filtering (no occupations found)`);
-      console.log(`   Using all ${companiesBeforeFilter} discovered companies`);
-      
-      // Use all companies without filtering
-      filteredCompanies = discoveryResult.companies.map(company => ({
+    const threshold = getRecommendedThreshold(companiesBeforeFilter);
+
+    console.log(`\n🧠 [Phase 3] Applying semantic similarity filtering...`);
+    const semanticResult = await rankCompaniesBySimilarity(
+      skillExtractionResult.skills,
+      primaryOccupations, // Use O*NET direct results
+      discoveryResult.companies,
+      threshold
+    );
+    console.log(formatSemanticFilteringForDisplay(semanticResult));
+
+    // Update generation_run with semantic filtering stats
+    await supabase
+      .from('generation_runs')
+      .update({
+        semantic_filter_threshold: threshold,
+        semantic_filter_applied: true,
+        companies_before_filter: companiesBeforeFilter,
+        companies_after_filter: semanticResult.matches.length,
+        average_similarity_score: semanticResult.averageSimilarity,
+        semantic_processing_time_ms: semanticResult.processingTimeMs
+      })
+      .eq('id', generationRunId);
+
+    console.log(`✅ Semantic filtering: ${companiesBeforeFilter} → ${semanticResult.matches.length} companies`);
+
+    // Map semantic matches back to company objects with similarity data
+    const filteredCompanies = semanticResult.matches.map(match => {
+      const company = discoveryResult.companies.find(c => c.name === match.companyName)!;
+      return {
         ...company,
-        similarityScore: null,
-        matchConfidence: 'low',
-        matchingSkills: [],
-        matchingDWAs: [],
-        matchExplanation: 'No occupation data available for semantic matching'
-      }));
-      
-      await supabase
-        .from('generation_runs')
-        .update({
-          semantic_filter_applied: false,
-          companies_before_filter: companiesBeforeFilter,
-          companies_after_filter: companiesBeforeFilter,
-          average_similarity_score: null
-        })
-        .eq('id', generationRunId);
-        
-    } else {
-      // Normal semantic filtering path
-      const threshold = getRecommendedThreshold(companiesBeforeFilter);
-      
-      console.log(`\n🧠 [Phase 3] Applying semantic similarity filtering...`);
-      const semanticResult = await rankCompaniesBySimilarity(
-        skillExtractionResult.skills,
-        coordinatedResult.occupations,
-        discoveryResult.companies,
-        threshold
-      );
-      console.log(formatSemanticFilteringForDisplay(semanticResult));
-
-      // Update generation_run with semantic filtering stats
-      await supabase
-        .from('generation_runs')
-        .update({
-          semantic_filter_threshold: threshold,
-          semantic_filter_applied: true,
-          companies_before_filter: companiesBeforeFilter,
-          companies_after_filter: semanticResult.matches.length,
-          average_similarity_score: semanticResult.averageSimilarity,
-          semantic_processing_time_ms: semanticResult.processingTimeMs
-        })
-        .eq('id', generationRunId);
-
-      console.log(`✅ Semantic filtering: ${companiesBeforeFilter} → ${semanticResult.matches.length} companies`);
-      
-      // Map semantic matches to company objects
-      filteredCompanies = semanticResult.matches.map(match => {
-        const company = discoveryResult.companies.find(c => c.name === match.companyName)!;
-        return {
-          ...company,
-          similarityScore: match.similarityScore,
-          matchConfidence: match.confidence,
-          matchingSkills: match.matchingSkills,
-          matchingDWAs: match.matchingDWAs,
-          matchExplanation: match.explanation
-        };
-      });
-    }
+        // Add Phase 3 metadata
+        similarityScore: match.similarityScore,
+        matchConfidence: match.confidence,
+        matchingSkills: match.matchingSkills,
+        matchingDWAs: match.matchingDWAs,
+        matchExplanation: match.explanation
+      };
+    });
 
     // ====================================
     // Step 6: Store companies in database
