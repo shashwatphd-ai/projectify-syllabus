@@ -397,15 +397,22 @@ Return JSON:
     // Map occupation titles to industries
     let inferredIndustries = this.mapOccupationsToIndustries(onetOccupations);
 
-    // SURGICAL FIX #8: Use SOC mapping industries as fallback when O*NET inference fails
-    if (inferredIndustries.length === 0 && context.socMappings && context.socMappings.length > 0) {
-      console.log(`  ⚠️  No industries inferred from O*NET, using SOC mapping fallback...`);
+    // SURGICAL FIX #9: Prioritize SOC mapping industries over generic O*NET inference
+    if (context.socMappings && context.socMappings.length > 0) {
       const socIndustries = context.socMappings.flatMap(soc => soc.industries);
-      inferredIndustries = [...new Set(socIndustries)].slice(0, 10);
-      console.log(`  📦 Fallback Industries from SOC: ${inferredIndustries.join(', ')}`);
+      const uniqueSocIndustries = [...new Set(socIndustries)];
+
+      if (uniqueSocIndustries.length > 0) {
+        console.log(`  ⚠️  Using SOC mapping industries (more specific than O*NET title inference)`);
+        console.log(`  🏢 O*NET Generic Industries: ${inferredIndustries.join(', ') || '(NONE)'}`);
+        console.log(`  📦 SOC Specific Industries: ${uniqueSocIndustries.slice(0, 10).join(', ')}`);
+        inferredIndustries = uniqueSocIndustries.slice(0, 10);
+      }
+    } else if (inferredIndustries.length === 0) {
+      console.log(`  ⚠️  No industries available from either O*NET or SOC mappings`);
     }
 
-    console.log(`  🏢 Final Industries: ${inferredIndustries.join(', ')}`);
+    console.log(`  🏢 Final Industries for Apollo: ${inferredIndustries.join(', ')}`);
 
     // Handle location normalization
     let apolloLocation = context.searchLocation;
