@@ -84,12 +84,68 @@ serve(async (req) => {
     const generationRunId = generationRun.id;
 
     // ====================================
-    // Step 2: PHASE 1: O*NET-First Skill Extraction
+    // Step 2: PHASE 1: Direct SOC Code Mapping (SURGICAL FIX)
     // ====================================
-    console.log(`\n🧠 [Phase 1] O*NET-First Skill Extraction...`);
+    console.log(`\n🎯 [Phase 1] Direct SOC Code Mapping (replacing flawed keyword search)...`);
     
-    // Import types and services
-    const { mapSkillsToOnet } = await import('../_shared/onet-service.ts');
+    // Import SOC mapping service
+    const { mapCourseToSOC, getIndustryKeywordsFromSOC, getJobTitlesFromSOC } = 
+      await import('../_shared/course-soc-mapping.ts');
+    
+    // Map course directly to correct SOC codes
+    const socMappings = mapCourseToSOC(course.title, outcomes, course.level);
+    
+    if (socMappings.length === 0) {
+      console.warn(`   ⚠️  No SOC mappings found for course, using fallback...`);
+    }
+    
+    // Get O*NET occupation details from SOC codes using OnetProvider
+    const { OnetProvider } = await import('../_shared/onet-service.ts');
+    const onetProvider = new OnetProvider();
+    const onetOccupations: any[] = [];
+    
+    for (const socMapping of socMappings.slice(0, 3)) {
+      try {
+        // Fetch occupation details using O*NET provider
+        const occDetails = await onetProvider.getOccupationDetails(socMapping.socCode);
+        
+        if (occDetails) {
+          onetOccupations.push({
+            code: occDetails.code || socMapping.socCode,
+            title: occDetails.title || socMapping.title,
+            description: occDetails.description || '',
+            matchScore: socMapping.confidence,
+            skills: occDetails.skills || [],
+            dwas: occDetails.dwas || [],
+            tools: occDetails.tools || [],
+            technologies: occDetails.technologies || [],
+            tasks: occDetails.tasks || [],
+            provider: 'onet',
+            confidence: socMapping.confidence
+          });
+        }
+      } catch (error) {
+        console.warn(`   ⚠️  Failed to fetch O*NET details for ${socMapping.socCode}:`, error);
+        // Add basic mapping even if O*NET fetch fails
+        onetOccupations.push({
+          code: socMapping.socCode,
+          title: socMapping.title,
+          description: '',
+          matchScore: socMapping.confidence,
+          skills: [],
+          dwas: [],
+          tools: [],
+          technologies: [],
+          tasks: [],
+          provider: 'onet',
+          confidence: socMapping.confidence
+        });
+      }
+    }
+    
+    console.log(`   ✅ Fetched ${onetOccupations.length} O*NET occupations from SOC codes`);
+    
+    // Extract skills from O*NET occupations
     type ExtractedSkill = {
       skill: string;
       category: 'technical' | 'analytical' | 'domain' | 'tool' | 'framework';
@@ -98,48 +154,13 @@ serve(async (req) => {
       keywords: string[];
     };
     
-    // Extract keywords from course title and topics for O*NET search
-    const stopWords = ['course', 'introduction', 'advanced', 'able', 'skill', 'part', 'requisite'];
-    const titleKeywords = course.title
-      .toLowerCase()
-      .replace(/[:\-]/g, ' ')  // Replace separators with spaces
-      .split(/\s+/)
-      .filter((word: string) => word.length > 3 && !stopWords.includes(word) && !/^\d+$/.test(word))
-      .slice(0, 5);
-    
-    const topicKeywords = topics
-      .slice(0, 3)
-      .flatMap((topic: string) => 
-        topic.toLowerCase()
-          .split(/\s+/)
-          .filter((word: string) => word.length > 3 && !stopWords.includes(word))
-      )
-      .slice(0, 10);
-    
-    const searchKeywords = [...new Set([...titleKeywords, ...topicKeywords])].slice(0, 8);
-    console.log(`   Keywords for O*NET: ${searchKeywords.join(', ')}`);
-    
-    // Create simple keyword "skills" for O*NET search
-    const keywordSkills: ExtractedSkill[] = searchKeywords.map(kw => ({
-      skill: kw,
-      category: 'technical' as const,
-      confidence: 0.7,
-      source: 'course-metadata',
-      keywords: [kw]
-    }));
-    
-    // Search O*NET for relevant occupations using keywords
-    const onetResult = await mapSkillsToOnet(keywordSkills);
-    console.log(`   Found ${onetResult.occupations.length} O*NET occupations`);
-    
-    // Extract skills from top O*NET occupations
     const extractedSkills: ExtractedSkill[] = [];
     
-    for (const occ of onetResult.occupations.slice(0, 3)) {
+    for (const occ of onetOccupations) {
       console.log(`   Extracting skills from: ${occ.title}`);
       
-      // Add top skills from this occupation
-      occ.skills.slice(0, 10).forEach((skill) => {
+      // Add top skills
+      occ.skills.slice(0, 10).forEach((skill: any) => {
         extractedSkills.push({
           skill: skill.name,
           category: 'technical',
@@ -149,8 +170,8 @@ serve(async (req) => {
         });
       });
       
-      // Add technologies as skills
-      occ.technologies.slice(0, 5).forEach((tech) => {
+      // Add technologies
+      occ.technologies.slice(0, 5).forEach((tech: string) => {
         extractedSkills.push({
           skill: tech,
           category: 'tool',
@@ -170,68 +191,49 @@ serve(async (req) => {
       skills: uniqueSkills,
       totalExtracted: uniqueSkills.length,
       sources: { onet: uniqueSkills.length },
-      extractionMethod: 'onet-first'
+      extractionMethod: 'soc-direct-mapping'
     };
     
-    console.log(`   ✅ Extracted ${uniqueSkills.length} skills from O*NET`);
+    console.log(`   ✅ Extracted ${uniqueSkills.length} skills from O*NET via SOC mapping`);
     console.log(`   Top skills: ${uniqueSkills.slice(0, 5).map(s => s.skill).join(', ')}`);
 
-    console.log(`\n🔍 [Phase 2] O*NET Direct Occupation Mapping (Option 1)...`);
+    // ====================================
+    // Step 2: PHASE 2: Store SOC Mapping Results
+    // ====================================
+    console.log(`\n📊 [Phase 2] Storing SOC mapping results...`);
     
-    // Use O*NET occupations directly from Phase 1 for semantic filtering
-    // Convert to StandardOccupation format for consistency
-    const primaryOccupations = onetResult.occupations.map(occ => ({
+    // Prepare O*NET occupations in standardized format with all required fields
+    const primaryOccupations = onetOccupations.map((occ: any) => ({
       code: occ.code,
       title: occ.title,
-      description: occ.description,
-      matchScore: occ.matchScore,
-      skills: occ.skills.map(s => ({
-        id: s.id,
-        name: s.name,
-        description: s.description || '',
-        importance: s.importance,
-        level: s.level
-      })),
-      dwas: occ.dwas.map(d => ({
-        id: d.id,
-        name: d.name,
-        description: d.description,
-        importance: d.importance,
-        level: d.level
-      })),
-      tools: occ.tools,
-      technologies: occ.technologies,
+      description: occ.description || '',
+      matchScore: occ.matchScore || 0,
+      skills: occ.skills || [],
+      dwas: occ.dwas || [],
+      tools: occ.tools || [],
+      technologies: occ.technologies || [],
       tasks: occ.tasks || [],
-      provider: 'onet',
-      confidence: occ.matchScore
+      provider: occ.provider || 'onet',
+      confidence: occ.confidence || 0.9
     }));
     
-    console.log(`   ✅ Using ${primaryOccupations.length} O*NET occupations for semantic filtering`);
-    console.log(`   Top occupations: ${primaryOccupations.slice(0, 3).map(o => o.title).join(', ')}`);
-    
-    // Extract job titles for intelligent filtering
-    const intelligentJobTitles = new Set<string>();
-    for (const occupation of primaryOccupations.slice(0, 5)) {
-      intelligentJobTitles.add(occupation.title);
-    }
-    console.log(`   📋 Job titles for matching: ${Array.from(intelligentJobTitles).join(', ')}`);
-    
-    // Store O*NET mapping in generation_run
-    await supabase
+    // Store in generation_run
+    const { error: updateRunError2 } = await supabase
       .from('generation_runs')
       .update({
-        extracted_skills: skillExtractionResult.skills,
-        skill_extraction_method: skillExtractionResult.extractionMethod,
-        skills_extracted_at: new Date().toISOString(),
         onet_occupations: primaryOccupations,
-        onet_mapping_method: 'onet-direct',
-        onet_mapped_at: new Date().toISOString(),
-        onet_api_calls: onetResult.apiCalls,
-        onet_cache_hits: onetResult.cacheHits
+        occupation_mapping_provider: 'onet-soc-direct',
+        occupation_mapping_confidence: socMappings[0]?.confidence || 0,
+        extracted_skills: skillExtractionResult.skills,
+        skill_extraction_model: 'soc-mapping'
       })
       .eq('id', generationRunId);
-
-    console.log(`   ✅ Stored O*NET occupation data in generation_run ${generationRunId}`);
+    
+    if (updateRunError2) {
+      console.error('Failed to store O*NET mapping:', updateRunError2);
+    }
+    
+    console.log(`   ✅ Stored SOC mapping data in generation_run ${generationRunId}`);
 
     // ====================================
     // Step 3: Get provider configuration
@@ -257,10 +259,11 @@ serve(async (req) => {
       location, // Display location for logging/UI
       searchLocation, // Apollo-friendly format for searches
       targetCount: count,
-      // Phase 1+2: Include intelligent matching data from O*NET
+      // Phase 1+2: Include intelligent matching data from SOC mapping
       extractedSkills: skillExtractionResult.skills,
-      onetOccupations: primaryOccupations, // Use O*NET direct results
-      courseTitle: course.title
+      onetOccupations: primaryOccupations,
+      courseTitle: course.title,
+      socMappings // Pass SOC mappings for industry-based search
     };
 
     const discoveryResult = await provider.discover(courseContext);
