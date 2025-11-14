@@ -80,15 +80,95 @@ serve(async (req) => {
     const generationRunId = generationRun.id;
 
     // ====================================
-    // Step 2: PHASE 1+2: Extract skills and map to occupations (Multi-Provider)
+    // Step 2: PHASE 1: O*NET-First Skill Extraction
     // ====================================
-    console.log(`\n🧠 [Phase 1] Extracting skills from course outcomes...`);
-    const skillExtractionResult = await extractSkillsFromOutcomes(
-      outcomes,
-      course.title,
-      course.level
+    console.log(`\n🧠 [Phase 1] O*NET-First Skill Extraction...`);
+    
+    // Import types and services
+    const { mapSkillsToOnet } = await import('../_shared/onet-service.ts');
+    type ExtractedSkill = {
+      skill: string;
+      category: 'technical' | 'analytical' | 'domain' | 'tool' | 'framework';
+      confidence: number;
+      source: string;
+      keywords: string[];
+    };
+    
+    // Extract keywords from course title and topics for O*NET search
+    const titleKeywords = course.title
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((word: string) => word.length > 3 && !['course', 'introduction', 'advanced'].includes(word))
+      .slice(0, 5);
+    
+    const topicKeywords = topics
+      .slice(0, 3)
+      .flatMap((topic: string) => 
+        topic.toLowerCase()
+          .split(/\s+/)
+          .filter((word: string) => word.length > 3)
+      )
+      .slice(0, 5);
+    
+    const searchKeywords = [...new Set([...titleKeywords, ...topicKeywords])].slice(0, 5);
+    console.log(`   Keywords for O*NET: ${searchKeywords.join(', ')}`);
+    
+    // Create simple keyword "skills" for O*NET search
+    const keywordSkills: ExtractedSkill[] = searchKeywords.map(kw => ({
+      skill: kw,
+      category: 'technical' as const,
+      confidence: 0.7,
+      source: 'course-metadata',
+      keywords: [kw]
+    }));
+    
+    // Search O*NET for relevant occupations using keywords
+    const onetResult = await mapSkillsToOnet(keywordSkills);
+    console.log(`   Found ${onetResult.occupations.length} O*NET occupations`);
+    
+    // Extract skills from top O*NET occupations
+    const extractedSkills: ExtractedSkill[] = [];
+    
+    for (const occ of onetResult.occupations.slice(0, 3)) {
+      console.log(`   Extracting skills from: ${occ.title}`);
+      
+      // Add top skills from this occupation
+      occ.skills.slice(0, 10).forEach((skill) => {
+        extractedSkills.push({
+          skill: skill.name,
+          category: 'technical',
+          confidence: 0.9,
+          source: `onet:${occ.code}`,
+          keywords: [skill.name.toLowerCase()]
+        });
+      });
+      
+      // Add technologies as skills
+      occ.technologies.slice(0, 5).forEach((tech) => {
+        extractedSkills.push({
+          skill: tech,
+          category: 'tool',
+          confidence: 0.85,
+          source: `onet:${occ.code}:tech`,
+          keywords: [tech.toLowerCase()]
+        });
+      });
+    }
+    
+    // Remove duplicates
+    const uniqueSkills = Array.from(
+      new Map(extractedSkills.map(s => [s.skill.toLowerCase(), s])).values()
     );
-    console.log(formatSkillsForDisplay(skillExtractionResult));
+    
+    const skillExtractionResult = {
+      skills: uniqueSkills,
+      totalExtracted: uniqueSkills.length,
+      sources: { onet: uniqueSkills.length },
+      extractionMethod: 'onet-first'
+    };
+    
+    console.log(`   ✅ Extracted ${uniqueSkills.length} skills from O*NET`);
+    console.log(`   Top skills: ${uniqueSkills.slice(0, 5).map(s => s.skill).join(', ')}`);
 
     console.log(`\n🔍 [Phase 2] Mapping skills to occupations (Multi-Provider)...`);
     // Check if O*NET credentials are available
