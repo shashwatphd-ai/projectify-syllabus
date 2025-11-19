@@ -14,11 +14,27 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(true);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState("student");
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (isForgotPassword) {
+      setLoading(true);
+      try {
+        const { error } = await authService.resetPassword(email);
+        if (error) throw error;
+        toast.success("Password reset email sent! Check your inbox.");
+        setIsForgotPassword(false);
+      } catch (error: any) {
+        toast.error(error.message || "Failed to send reset email");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     
     // Role-specific email validation
     if (selectedRole === "employer" && (email.endsWith(".edu") || email.endsWith(".ac.uk") || email.endsWith(".edu.au"))) {
@@ -73,14 +89,20 @@ const Auth = () => {
             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <GraduationCap className="h-8 w-8 text-primary" />
             </div>
-            <CardTitle className="text-2xl">{isSignUp ? "Create Account" : "Welcome Back"}</CardTitle>
+            <CardTitle className="text-2xl">
+              {isForgotPassword ? "Reset Password" : isSignUp ? "Create Account" : "Welcome Back"}
+            </CardTitle>
             <CardDescription>
-              {isSignUp ? "Sign up with your university email to get started" : "Sign in to continue"}
+              {isForgotPassword 
+                ? "Enter your email to receive a password reset link"
+                : isSignUp 
+                  ? "Sign up with your university email to get started" 
+                  : "Sign in to continue"}
             </CardDescription>
           </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {isSignUp && (
+            {isSignUp && !isForgotPassword && (
               <div className="space-y-3">
                 <Label>I am a:</Label>
                 <div className="space-y-2">
@@ -138,18 +160,20 @@ const Auth = () => {
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
+            {!isForgotPassword && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+              </div>
+            )}
 
             {isSignUp && selectedRole === "faculty" && (
               <p className="text-sm text-muted-foreground">
@@ -164,24 +188,57 @@ const Auth = () => {
             )}
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isSignUp ? "Creating account..." : "Signing in..."}
-                </>
-              ) : (
-                isSignUp ? "Create Account" : "Sign In"
-              )}
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isForgotPassword ? "Send Reset Link" : isSignUp ? "Create Account" : "Sign In"}
             </Button>
 
-            <div className="text-center text-sm">
-              <button
-                type="button"
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="text-primary hover:underline"
-              >
-                {isSignUp ? "Already have an account? Sign in" : "Need an account? Sign up"}
-              </button>
+            {!isSignUp && !isForgotPassword && (
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setIsForgotPassword(true)}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
+
+            <div className="text-center text-sm text-muted-foreground">
+              {isForgotPassword ? (
+                <>
+                  Remember your password?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setIsForgotPassword(false)}
+                    className="text-primary hover:underline font-medium"
+                  >
+                    Sign In
+                  </button>
+                </>
+              ) : isSignUp ? (
+                <>
+                  Already have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setIsSignUp(false)}
+                    className="text-primary hover:underline font-medium"
+                  >
+                    Sign In
+                  </button>
+                </>
+              ) : (
+                <>
+                  Don't have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setIsSignUp(true)}
+                    className="text-primary hover:underline font-medium"
+                  >
+                    Sign Up
+                  </button>
+                </>
+              )}
             </div>
           </form>
         </CardContent>
