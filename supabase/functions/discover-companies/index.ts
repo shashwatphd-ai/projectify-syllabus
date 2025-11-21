@@ -510,14 +510,26 @@ serve(async (req) => {
         .maybeSingle();
 
       if (existingCompany) {
-        await supabase
+        const { error: updateError } = await supabase
           .from('company_profiles')
           .update(companyData)
           .eq('id', existingCompany.id);
+        
+        if (updateError) {
+          console.error(`❌ Failed to update company ${company.name}:`, updateError);
+          throw new Error(`Database update failed for ${company.name}: ${updateError.message}`);
+        }
+        console.log(`   ✓ Updated existing company: ${company.name}`);
       } else {
-        await supabase
+        const { error: insertError } = await supabase
           .from('company_profiles')
           .insert(companyData);
+        
+        if (insertError) {
+          console.error(`❌ Failed to insert company ${company.name}:`, insertError);
+          throw new Error(`Database insert failed for ${company.name}: ${insertError.message}`);
+        }
+        console.log(`   ✓ Inserted new company: ${company.name}`);
       }
     }
 
