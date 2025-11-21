@@ -2,24 +2,27 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL =
-  import.meta.env.VITE_SUPABASE_URL ||
-  (import.meta.env.VITE_SUPABASE_PROJECT_ID
-    ? `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`
-    : undefined);
+const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? (projectId ? `https://${projectId}.supabase.co` : undefined);
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// Debugging: log presence (not values) so you can see which keys are present
+console.debug('Supabase env presence:', {
+  VITE_SUPABASE_URL: Boolean(import.meta.env.VITE_SUPABASE_URL),
+  VITE_SUPABASE_PROJECT_ID: Boolean(projectId),
+  VITE_SUPABASE_PUBLISHABLE_KEY: Boolean(supabaseKey),
+});
 
-if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+if (!supabaseUrl || !supabaseKey) {
   throw new Error(
-    "Supabase environment variables are missing. Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY are set.",
+    'Supabase environment variables are missing. Please ensure VITE_SUPABASE_URL (or VITE_SUPABASE_PROJECT_ID) and VITE_SUPABASE_PUBLISHABLE_KEY are set at build/dev-start.'
   );
 }
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
   auth: {
     storage: localStorage,
     persistSession: true,
