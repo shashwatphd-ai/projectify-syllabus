@@ -358,7 +358,8 @@ serve(async (req) => {
         skillExtractionResult.skills,
         primaryOccupations, // Use O*NET direct results
         discoveryResult.companies,
-        threshold
+        threshold,
+        socMappings // Pass SOC mappings for context-aware filtering
       );
       console.log(formatSemanticFilteringForDisplay(semanticResult));
 

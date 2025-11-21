@@ -120,15 +120,21 @@ export class ApolloProvider implements DiscoveryProvider {
     console.log(`   🎲 Course Seed: ${courseSeed} (ensures unique companies per course)`);
 
     // Step 2: Generate Apollo search filters using AI
-    const { filters, excludedIndustries } = await this.generateFilters(context, courseSeed);
+    const { filters, excludedIndustries, courseDomain } = await this.generateFilters(context, courseSeed);
 
     // Step 3: Search Apollo for organizations with smart pagination
     const pageOffset = this.calculatePageOffset(courseSeed);
     const organizations = await this.searchOrganizations(filters, context.targetCount * 3, pageOffset);
 
     // Step 4: Enrich organizations with contacts and market intelligence
-    // Pass excluded industries for post-filtering
-    const companies = await this.enrichOrganizations(organizations, context.targetCount, excludedIndustries);
+    // Pass excluded industries and course domain for context-aware post-filtering
+    const companies = await this.enrichOrganizations(
+      organizations,
+      context.targetCount,
+      excludedIndustries,
+      courseDomain,
+      context.socMappings || []
+    );
 
     const processingTime = (Date.now() - startTime) / 1000;
 
@@ -211,7 +217,7 @@ export class ApolloProvider implements DiscoveryProvider {
     return courseKeywords;
   }
 
-  private async generateFilters(context: CourseContext, courseSeed: number): Promise<{ filters: ApolloSearchFilters; excludedIndustries: string[] }> {
+  private async generateFilters(context: CourseContext, courseSeed: number): Promise<{ filters: ApolloSearchFilters; excludedIndustries: string[]; courseDomain: string }> {
     // PHASE 2: Use O*NET data for intelligent filtering (if available)
     const useIntelligentFilters = context.onetOccupations && context.onetOccupations.length > 0;
 
@@ -347,7 +353,8 @@ Return JSON:
 
     return {
       filters: JSON.parse(jsonMatch[0]),
-      excludedIndustries: [] // Legacy mode doesn't use industry taxonomy
+      excludedIndustries: [], // Legacy mode doesn't use industry taxonomy
+      courseDomain: 'unknown' // Legacy mode doesn't classify domain
     };
   }
 
@@ -356,7 +363,7 @@ Return JSON:
    * Uses occupation-specific job titles and technologies instead of random categories
    * NOW WITH COURSE-SPECIFIC DIVERSITY: Adds course keywords for differentiation
    */
-  private async generateIntelligentFilters(context: CourseContext, courseSeed: number): Promise<{ filters: ApolloSearchFilters; excludedIndustries: string[] }> {
+  private async generateIntelligentFilters(context: CourseContext, courseSeed: number): Promise<{ filters: ApolloSearchFilters; excludedIndustries: string[]; courseDomain: string }> {
     console.log(`  🧠 Using O*NET occupations for intelligent filtering...`);
 
     const onetOccupations = context.onetOccupations!;
@@ -423,7 +430,11 @@ Return JSON:
 
     // CRITICAL FIX: Map SOC industries to Apollo's structured taxonomy
     // This prevents staffing companies from matching via keyword search
-    const { includeIndustries, excludeIndustries } = mapSOCIndustriesToApollo(inferredIndustries);
+    // NOW CONTEXT-AWARE: Determines exclusions based on course domain
+    const { includeIndustries, excludeIndustries, courseDomain } = mapSOCIndustriesToApollo(
+      inferredIndustries,
+      context.socMappings || []
+    );
 
     // Handle location normalization
     let apolloLocation = context.searchLocation;
@@ -482,7 +493,8 @@ Return JSON:
 
     return {
       filters: intelligentFilters,
-      excludedIndustries // Pass excluded industries for post-filtering
+      excludedIndustries, // Pass excluded industries for post-filtering
+      courseDomain // Pass course domain for context-aware decisions
     };
   }
 
@@ -635,37 +647,76 @@ Return JSON:
   private async enrichOrganizations(
     organizations: ApolloOrganization[],
     targetCount: number,
-    excludedIndustries: string[] = []
+    excludedIndustries: string[] = [],
+    courseDomain: string = 'unknown',
+    socMappings: any[] = []
   ): Promise<DiscoveredCompany[]> {
     const enriched: DiscoveredCompany[] = [];
     let skippedCount = 0;
+    let reconsideredCount = 0;
 
     console.log(`\n🔍 Enriching ${organizations.length} organizations (target: ${targetCount})`);
+    console.log(`   🎓 Course Domain: ${courseDomain.toUpperCase()}`);
     if (excludedIndustries.length > 0) {
-      console.log(`   🚫 Will skip companies in: ${excludedIndustries.join(', ')}`);
+      console.log(`   🚫 Initially excluded: ${excludedIndustries.join(', ')}`);
     }
 
     for (const org of organizations) {
       if (enriched.length >= targetCount) break;
 
-      // POST-FILTER: Skip companies with excluded industries
+      // POST-FILTER: Context-aware exclusion check
       // This catches any staffing/recruiting companies that slipped through Apollo filters
       if (excludedIndustries.length > 0 && org.industry) {
         const industryLower = org.industry.toLowerCase();
-        const isExcluded = excludedIndustries.some(excluded =>
+        const isInExcludedList = excludedIndustries.some(excluded =>
           industryLower.includes(excluded.toLowerCase())
         );
 
-        if (isExcluded) {
-          console.log(`   🚫 Skipping ${org.name} (industry: ${org.industry})`);
-          skippedCount++;
-          continue;
+        if (isInExcludedList) {
+          // Company is in excluded list, but check if we should reconsider
+          // For hybrid/business courses, verify with job posting analysis
+          if (courseDomain === 'business_management') {
+            // Business courses: staffing companies are target industry
+            console.log(`   ✅ ${org.name} (${org.industry}) - Business course: NOT excluded`);
+            reconsideredCount++;
+          } else if (courseDomain === 'hybrid') {
+            // Hybrid courses: Fetch job postings and analyze
+            console.log(`   🔀 ${org.name} (${org.industry}) - Hybrid course: Checking job postings...`);
+            // Will be checked during enrichSingleOrganization with job posting data
+          } else {
+            // Engineering/Tech courses: definitely exclude
+            console.log(`   🚫 Skipping ${org.name} (industry: ${org.industry})`);
+            skippedCount++;
+            continue;
+          }
         }
       }
 
       try {
         const company = await this.enrichSingleOrganization(org);
         if (company) {
+          // For hybrid courses with excluded industries, do final check with job postings
+          if (courseDomain === 'hybrid' && excludedIndustries.some(e =>
+            (company.sector || '').toLowerCase().includes(e.toLowerCase())
+          )) {
+            const { shouldExcludeIndustry } = await import('../../_shared/context-aware-industry-filter.ts');
+            const decision = shouldExcludeIndustry(
+              company.sector || '',
+              courseDomain as any,
+              socMappings as any,
+              company.jobPostings
+            );
+
+            if (decision.shouldExclude) {
+              console.log(`   🚫 ${company.name}: ${decision.reason}`);
+              skippedCount++;
+              continue;
+            } else {
+              console.log(`   ✅ ${company.name}: ${decision.reason}`);
+              reconsideredCount++;
+            }
+          }
+
           enriched.push(company);
           console.log(`   ✅ Enriched ${company.name} (${enriched.length}/${targetCount})`);
         }
@@ -677,8 +728,12 @@ Return JSON:
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    if (skippedCount > 0) {
-      console.log(`   📊 Post-filter results: Skipped ${skippedCount} excluded companies`);
+    if (skippedCount > 0 || reconsideredCount > 0) {
+      console.log(`   📊 Post-filter results:`);
+      console.log(`      Skipped: ${skippedCount} excluded companies`);
+      if (reconsideredCount > 0) {
+        console.log(`      Reconsidered: ${reconsideredCount} companies (context-aware inclusion)`);
+      }
     }
 
     return enriched;

@@ -14,7 +14,8 @@
 import { ExtractedSkill } from './skill-extraction-service.ts';
 import { StandardOccupation } from './occupation-provider-interface.ts';
 import { computeSemanticSimilarity } from './embedding-service.ts';
-import { isExcludedIndustry } from '../discover-companies/providers/apollo-industry-mapper.ts';
+import { shouldExcludeIndustry, classifyCourseDomain } from './context-aware-industry-filter.ts';
+import { SOCMapping } from './course-soc-mapping.ts';
 
 // ========================================
 // FEATURE FLAG: Toggle between keyword and embedding-based matching
@@ -102,17 +103,23 @@ async function computeSimilarityWithFallback(
 
 /**
  * Rank companies by semantic similarity to course
+ * NOW CONTEXT-AWARE: Accepts socMappings for intelligent industry filtering
  */
 export async function rankCompaniesBySimilarity(
   courseSkills: ExtractedSkill[],
   occupations: StandardOccupation[],
   companies: any[],
-  threshold: number = 0.7
+  threshold: number = 0.7,
+  socMappings: SOCMapping[] = []
 ): Promise<SemanticFilteringResult> {
   const startTime = Date.now();
 
   console.log(`\n🧠 [Phase 3] Ranking ${companies.length} companies by semantic similarity...`);
   console.log(`   Threshold: ${threshold.toFixed(2)}`);
+
+  // Classify course domain for context-aware filtering
+  const { domain: courseDomain } = classifyCourseDomain(socMappings);
+  console.log(`   🎓 Course Domain: ${courseDomain.toUpperCase()} (context-aware filtering enabled)`);
 
   const matches: SemanticMatch[] = [];
 
@@ -125,12 +132,18 @@ export async function rankCompaniesBySimilarity(
       company.technologies_used || company.technologiesUsed || []
     );
 
-    // INDUSTRY VALIDATION: Penalize companies from irrelevant industries
+    // INDUSTRY VALIDATION: Context-aware penalty system
     const companySector = (company.sector || '').toLowerCase();
-    const industryPenalty = calculateIndustryPenalty(occupations, companySector);
-    if (industryPenalty > 0) {
-      console.log(`   ⚠️  ${company.name}: ${companySector} → ${(industryPenalty * 100).toFixed(0)}% penalty`);
-      similarity = Math.max(0, similarity - industryPenalty);
+    const industryDecision = calculateIndustryPenalty(
+      occupations,
+      companySector,
+      socMappings,
+      company.job_postings || company.jobPostings || []
+    );
+
+    if (industryDecision.penalty > 0) {
+      console.log(`   ⚠️  ${company.name}: ${industryDecision.reason} → ${(industryDecision.penalty * 100).toFixed(0)}% penalty`);
+      similarity = Math.max(0, similarity - industryDecision.penalty);
     }
 
     // Determine confidence level
@@ -188,15 +201,17 @@ export async function rankCompaniesBySimilarity(
       console.log(`      • ${match.companyName} - ${(match.similarityScore * 100).toFixed(0)}% (${industry})`);
     });
 
-    // DIAGNOSTIC: Show if filtered companies are staffing/recruiting
-    const staffingFiltered = filtered.filter(m => {
+    // DIAGNOSTIC: Show if filtered companies were context-excluded
+    const contextExcludedFiltered = filtered.filter(m => {
       const company = companies.find(c => c.name === m.companyName);
       const sector = company?.sector || company?.industry || '';
-      return isExcludedIndustry(sector);
+      const decision = shouldExcludeIndustry(sector, courseDomain, socMappings, company?.job_postings || []);
+      return decision.shouldExclude;
     });
 
-    if (staffingFiltered.length > 0) {
-      console.log(`\n   ℹ️  Note: ${staffingFiltered.length}/${filtered.length} filtered companies were staffing/recruiting firms`);
+    if (contextExcludedFiltered.length > 0) {
+      console.log(`\n   ℹ️  Note: ${contextExcludedFiltered.length}/${filtered.length} filtered companies were excluded by context-aware rules`);
+      console.log(`      (e.g., staffing firms for engineering courses, insurance companies, etc.)`);
     }
   }
 
@@ -452,10 +467,34 @@ export function formatSemanticFilteringForDisplay(result: SemanticFilteringResul
 
 /**
  * Calculate industry penalty based on occupation-industry mismatch
- * Returns a penalty (0.0 to 0.5) to subtract from similarity score
+ * NOW CONTEXT-AWARE: Uses course domain classification and job posting analysis
+ * Returns decision with reason and penalty (0.0 to 1.0)
  */
-function calculateIndustryPenalty(occupations: StandardOccupation[], companySector: string): number {
-  if (!companySector || occupations.length === 0) return 0;
+function calculateIndustryPenalty(
+  occupations: StandardOccupation[],
+  companySector: string,
+  socMappings: SOCMapping[] = [],
+  jobPostings: any[] = []
+): { reason: string; penalty: number } {
+  if (!companySector || occupations.length === 0) {
+    return { reason: 'No sector or occupations', penalty: 0 };
+  }
+
+  // Classify course domain
+  const { domain: courseDomain } = classifyCourseDomain(socMappings);
+
+  // Use context-aware industry exclusion system
+  const decision = shouldExcludeIndustry(companySector, courseDomain, socMappings, jobPostings);
+
+  if (decision.shouldExclude) {
+    return {
+      reason: decision.reason,
+      penalty: decision.penalty
+    };
+  }
+
+  // If not excluded, check for expected industries (old logic for non-excluded industries)
+  if (!companySector) return { reason: 'No sector info', penalty: 0 };
 
   // Map occupations to expected industries
   const expectedIndustries = new Set<string>();
@@ -501,27 +540,7 @@ function calculateIndustryPenalty(occupations: StandardOccupation[], companySect
     }
   }
 
-  // DISQUALIFYING PENALTY (100%): Staffing, recruiting, employment services
-  // These companies recruit FOR other industries but don't provide actual project opportunities
-  // CRITICAL FIX: Use shared isExcludedIndustry function for consistency with Apollo filters
-  if (isExcludedIndustry(companySector)) {
-    console.log(`   🚫 DISQUALIFIED: ${companySector} (staffing/recruiting company)`);
-    return 1.0; // 100% penalty = guaranteed 0% similarity score
-  }
-
-  // SEVERE penalties for industries that are NEVER relevant for academic projects
-  const severePenaltyIndustries = [
-    'insurance', 'legal services', 'law firm'
-  ];
-
-  // Check for severe penalty (50%)
-  for (const severe of severePenaltyIndustries) {
-    if (companySector.includes(severe)) {
-      return 0.50; // Severe penalty - rarely relevant
-    }
-  }
-
-  // MODERATE penalties for industries that MAY have relevant roles
+  // MODERATE penalties for industries that MAY have relevant roles (not excluded, but less ideal)
   const moderatePenaltyIndustries = [
     'marketing', 'advertising', 'public relations',
     'retail', 'consumer goods',
@@ -532,14 +551,20 @@ function calculateIndustryPenalty(occupations: StandardOccupation[], companySect
   // Check for moderate penalty (20%)
   for (const moderate of moderatePenaltyIndustries) {
     if (companySector.includes(moderate)) {
-      return 0.20; // Moderate penalty - may have relevant roles (e.g., retail operations, marketing analytics)
+      return {
+        reason: `${moderate} industry - moderate penalty`,
+        penalty: 0.20
+      };
     }
   }
 
   // Check if company is in an expected industry
   for (const expected of expectedIndustries) {
     if (companySector.includes(expected)) {
-      return 0; // No penalty for relevant industries
+      return {
+        reason: `Expected industry: ${expected}`,
+        penalty: 0
+      };
     }
   }
 
@@ -547,12 +572,18 @@ function calculateIndustryPenalty(occupations: StandardOccupation[], companySect
   const genericIndustries = ['services', 'consulting', 'solutions', 'systems'];
   for (const generic of genericIndustries) {
     if (companySector.includes(generic)) {
-      return 0.15; // Mild penalty (15%) for generic industries
+      return {
+        reason: `Generic industry: ${generic}`,
+        penalty: 0.15
+      };
     }
   }
 
   // Default: small penalty for unknown industries
-  return 0.20; // 20% penalty for unrecognized industries
+  return {
+    reason: 'Unknown industry',
+    penalty: 0.20
+  };
 }
 
 /**

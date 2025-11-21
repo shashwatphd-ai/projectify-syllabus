@@ -9,9 +9,17 @@
  * - industry_tag_ids: Precise, based on company's primary industry classification
  * - keyword_tags: Imprecise, matches any mention in company description
  *
+ * CONTEXT-AWARE EXCLUSION:
+ * - Engineering courses: Exclude staffing/HR companies (they don't provide projects)
+ * - Business/HR courses: Include staffing/HR companies (they ARE the target industry)
+ * - Hybrid courses: Smart decision based on primary occupation
+ *
  * NOTE: Apollo industry IDs may need to be verified/updated via Apollo API documentation
  * Current mappings are based on common industry categories.
  */
+
+import { SOCMapping } from '../../_shared/course-soc-mapping.ts';
+import { classifyCourseDomain, CourseDomain } from '../../_shared/context-aware-industry-filter.ts';
 
 /**
  * Generic industry keywords (from SOC mappings) → Apollo industry tag names
@@ -83,28 +91,50 @@ const SOC_INDUSTRY_TO_APOLLO_TAXONOMY: Record<string, string[]> = {
 };
 
 /**
- * Industries to EXCLUDE (staffing, recruiting, etc.)
- * These will be added as negative filters to prevent matching
+ * Industries to CONDITIONALLY EXCLUDE based on course context
+ * - ALWAYS excluded: Insurance, legal, gambling (hard exclude)
+ * - CONTEXT-DEPENDENT: Staffing, HR, recruiting (soft exclude)
  */
-const EXCLUDED_INDUSTRIES = [
+const CONTEXT_DEPENDENT_INDUSTRIES = [
   'Staffing & Recruiting',
   'Human Resources',
   'Outsourcing/Offshoring',
   'Employment Services',
   'Recruitment',
+  'Talent Acquisition'
+];
+
+const ALWAYS_EXCLUDED_INDUSTRIES = [
+  'Insurance',
+  'Legal Services',
+  'Gambling & Casinos'
 ];
 
 /**
  * Map SOC industry keywords to Apollo industry taxonomy names
- * Returns both industries to INCLUDE and industries to EXCLUDE
+ * Returns both industries to INCLUDE and industries to EXCLUDE (context-aware)
+ *
+ * NEW: Takes socMappings to classify course domain and determine exclusions
  */
-export function mapSOCIndustriesToApollo(socIndustries: string[]): {
+export function mapSOCIndustriesToApollo(
+  socIndustries: string[],
+  socMappings: SOCMapping[]
+): {
   includeIndustries: string[];
   excludeIndustries: string[];
+  courseDomain: CourseDomain;
 } {
   const includeSet = new Set<string>();
 
-  // Map each SOC industry to Apollo taxonomy
+  // STEP 1: Classify course domain (determines if staffing companies are relevant)
+  const { domain: courseDomain, confidence, reasoning } = classifyCourseDomain(socMappings);
+
+  console.log(`\n🎓 [Course Classification]`);
+  console.log(`   Domain: ${courseDomain.toUpperCase()}`);
+  console.log(`   Confidence: ${(confidence * 100).toFixed(0)}%`);
+  console.log(`   Reasoning: ${reasoning}`);
+
+  // STEP 2: Map each SOC industry to Apollo taxonomy
   for (const socIndustry of socIndustries) {
     const apolloIndustries = SOC_INDUSTRY_TO_APOLLO_TAXONOMY[socIndustry.toLowerCase()];
 
@@ -120,30 +150,68 @@ export function mapSOCIndustriesToApollo(socIndustries: string[]): {
 
   const includeIndustries = Array.from(includeSet);
 
+  // STEP 3: Determine exclusions based on course domain
+  let excludeIndustries: string[];
+
+  switch (courseDomain) {
+    case 'business_management':
+      // Business/HR courses → ONLY exclude hard-exclude industries
+      excludeIndustries = [...ALWAYS_EXCLUDED_INDUSTRIES];
+      console.log(`   ✅ Business course: Staffing/HR companies are TARGET industry (not excluded)`);
+      break;
+
+    case 'engineering_technical':
+    case 'computer_tech':
+    case 'healthcare_science':
+      // Engineering/Tech courses → Exclude both hard and soft
+      excludeIndustries = [...ALWAYS_EXCLUDED_INDUSTRIES, ...CONTEXT_DEPENDENT_INDUSTRIES];
+      console.log(`   🚫 Engineering/Tech course: Staffing/HR companies excluded`);
+      break;
+
+    case 'hybrid':
+      // Hybrid courses → Exclude soft industries (will be re-evaluated during semantic matching with job postings)
+      excludeIndustries = [...ALWAYS_EXCLUDED_INDUSTRIES, ...CONTEXT_DEPENDENT_INDUSTRIES];
+      console.log(`   🔀 Hybrid course: Initial exclusion (will verify with job posting analysis)`);
+      break;
+
+    case 'unknown':
+    default:
+      // Conservative: exclude when uncertain
+      excludeIndustries = [...ALWAYS_EXCLUDED_INDUSTRIES, ...CONTEXT_DEPENDENT_INDUSTRIES];
+      console.log(`   ⚠️  Unknown domain: Conservative exclusion (staffing excluded)`);
+  }
+
   console.log(`\n🏭 [Industry Mapper] SOC → Apollo Translation:`);
   console.log(`   Input (SOC): ${socIndustries.join(', ')}`);
   console.log(`   Output (Apollo): ${includeIndustries.slice(0, 10).join(', ')}`);
-  console.log(`   Excluded: ${EXCLUDED_INDUSTRIES.join(', ')}`);
+  console.log(`   Excluded: ${excludeIndustries.join(', ')}`);
 
   return {
     includeIndustries: includeIndustries.slice(0, 15), // Limit to 15 for API efficiency
-    excludeIndustries: EXCLUDED_INDUSTRIES
+    excludeIndustries,
+    courseDomain
   };
 }
 
 /**
- * Check if a company sector matches excluded industries
+ * Check if a company sector matches excluded industries (CONTEXT-AWARE)
  * Used for semantic filtering penalty
+ *
+ * DEPRECATED: Use shouldExcludeIndustry from context-aware-industry-filter.ts instead
+ * This function is kept for backward compatibility but delegates to the context-aware system
  */
-export function isExcludedIndustry(companySector: string): boolean {
-  const sectorLower = companySector.toLowerCase();
+export function isExcludedIndustry(
+  companySector: string,
+  courseDomain: CourseDomain = 'unknown',
+  socMappings: SOCMapping[] = [],
+  jobPostings?: any[]
+): boolean {
+  // Import the context-aware function dynamically
+  const { shouldExcludeIndustry: contextAwareCheck } =
+    require('../../_shared/context-aware-industry-filter.ts');
 
-  const excludedKeywords = [
-    'staffing', 'recruiting', 'recruitment', 'human resources',
-    'hr services', 'employment services', 'outsourcing'
-  ];
-
-  return excludedKeywords.some(keyword => sectorLower.includes(keyword));
+  const result = contextAwareCheck(companySector, courseDomain, socMappings, jobPostings);
+  return result.shouldExclude;
 }
 
 /**
