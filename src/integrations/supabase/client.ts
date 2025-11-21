@@ -2,22 +2,18 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? (projectId ? `https://${projectId}.supabase.co` : undefined);
-const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const supabaseUrl =
+  import.meta.env.VITE_SUPABASE_URL ?? 'https://wnxjeldvzjubfgzvvzov.supabase.co';
 
-// Debugging: log presence (not values) so you can see which keys are present
-console.debug('Supabase env presence:', {
-  VITE_SUPABASE_URL: Boolean(import.meta.env.VITE_SUPABASE_URL),
-  VITE_SUPABASE_PROJECT_ID: Boolean(projectId),
-  VITE_SUPABASE_PUBLISHABLE_KEY: Boolean(supabaseKey),
+const supabaseKey =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndueGplbGR2emp1YmZnenZ2em92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzQ0NTYsImV4cCI6MjA3NzUxMDQ1Nn0.zE4zK-K5yYhuRlCDdpx5BSuacPoyZflAi_5Duiu8jY4';
+
+// Optional: log presence of env overrides (no secrets)
+console.debug('Supabase env presence (with safe fallbacks):', {
+  hasUrlEnv: Boolean(import.meta.env.VITE_SUPABASE_URL),
+  hasKeyEnv: Boolean(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY),
 });
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error(
-    'Supabase environment variables are missing. Please ensure VITE_SUPABASE_URL (or VITE_SUPABASE_PROJECT_ID) and VITE_SUPABASE_PUBLISHABLE_KEY are set at build/dev-start.'
-  );
-}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
