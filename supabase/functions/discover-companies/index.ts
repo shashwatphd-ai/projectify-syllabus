@@ -358,7 +358,8 @@ serve(async (req) => {
         skillExtractionResult.skills,
         primaryOccupations, // Use O*NET direct results
         discoveryResult.companies,
-        threshold
+        threshold,
+        socMappings // Pass SOC mappings for context-aware filtering
       );
       console.log(formatSemanticFilteringForDisplay(semanticResult));
 
@@ -379,10 +380,10 @@ serve(async (req) => {
 
       // INTELLIGENT FALLBACK: If filtering rejected ALL companies but we have enriched companies
       // Preserve top N with a confidence flag indicating lower quality match
+      // CRITICAL FIX: Only preserve companies with score > minimum threshold (not 0%)
       if (semanticResult.matches.length === 0 && discoveryResult.companies.length > 0) {
         console.log(`\n⚠️  [Intelligent Fallback] All companies filtered out by semantic threshold`);
-        console.log(`   Preserving top ${Math.min(count, discoveryResult.companies.length)} companies with 'low' confidence`);
-        
+
         // Sort all companies by their raw similarity scores (before threshold filtering)
         const allMatchesSorted = discoveryResult.companies.map(company => {
           const match = semanticResult.matches.find(m => m.companyName === company.name);
@@ -393,28 +394,65 @@ serve(async (req) => {
             matchingDWAs: match?.matchingDWAs || []
           };
         }).sort((a, b) => b.similarityScore - a.similarityScore);
-        
-        // Take top N companies
-        filteredCompanies = allMatchesSorted.slice(0, count).map(({ company, similarityScore, matchingSkills, matchingDWAs }) => ({
-          ...company,
-          similarityScore,
-          matchConfidence: 'low' as const,
-          matchingSkills,
-          matchingDWAs,
-          matchExplanation: `Preserved by fallback: Below threshold but best available match (${(similarityScore * 100).toFixed(0)}%)`
-        }));
-        
-        // Update generation_run to reflect fallback was used
-        await supabase
-          .from('generation_runs')
-          .update({
-            companies_after_filtering: filteredCompanies.length,
-            semantic_filter_threshold: threshold,
-            scoring_notes: `Intelligent fallback activated: preserved ${filteredCompanies.length} companies below threshold`
-          })
-          .eq('id', generationRunId);
-          
-        console.log(`   ✅ Fallback preserved ${filteredCompanies.length} companies for project generation`);
+
+        // CRITICAL FIX: Filter out companies with 0% or very low scores
+        // These are usually disqualified companies (e.g., staffing firms with 100% penalty)
+        const MINIMUM_FALLBACK_SCORE = 0.10; // 10% - companies must have SOME relevance
+        const viableCompanies = allMatchesSorted.filter(m => m.similarityScore > MINIMUM_FALLBACK_SCORE);
+
+        if (viableCompanies.length === 0) {
+          console.log(`   ❌ No viable companies found - all scored below ${(MINIMUM_FALLBACK_SCORE * 100).toFixed(0)}%`);
+          console.log(`   Cannot generate projects with 0% similarity companies (likely staffing/recruiting firms)`);
+
+          // DIAGNOSTIC: Show top companies with industries for debugging
+          console.log(`   Top companies discovered:`);
+          allMatchesSorted.slice(0, 3).forEach((m, i) => {
+            const industry = m.company.sector || m.company.industry || 'Unknown';
+            console.log(`     ${i + 1}. ${m.company.name}: ${(m.similarityScore * 100).toFixed(0)}% (${industry})`);
+          });
+
+          filteredCompanies = []; // Return empty - better than bad matches
+
+          // Update generation_run to reflect failure
+          await supabase
+            .from('generation_runs')
+            .update({
+              companies_after_filtering: 0,
+              semantic_filter_threshold: threshold,
+              scoring_notes: `Fallback rejected: All companies scored below ${(MINIMUM_FALLBACK_SCORE * 100).toFixed(0)}% (likely staffing firms or irrelevant industries)`,
+              status: 'failed'
+            })
+            .eq('id', generationRunId);
+        } else {
+          // Take top N viable companies
+          console.log(`   Preserving top ${Math.min(count, viableCompanies.length)} viable companies (score > ${(MINIMUM_FALLBACK_SCORE * 100).toFixed(0)}%)`);
+
+          filteredCompanies = viableCompanies.slice(0, count).map(({ company, similarityScore, matchingSkills, matchingDWAs }) => ({
+            ...company,
+            similarityScore,
+            matchConfidence: 'low' as const,
+            matchingSkills,
+            matchingDWAs,
+            matchExplanation: `Preserved by fallback: Below threshold but best available match (${(similarityScore * 100).toFixed(0)}%)`
+          }));
+
+          // Log preserved companies for visibility
+          filteredCompanies.forEach((c, i) => {
+            console.log(`     ${i + 1}. ${c.name}: ${(c.similarityScore * 100).toFixed(0)}% (${c.sector || 'Unknown'})`);
+          });
+
+          // Update generation_run to reflect fallback was used
+          await supabase
+            .from('generation_runs')
+            .update({
+              companies_after_filtering: filteredCompanies.length,
+              semantic_filter_threshold: threshold,
+              scoring_notes: `Intelligent fallback activated: preserved ${filteredCompanies.length} companies above ${(MINIMUM_FALLBACK_SCORE * 100).toFixed(0)}% threshold`
+            })
+            .eq('id', generationRunId);
+
+          console.log(`   ✅ Fallback preserved ${filteredCompanies.length} companies for project generation`);
+        }
       } else {
         // Map semantic matches back to company objects with similarity data
         filteredCompanies = semanticResult.matches.map(match => {
@@ -431,6 +469,44 @@ serve(async (req) => {
         });
       }
     }
+
+    // ====================================
+    // Step 5.5: Check if we have any companies after filtering
+    // ====================================
+    if (filteredCompanies.length === 0) {
+      console.log(`\n❌ No companies passed semantic filtering`);
+      console.log(`   Discovered: ${discoveryResult.companies.length}`);
+      console.log(`   After filtering: 0`);
+      console.log(`   This usually means: companies were staffing/recruiting firms or irrelevant industries`);
+
+      // Return early with informative error
+      const totalProcessingTime = (Date.now() - startTime) / 1000;
+      await supabase
+        .from('generation_runs')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          processing_time_seconds: totalProcessingTime,
+          scoring_notes: 'No viable companies found after semantic filtering (likely all were staffing/recruiting firms)'
+        })
+        .eq('id', generationRunId);
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'No suitable companies found. All discovered companies were filtered out (likely staffing/recruiting firms or irrelevant industries). Try adjusting search parameters.',
+          companies: [],
+          count: 0,
+          generation_run_id: generationRunId
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      );
+    }
+
+    console.log(`\n✅ Proceeding with ${filteredCompanies.length} filtered companies`);
 
     // ====================================
     // Step 6: Store companies in database
