@@ -1,13 +1,16 @@
-import { 
-  DiscoveryProvider, 
-  CourseContext, 
-  DiscoveryResult, 
-  DiscoveredCompany 
+import {
+  DiscoveryProvider,
+  CourseContext,
+  DiscoveryResult,
+  DiscoveredCompany
 } from './types.ts';
+import { mapSOCIndustriesToApollo, getApolloSearchStrategy } from './apollo-industry-mapper.ts';
 
 interface ApolloSearchFilters {
   organization_locations: string[];
   q_organization_keyword_tags: string[];
+  organization_industry_tag_ids?: string[]; // ADDED: Structured industry filtering (precise)
+  person_not_titles?: string[]; // ADDED: Exclude recruiters/HR
   q_organization_job_titles: string[];
   organization_num_employees_ranges?: string[];
   organization_num_jobs_range?: { min?: number; max?: number };
@@ -412,7 +415,11 @@ Return JSON:
       console.log(`  ⚠️  No industries available from either O*NET or SOC mappings`);
     }
 
-    console.log(`  🏢 Final Industries for Apollo: ${inferredIndustries.join(', ')}`);
+    console.log(`  🏢 Final Industries (before Apollo mapping): ${inferredIndustries.join(', ')}`);
+
+    // CRITICAL FIX: Map SOC industries to Apollo's structured taxonomy
+    // This prevents staffing companies from matching via keyword search
+    const { includeIndustries, excludeIndustries } = mapSOCIndustriesToApollo(inferredIndustries);
 
     // Handle location normalization
     let apolloLocation = context.searchLocation;
@@ -437,30 +444,37 @@ Return JSON:
       }
     }
 
-    // Build intelligent filters
+    // Build intelligent filters using structured industry taxonomy
+    const searchStrategy = getApolloSearchStrategy(includeIndustries.length);
+    console.log(`  📊 Apollo Search Strategy: ${searchStrategy.toUpperCase()}`);
+
     const intelligentFilters: ApolloSearchFilters = {
       organization_locations: [apolloLocation],
-      q_organization_keyword_tags: inferredIndustries,
+      organization_industry_tag_ids: includeIndustries, // STRUCTURED filtering (precise)
+      q_organization_keyword_tags: [], // Start empty, add only specific course keywords
       q_organization_job_titles: uniqueJobTitles,
+      person_not_titles: ['Recruiter', 'HR Manager', 'Talent Acquisition', 'Staffing'], // Exclude recruiters
       organization_num_employees_ranges: ['10,50', '51,200', '201,500'], // All sizes
       organization_num_jobs_range: { min: 3 }
     };
 
-    // Add technologies if we found any
-    if (uniqueTechnologies.length > 0) {
-      // Note: Apollo API uses technology UIDs, not names
-      // For now, we'll use keyword search instead
-      intelligentFilters.q_organization_keyword_tags.push(...uniqueTechnologies.map(t => t.toLowerCase()));
-    }
-
-    // DIVERSITY ENHANCEMENT: Add course-specific keywords
+    // HYBRID STRATEGY: Add course-specific keywords for diversity (not generic industries)
     // This ensures different courses (even with same occupation) get different companies
     if (courseKeywords.length > 0) {
       intelligentFilters.q_organization_keyword_tags.push(...courseKeywords);
       console.log(`  🎯 Added ${courseKeywords.length} course-specific keywords for diversity`);
     }
 
-    console.log(`  ✅ Generated intelligent filters with ${uniqueJobTitles.length} job titles + ${courseKeywords.length} course keywords`);
+    // Add technology keywords for additional filtering (not as primary filter)
+    if (uniqueTechnologies.length > 0 && searchStrategy === 'hybrid') {
+      intelligentFilters.q_organization_keyword_tags.push(...uniqueTechnologies.slice(0, 3).map(t => t.toLowerCase()));
+      console.log(`  💻 Added ${Math.min(3, uniqueTechnologies.length)} technology keywords`);
+    }
+
+    console.log(`  ✅ Generated intelligent filters:`);
+    console.log(`     Industry Tags: ${includeIndustries.slice(0, 5).join(', ')}${includeIndustries.length > 5 ? '...' : ''}`);
+    console.log(`     Job Titles: ${uniqueJobTitles.length}`);
+    console.log(`     Excluded Titles: ${intelligentFilters.person_not_titles?.join(', ')}`);
 
     return intelligentFilters;
   }

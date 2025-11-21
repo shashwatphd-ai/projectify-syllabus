@@ -14,6 +14,7 @@
 import { ExtractedSkill } from './skill-extraction-service.ts';
 import { StandardOccupation } from './occupation-provider-interface.ts';
 import { computeSemanticSimilarity } from './embedding-service.ts';
+import { isExcludedIndustry } from '../discover-companies/providers/apollo-industry-mapper.ts';
 
 // ========================================
 // FEATURE FLAG: Toggle between keyword and embedding-based matching
@@ -487,31 +488,38 @@ function calculateIndustryPenalty(occupations: StandardOccupation[], companySect
     }
   }
 
-  // MODERATE penalties for industries that MAY be relevant (allow context-based matching)
+  // DISQUALIFYING PENALTY (100%): Staffing, recruiting, employment services
+  // These companies recruit FOR other industries but don't provide actual project opportunities
+  // CRITICAL FIX: Use shared isExcludedIndustry function for consistency with Apollo filters
+  if (isExcludedIndustry(companySector)) {
+    console.log(`   🚫 DISQUALIFIED: ${companySector} (staffing/recruiting company)`);
+    return 1.0; // 100% penalty = guaranteed 0% similarity score
+  }
+
+  // SEVERE penalties for industries that are NEVER relevant for academic projects
+  const severePenaltyIndustries = [
+    'insurance', 'legal services', 'law firm'
+  ];
+
+  // Check for severe penalty (50%)
+  for (const severe of severePenaltyIndustries) {
+    if (companySector.includes(severe)) {
+      return 0.50; // Severe penalty - rarely relevant
+    }
+  }
+
+  // MODERATE penalties for industries that MAY have relevant roles
   const moderatePenaltyIndustries = [
-    'recruitment', 'human resources', 'hr', 'staffing',
     'marketing', 'advertising', 'public relations',
     'retail', 'consumer goods',
     'hospitality', 'tourism', 'entertainment',
     'real estate', 'property'
   ];
 
-  // SEVERE penalties only for industries that are NEVER relevant for academic projects
-  const severePenaltyIndustries = [
-    'insurance', 'legal services', 'law firm'
-  ];
-
-  // Check for severe penalty (30%)
-  for (const severe of severePenaltyIndustries) {
-    if (companySector.includes(severe)) {
-      return 0.30; // Severe penalty - rarely relevant
-    }
-  }
-
-  // Check for moderate penalty (15%) - allow some flexibility
+  // Check for moderate penalty (20%)
   for (const moderate of moderatePenaltyIndustries) {
     if (companySector.includes(moderate)) {
-      return 0.15; // Moderate penalty - may have relevant roles (e.g., HR analytics, retail operations)
+      return 0.20; // Moderate penalty - may have relevant roles (e.g., retail operations, marketing analytics)
     }
   }
 
