@@ -217,6 +217,100 @@ const KNOWN_LOCATIONS: Record<string, GeoCoordinates> = {
   'sao paulo, brazil': { latitude: -23.5505, longitude: -46.6333 },
 
   // ========================================
+  // INTERNATIONAL - Africa
+  // ========================================
+  'cairo, egypt': { latitude: 30.0444, longitude: 31.2357 },
+  'lagos, nigeria': { latitude: 6.5244, longitude: 3.3792 },
+  'johannesburg, south africa': { latitude: -26.2041, longitude: 28.0473 },
+  'cape town, south africa': { latitude: -33.9249, longitude: 18.4241 },
+  'nairobi, kenya': { latitude: -1.2864, longitude: 36.8172 },
+  'accra, ghana': { latitude: 5.6037, longitude: -0.1870 },
+  'addis ababa, ethiopia': { latitude: 9.0320, longitude: 38.7469 },
+  'casablanca, morocco': { latitude: 33.5731, longitude: -7.5898 },
+  'tunis, tunisia': { latitude: 36.8065, longitude: 10.1815 },
+  'algiers, algeria': { latitude: 36.7538, longitude: 3.0588 },
+  'dar es salaam, tanzania': { latitude: -6.7924, longitude: 39.2083 },
+  'kampala, uganda': { latitude: 0.3476, longitude: 32.5825 },
+  'khartoum, sudan': { latitude: 15.5007, longitude: 32.5599 },
+  'lusaka, zambia': { latitude: -15.3875, longitude: 28.3228 },
+  'harare, zimbabwe': { latitude: -17.8252, longitude: 31.0335 },
+
+  // ========================================
+  // INTERNATIONAL - Middle East (Expanded)
+  // ========================================
+  'dubai, uae': { latitude: 25.2048, longitude: 55.2708 },
+  'abu dhabi, united arab emirates': { latitude: 24.4539, longitude: 54.3773 },
+  'abu dhabi, uae': { latitude: 24.4539, longitude: 54.3773 },
+  'doha, qatar': { latitude: 25.2854, longitude: 51.5310 },
+  'riyadh, saudi arabia': { latitude: 24.7136, longitude: 46.6753 },
+  'jeddah, saudi arabia': { latitude: 21.4858, longitude: 39.1925 },
+  'jerusalem, israel': { latitude: 31.7683, longitude: 35.2137 },
+  'amman, jordan': { latitude: 31.9454, longitude: 35.9284 },
+  'beirut, lebanon': { latitude: 33.8886, longitude: 35.4955 },
+  'istanbul, turkey': { latitude: 41.0082, longitude: 28.9784 },
+  'ankara, turkey': { latitude: 39.9334, longitude: 32.8597 },
+  'kuwait city, kuwait': { latitude: 29.3759, longitude: 47.9774 },
+  'muscat, oman': { latitude: 23.5880, longitude: 58.3829 },
+  'manama, bahrain': { latitude: 26.0667, longitude: 50.5577 },
+
+  // ========================================
+  // INTERNATIONAL - Latin America (Expanded)
+  // ========================================
+  'rio de janeiro, brazil': { latitude: -22.9068, longitude: -43.1729 },
+  'brasilia, brazil': { latitude: -15.8267, longitude: -47.9218 },
+  'santiago, chile': { latitude: -33.4489, longitude: -70.6693 },
+  'bogota, colombia': { latitude: 4.7110, longitude: -74.0721 },
+  'lima, peru': { latitude: -12.0464, longitude: -77.0428 },
+  'quito, ecuador': { latitude: -0.1807, longitude: -78.4678 },
+  'caracas, venezuela': { latitude: 10.4806, longitude: -66.9036 },
+  'panama city, panama': { latitude: 8.9824, longitude: -79.5199 },
+  'san jose, costa rica': { latitude: 9.9281, longitude: -84.0907 },
+  'guatemala city, guatemala': { latitude: 14.6349, longitude: -90.5069 },
+  'havana, cuba': { latitude: 23.1136, longitude: -82.3666 },
+  'santo domingo, dominican republic': { latitude: 18.4861, longitude: -69.9312 },
+  'san juan, puerto rico': { latitude: 18.4655, longitude: -66.1057 },
+  'montevideo, uruguay': { latitude: -34.9011, longitude: -56.1645 },
+  'la paz, bolivia': { latitude: -16.5000, longitude: -68.1500 },
+  'asuncion, paraguay': { latitude: -25.2637, longitude: -57.5759 },
+
+  // ========================================
+  // INTERNATIONAL - Southeast Asia & Pacific
+  // ========================================
+  'bangkok, thailand': { latitude: 13.7563, longitude: 100.5018 },
+  'kuala lumpur, malaysia': { latitude: 3.1390, longitude: 101.6869 },
+  'jakarta, indonesia': { latitude: -6.2088, longitude: 106.8456 },
+  'manila, philippines': { latitude: 14.5995, longitude: 120.9842 },
+  'ho chi minh city, vietnam': { latitude: 10.8231, longitude: 106.6297 },
+  'hanoi, vietnam': { latitude: 21.0285, longitude: 105.8542 },
+  'phnom penh, cambodia': { latitude: 11.5564, longitude: 104.9282 },
+  'yangon, myanmar': { latitude: 16.8661, longitude: 96.1951 },
+  'dhaka, bangladesh': { latitude: 23.8103, longitude: 90.4125 },
+  'colombo, sri lanka': { latitude: 6.9271, longitude: 79.8612 },
+  'kathmandu, nepal': { latitude: 27.7172, longitude: 85.3240 },
+  'wellington, new zealand': { latitude: -41.2865, longitude: 174.7762 },
+  'auckland, new zealand': { latitude: -36.8485, longitude: 174.7633 },
+
+  // ========================================
+  // INTERNATIONAL - Eastern Europe & Central Asia
+  // ========================================
+  'moscow, russia': { latitude: 55.7558, longitude: 37.6173 },
+  'saint petersburg, russia': { latitude: 59.9311, longitude: 30.3609 },
+  'warsaw, poland': { latitude: 52.2297, longitude: 21.0122 },
+  'prague, czech republic': { latitude: 50.0755, longitude: 14.4378 },
+  'budapest, hungary': { latitude: 47.4979, longitude: 19.0402 },
+  'bucharest, romania': { latitude: 44.4268, longitude: 26.1025 },
+  'vienna, austria': { latitude: 48.2082, longitude: 16.3738 },
+  'athens, greece': { latitude: 37.9838, longitude: 23.7275 },
+  'sofia, bulgaria': { latitude: 42.6977, longitude: 23.3219 },
+  'bratislava, slovakia': { latitude: 48.1486, longitude: 17.1077 },
+  'tallinn, estonia': { latitude: 59.4370, longitude: 24.7536 },
+  'riga, latvia': { latitude: 56.9496, longitude: 24.1052 },
+  'vilnius, lithuania': { latitude: 54.6872, longitude: 25.2797 },
+  'kiev, ukraine': { latitude: 50.4501, longitude: 30.5234 },
+  'almaty, kazakhstan': { latitude: 43.2220, longitude: 76.8512 },
+  'tashkent, uzbekistan': { latitude: 41.2995, longitude: 69.2401 },
+
+  // ========================================
   // US State-Level Fallbacks (Geographic Center)
   // ========================================
   'massachusetts': { latitude: 42.4072, longitude: -71.3824 },
@@ -276,17 +370,100 @@ const KNOWN_LOCATIONS: Record<string, GeoCoordinates> = {
   // ========================================
   // Country-Level Fallbacks
   // ========================================
+  // North America
   'united states': { latitude: 37.0902, longitude: -95.7129 },
   'usa': { latitude: 37.0902, longitude: -95.7129 },
   'canada': { latitude: 56.1304, longitude: -106.3468 },
+  'mexico': { latitude: 23.6345, longitude: -102.5528 },
+
+  // Europe
   'united kingdom': { latitude: 55.3781, longitude: -3.4360 },
   'uk': { latitude: 55.3781, longitude: -3.4360 },
-  'australia': { latitude: -25.2744, longitude: 133.7751 },
-  'india': { latitude: 20.5937, longitude: 78.9629 },
   'germany': { latitude: 51.1657, longitude: 10.4515 },
   'france': { latitude: 46.2276, longitude: 2.2137 },
+  'spain': { latitude: 40.4637, longitude: -3.7492 },
+  'italy': { latitude: 41.8719, longitude: 12.5674 },
+  'netherlands': { latitude: 52.1326, longitude: 5.2913 },
+  'belgium': { latitude: 50.5039, longitude: 4.4699 },
+  'switzerland': { latitude: 46.8182, longitude: 8.2275 },
+  'austria': { latitude: 47.5162, longitude: 14.5501 },
+  'sweden': { latitude: 60.1282, longitude: 18.6435 },
+  'norway': { latitude: 60.4720, longitude: 8.4689 },
+  'denmark': { latitude: 56.2639, longitude: 9.5018 },
+  'finland': { latitude: 61.9241, longitude: 25.7482 },
+  'poland': { latitude: 51.9194, longitude: 19.1451 },
+  'czech republic': { latitude: 49.8175, longitude: 15.4730 },
+  'hungary': { latitude: 47.1625, longitude: 19.5033 },
+  'romania': { latitude: 45.9432, longitude: 24.9668 },
+  'greece': { latitude: 39.0742, longitude: 21.8243 },
+  'portugal': { latitude: 39.3999, longitude: -8.2245 },
+  'ireland': { latitude: 53.4129, longitude: -8.2439 },
+  'russia': { latitude: 61.5240, longitude: 105.3188 },
+
+  // Asia
   'japan': { latitude: 36.2048, longitude: 138.2529 },
   'china': { latitude: 35.8617, longitude: 104.1954 },
+  'india': { latitude: 20.5937, longitude: 78.9629 },
+  'south korea': { latitude: 35.9078, longitude: 127.7669 },
+  'thailand': { latitude: 15.8700, longitude: 100.9925 },
+  'malaysia': { latitude: 4.2105, longitude: 101.9758 },
+  'indonesia': { latitude: -0.7893, longitude: 113.9213 },
+  'philippines': { latitude: 12.8797, longitude: 121.7740 },
+  'vietnam': { latitude: 14.0583, longitude: 108.2772 },
+  'bangladesh': { latitude: 23.6850, longitude: 90.3563 },
+  'pakistan': { latitude: 30.3753, longitude: 69.3451 },
+  'sri lanka': { latitude: 7.8731, longitude: 80.7718 },
+  'nepal': { latitude: 28.3949, longitude: 84.1240 },
+  'taiwan': { latitude: 23.6978, longitude: 120.9605 },
+
+  // Middle East
+  'israel': { latitude: 31.0461, longitude: 34.8516 },
+  'turkey': { latitude: 38.9637, longitude: 35.2433 },
+  'saudi arabia': { latitude: 23.8859, longitude: 45.0792 },
+  'united arab emirates': { latitude: 23.4241, longitude: 53.8478 },
+  'uae': { latitude: 23.4241, longitude: 53.8478 },
+  'qatar': { latitude: 25.3548, longitude: 51.1839 },
+  'kuwait': { latitude: 29.3117, longitude: 47.4818 },
+  'oman': { latitude: 21.4735, longitude: 55.9754 },
+  'bahrain': { latitude: 26.0667, longitude: 50.5577 },
+  'jordan': { latitude: 30.5852, longitude: 36.2384 },
+  'lebanon': { latitude: 33.8547, longitude: 35.8623 },
+  'egypt': { latitude: 26.8206, longitude: 30.8025 },
+
+  // Africa
+  'south africa': { latitude: -30.5595, longitude: 22.9375 },
+  'nigeria': { latitude: 9.0820, longitude: 8.6753 },
+  'kenya': { latitude: -0.0236, longitude: 37.9062 },
+  'ghana': { latitude: 7.9465, longitude: -1.0232 },
+  'ethiopia': { latitude: 9.1450, longitude: 40.4897 },
+  'morocco': { latitude: 31.7917, longitude: -7.0926 },
+  'tunisia': { latitude: 33.8869, longitude: 9.5375 },
+  'algeria': { latitude: 28.0339, longitude: 1.6596 },
+  'tanzania': { latitude: -6.3690, longitude: 34.8888 },
+  'uganda': { latitude: 1.3733, longitude: 32.2903 },
+  'zimbabwe': { latitude: -19.0154, longitude: 29.1549 },
+  'zambia': { latitude: -13.1339, longitude: 27.8493 },
+
+  // Latin America
+  'brazil': { latitude: -14.2350, longitude: -51.9253 },
+  'argentina': { latitude: -38.4161, longitude: -63.6167 },
+  'chile': { latitude: -35.6751, longitude: -71.5430 },
+  'colombia': { latitude: 4.5709, longitude: -74.2973 },
+  'peru': { latitude: -9.1900, longitude: -75.0152 },
+  'venezuela': { latitude: 6.4238, longitude: -66.5897 },
+  'ecuador': { latitude: -1.8312, longitude: -78.1834 },
+  'bolivia': { latitude: -16.2902, longitude: -63.5887 },
+  'paraguay': { latitude: -23.4425, longitude: -58.4438 },
+  'uruguay': { latitude: -32.5228, longitude: -55.7658 },
+  'costa rica': { latitude: 9.7489, longitude: -83.7534 },
+  'panama': { latitude: 8.5380, longitude: -80.7821 },
+  'guatemala': { latitude: 15.7835, longitude: -90.2308 },
+  'cuba': { latitude: 21.5218, longitude: -77.7812 },
+  'dominican republic': { latitude: 18.7357, longitude: -70.1627 },
+
+  // Oceania
+  'australia': { latitude: -25.2744, longitude: 133.7751 },
+  'new zealand': { latitude: -40.9006, longitude: 174.8860 },
 };
 
 /**
