@@ -659,7 +659,9 @@ Return JSON:
     let skippedCount = 0;
     let reconsideredCount = 0;
 
-    console.log(`\n🔍 Enriching ${organizations.length} organizations (target: ${targetCount})`);
+    console.log(`\n🔍 ENRICHMENT STAGE`);
+    console.log(`   Organizations to enrich: ${organizations.length}`);
+    console.log(`   Target count: ${targetCount}`);
     console.log(`   🎓 Course Domain: ${courseDomain.toUpperCase()}`);
     if (excludedIndustries.length > 0) {
       console.log(`   🚫 Initially excluded: ${excludedIndustries.join(', ')}`);
@@ -667,11 +669,12 @@ Return JSON:
 
     // 🗺️ DIAGNOSTIC: Log searchLocation state for proximity sorting
     if (searchLocation && searchLocation.trim().length > 0) {
-      console.log(`   📍 Search Location: "${searchLocation}" (proximity sorting enabled)`);
+      console.log(`   📍 Proximity sorting: ENABLED`);
+      console.log(`   📍 Search location: "${searchLocation}"`);
     } else {
-      console.log(`   ⚠️  No search location provided - proximity sorting DISABLED`);
-      console.log(`   ⚠️  Companies will NOT be sorted by distance`);
+      console.log(`   ⚠️  Proximity sorting: DISABLED (no search location)`);
     }
+    console.log('');
 
     for (const org of organizations) {
       if (enriched.length >= targetCount) break;
@@ -766,49 +769,45 @@ Return JSON:
 
     // 🗺️ ENHANCED: Sort by proximity with comprehensive statistics
     if (searchLocation && searchLocation.trim().length > 0) {
-      const companiesWithDistance = enriched.filter(c => c.distanceFromSearchMiles !== undefined);
-      const companiesWithoutDistance = enriched.length - companiesWithDistance.length;
+      const withDistance = enriched.filter(c => c.distanceFromSearchMiles !== undefined);
+      const withoutDistance = enriched.filter(c => c.distanceFromSearchMiles === undefined);
 
-      if (companiesWithDistance.length > 0) {
-        console.log(`\n🗺️ Sorting ${enriched.length} companies by proximity (nearest first)...`);
-        console.log(`   ✅ ${companiesWithDistance.length} companies with distance calculated`);
-        if (companiesWithoutDistance > 0) {
-          console.log(`   ⚠️  ${companiesWithoutDistance} companies without distance (will sort to end)`);
+      if (withDistance.length > 0) {
+        console.log(`\n🗺️ PROXIMITY SORTING`);
+        console.log(`   ${withDistance.length} companies with calculated distance`);
+        if (withoutDistance.length > 0) {
+          console.log(`   ${withoutDistance.length} companies without distance (will sort to end)`);
         }
 
+        // Sort: nearest first, then companies without distance
         enriched.sort((a, b) => {
           const distA = a.distanceFromSearchMiles ?? 999999;
           const distB = b.distanceFromSearchMiles ?? 999999;
           return distA - distB;
         });
 
-        // Log top 5 closest companies with detailed info
-        console.log(`\n   📍 TOP ${Math.min(5, companiesWithDistance.length)} CLOSEST COMPANIES:`);
-        enriched
-          .filter(c => c.distanceFromSearchMiles !== undefined)
+        // Log top 5 closest
+        console.log(`\n   📍 TOP ${Math.min(5, withDistance.length)} CLOSEST:`);
+        withDistance
           .slice(0, 5)
-          .forEach((company, index) => {
-            const distance = formatDistance(company.distanceFromSearchMiles!);
-            const location = `${company.city}, ${company.state || company.country}`;
-            console.log(`      ${index + 1}. ${company.name} (${location}) - ${distance}`);
+          .forEach((c, i) => {
+            const loc = `${c.city}, ${c.state || c.country}`;
+            console.log(`      ${i + 1}. ${c.name} (${loc}) - ${formatDistance(c.distanceFromSearchMiles!)}`);
           });
 
-        // Calculate distance statistics
-        const distances = companiesWithDistance.map(c => c.distanceFromSearchMiles!);
-        const avgDistance = distances.reduce((a, b) => a + b, 0) / distances.length;
-        const minDistance = Math.min(...distances);
-        const maxDistance = Math.max(...distances);
+        // Statistics
+        const distances = withDistance.map(c => c.distanceFromSearchMiles!).sort((a, b) => a - b);
+        const avg = distances.reduce((a, b) => a + b, 0) / distances.length;
 
-        console.log(`\n   📊 Distance Statistics:`);
-        console.log(`      Closest: ${formatDistance(minDistance)}`);
-        console.log(`      Farthest: ${formatDistance(maxDistance)}`);
-        console.log(`      Average: ${formatDistance(avgDistance)}`);
+        console.log(`\n   📊 STATISTICS:`);
+        console.log(`      Closest: ${formatDistance(distances[0])}`);
+        console.log(`      Farthest: ${formatDistance(distances[distances.length - 1])}`);
+        console.log(`      Average: ${formatDistance(avg)}`);
       } else {
-        console.log(`\n   ⚠️  Proximity sorting skipped - no companies have calculable distances`);
-        console.log(`   ⚠️  This may indicate location parsing issues or invalid location data`);
+        console.log(`\n⚠️  PROXIMITY SORTING SKIPPED: No calculable distances`);
       }
     } else {
-      console.log(`\n   ⚠️  Proximity sorting skipped - no search location provided`);
+      console.log(`\n⚠️  PROXIMITY SORTING SKIPPED: No search location provided`);
     }
 
     return enriched;
