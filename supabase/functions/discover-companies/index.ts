@@ -498,9 +498,8 @@ serve(async (req) => {
         match_confidence: company.matchConfidence,
         matching_skills: company.matchingSkills,
         matching_dwas: company.matchingDWAs,
-        match_explanation: company.matchExplanation,
-        semantic_matched_at: new Date().toISOString()
       };
+
 
       // UPSERT using website as unique identifier
       const { data: existingCompany } = await supabase
