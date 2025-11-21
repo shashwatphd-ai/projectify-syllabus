@@ -55,14 +55,23 @@ serve(async (req) => {
       course.title,
       ...(outcomes || []).slice(0, 2)
     ].filter(Boolean);
-    
+
     // Use search_location if available (Apollo-friendly), fallback to location parameter
     const searchLocation = course.search_location || location;
 
+    // 🗺️ DIAGNOSTIC: Trace searchLocation data flow
     console.log(`\n🎓 MODULAR DISCOVERY SYSTEM`);
     console.log(`   Course: ${course.title}`);
-    console.log(`   Location: ${location}`);
+    console.log(`   Location (from request): "${location}"`);
+    console.log(`   Search Location (from DB): "${course.search_location || '(empty)'}"`);
+    console.log(`   Final Search Location: "${searchLocation}"`);
     console.log(`   Target: ${count} companies`);
+
+    // DEFENSIVE: Validate searchLocation exists for proximity sorting
+    if (!searchLocation || searchLocation.trim().length === 0) {
+      console.warn(`   ⚠️  WARNING: No search location provided - proximity sorting will be skipped`);
+      console.warn(`   ⚠️  Consider populating 'search_location' field during syllabus parsing`);
+    }
 
     // ====================================
     // Step 1: Create generation run record
@@ -319,7 +328,15 @@ serve(async (req) => {
       primaryOccupations
     );
 
-    let filteredCompanies;
+    // Type-safe filtered companies with all semantic matching metadata
+    let filteredCompanies: Array<{
+      company: DiscoveredCompany;
+      similarityScore: number;
+      matchConfidence: string;
+      matchingSkills?: string[];
+      matchingDWAs?: string[];
+      matchExplanation?: string;
+    }>;
 
     if (skipFiltering || companiesBeforeFilter === 0) {
       // Skip semantic filtering - use all companies
@@ -407,7 +424,7 @@ serve(async (req) => {
           // DIAGNOSTIC: Show top companies with industries for debugging
           console.log(`   Top companies discovered:`);
           allMatchesSorted.slice(0, 3).forEach((m, i) => {
-            const industry = m.company.sector || m.company.industry || 'Unknown';
+            const industry = m.company.sector || 'Unknown';
             console.log(`     ${i + 1}. ${m.company.name}: ${(m.similarityScore * 100).toFixed(0)}% (${industry})`);
           });
 

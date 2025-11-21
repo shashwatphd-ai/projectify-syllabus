@@ -496,7 +496,7 @@ Return JSON:
 
     return {
       filters: intelligentFilters,
-      excludedIndustries, // Pass excluded industries for post-filtering
+      excludedIndustries: excludeIndustries, // FIXED: Use correct variable name for post-filtering
       courseDomain // Pass course domain for context-aware decisions
     };
   }
@@ -665,6 +665,14 @@ Return JSON:
       console.log(`   🚫 Initially excluded: ${excludedIndustries.join(', ')}`);
     }
 
+    // 🗺️ DIAGNOSTIC: Log searchLocation state for proximity sorting
+    if (searchLocation && searchLocation.trim().length > 0) {
+      console.log(`   📍 Search Location: "${searchLocation}" (proximity sorting enabled)`);
+    } else {
+      console.log(`   ⚠️  No search location provided - proximity sorting DISABLED`);
+      console.log(`   ⚠️  Companies will NOT be sorted by distance`);
+    }
+
     for (const org of organizations) {
       if (enriched.length >= targetCount) break;
 
@@ -721,13 +729,19 @@ Return JSON:
             }
           }
 
-          // Calculate distance from search location for proximity-based sorting
-          if (searchLocation) {
+          // 🗺️ ENHANCED: Calculate distance with comprehensive error handling
+          if (searchLocation && searchLocation.trim().length > 0) {
             const companyLocation = `${company.city}, ${company.state || company.country}`;
             const distance = calculateDistanceBetweenLocations(searchLocation, companyLocation);
+
             if (distance !== null) {
               company.distanceFromSearchMiles = distance;
-              console.log(`   📍 ${company.name}: ${formatDistance(distance)} from search location`);
+              console.log(`   📍 ${company.name} (${companyLocation}): ${formatDistance(distance)}`);
+            } else {
+              // Location parsing failed - log for debugging
+              console.log(`   ⚠️  ${company.name}: Could not calculate distance`);
+              console.log(`      Search: "${searchLocation}" → Company: "${companyLocation}"`);
+              // Don't set distance - company will sort to end
             }
           }
 
@@ -750,23 +764,51 @@ Return JSON:
       }
     }
 
-    // Sort by proximity (nearest first)
-    if (searchLocation && enriched.some(c => c.distanceFromSearchMiles !== undefined)) {
-      console.log(`\n🗺️ Sorting ${enriched.length} companies by proximity (nearest first)...`);
-      enriched.sort((a, b) => {
-        const distA = a.distanceFromSearchMiles ?? 999999;
-        const distB = b.distanceFromSearchMiles ?? 999999;
-        return distA - distB;
-      });
+    // 🗺️ ENHANCED: Sort by proximity with comprehensive statistics
+    if (searchLocation && searchLocation.trim().length > 0) {
+      const companiesWithDistance = enriched.filter(c => c.distanceFromSearchMiles !== undefined);
+      const companiesWithoutDistance = enriched.length - companiesWithDistance.length;
 
-      // Log top 5 closest companies
-      console.log(`   📍 Closest companies:`);
-      enriched.slice(0, Math.min(5, enriched.length)).forEach((company, index) => {
-        const distance = company.distanceFromSearchMiles
-          ? formatDistance(company.distanceFromSearchMiles)
-          : 'Unknown distance';
-        console.log(`      ${index + 1}. ${company.name} - ${distance}`);
-      });
+      if (companiesWithDistance.length > 0) {
+        console.log(`\n🗺️ Sorting ${enriched.length} companies by proximity (nearest first)...`);
+        console.log(`   ✅ ${companiesWithDistance.length} companies with distance calculated`);
+        if (companiesWithoutDistance > 0) {
+          console.log(`   ⚠️  ${companiesWithoutDistance} companies without distance (will sort to end)`);
+        }
+
+        enriched.sort((a, b) => {
+          const distA = a.distanceFromSearchMiles ?? 999999;
+          const distB = b.distanceFromSearchMiles ?? 999999;
+          return distA - distB;
+        });
+
+        // Log top 5 closest companies with detailed info
+        console.log(`\n   📍 TOP ${Math.min(5, companiesWithDistance.length)} CLOSEST COMPANIES:`);
+        enriched
+          .filter(c => c.distanceFromSearchMiles !== undefined)
+          .slice(0, 5)
+          .forEach((company, index) => {
+            const distance = formatDistance(company.distanceFromSearchMiles!);
+            const location = `${company.city}, ${company.state || company.country}`;
+            console.log(`      ${index + 1}. ${company.name} (${location}) - ${distance}`);
+          });
+
+        // Calculate distance statistics
+        const distances = companiesWithDistance.map(c => c.distanceFromSearchMiles!);
+        const avgDistance = distances.reduce((a, b) => a + b, 0) / distances.length;
+        const minDistance = Math.min(...distances);
+        const maxDistance = Math.max(...distances);
+
+        console.log(`\n   📊 Distance Statistics:`);
+        console.log(`      Closest: ${formatDistance(minDistance)}`);
+        console.log(`      Farthest: ${formatDistance(maxDistance)}`);
+        console.log(`      Average: ${formatDistance(avgDistance)}`);
+      } else {
+        console.log(`\n   ⚠️  Proximity sorting skipped - no companies have calculable distances`);
+        console.log(`   ⚠️  This may indicate location parsing issues or invalid location data`);
+      }
+    } else {
+      console.log(`\n   ⚠️  Proximity sorting skipped - no search location provided`);
     }
 
     return enriched;
