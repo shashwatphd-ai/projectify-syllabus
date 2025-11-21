@@ -60,18 +60,20 @@ serve(async (req) => {
     const searchLocation = course.search_location || location;
 
     // 🗺️ DIAGNOSTIC: Trace searchLocation data flow
-    console.log(`\n🎓 MODULAR DISCOVERY SYSTEM`);
+    console.log(`\n🎓 COURSE DISCOVERY INITIALIZATION`);
     console.log(`   Course: ${course.title}`);
-    console.log(`   Location (from request): "${location}"`);
-    console.log(`   Search Location (from DB): "${course.search_location || '(empty)'}"`);
-    console.log(`   Final Search Location: "${searchLocation}"`);
-    console.log(`   Target: ${count} companies`);
+    console.log(`   📍 Location Tracing:`);
+    console.log(`      - location (request param): "${location}"`);
+    console.log(`      - course.search_location (DB): "${course.search_location || '(not set)'}"`);
+    console.log(`      - Final searchLocation: "${searchLocation}"`);
 
     // DEFENSIVE: Validate searchLocation exists for proximity sorting
     if (!searchLocation || searchLocation.trim().length === 0) {
-      console.warn(`   ⚠️  WARNING: No search location provided - proximity sorting will be skipped`);
-      console.warn(`   ⚠️  Consider populating 'search_location' field during syllabus parsing`);
+      console.log(`   ⚠️  WARNING: searchLocation is EMPTY - proximity sorting will be SKIPPED`);
+      console.log(`   💡 To enable proximity: Populate course.search_location during syllabus parsing`);
     }
+
+    console.log(`   Target: ${count} companies\n`);
 
     // ====================================
     // Step 1: Create generation run record
@@ -329,8 +331,8 @@ serve(async (req) => {
     );
 
     // Type-safe filtered companies with all semantic matching metadata
-    let filteredCompanies: Array<{
-      company: DiscoveredCompany;
+    // Using intersection type: DiscoveredCompany properties + additional semantic fields
+    let filteredCompanies: Array<DiscoveredCompany & {
       similarityScore: number;
       matchConfidence: string;
       matchingSkills?: string[];
