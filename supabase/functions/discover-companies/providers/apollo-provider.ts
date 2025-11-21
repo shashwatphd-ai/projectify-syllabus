@@ -120,14 +120,15 @@ export class ApolloProvider implements DiscoveryProvider {
     console.log(`   🎲 Course Seed: ${courseSeed} (ensures unique companies per course)`);
 
     // Step 2: Generate Apollo search filters using AI
-    const filters = await this.generateFilters(context, courseSeed);
+    const { filters, excludedIndustries } = await this.generateFilters(context, courseSeed);
 
     // Step 3: Search Apollo for organizations with smart pagination
     const pageOffset = this.calculatePageOffset(courseSeed);
     const organizations = await this.searchOrganizations(filters, context.targetCount * 3, pageOffset);
 
     // Step 4: Enrich organizations with contacts and market intelligence
-    const companies = await this.enrichOrganizations(organizations, context.targetCount);
+    // Pass excluded industries for post-filtering
+    const companies = await this.enrichOrganizations(organizations, context.targetCount, excludedIndustries);
 
     const processingTime = (Date.now() - startTime) / 1000;
 
@@ -210,7 +211,7 @@ export class ApolloProvider implements DiscoveryProvider {
     return courseKeywords;
   }
 
-  private async generateFilters(context: CourseContext, courseSeed: number): Promise<ApolloSearchFilters> {
+  private async generateFilters(context: CourseContext, courseSeed: number): Promise<{ filters: ApolloSearchFilters; excludedIndustries: string[] }> {
     // PHASE 2: Use O*NET data for intelligent filtering (if available)
     const useIntelligentFilters = context.onetOccupations && context.onetOccupations.length > 0;
 
@@ -344,7 +345,10 @@ Return JSON:
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('Could not extract JSON from AI response');
 
-    return JSON.parse(jsonMatch[0]);
+    return {
+      filters: JSON.parse(jsonMatch[0]),
+      excludedIndustries: [] // Legacy mode doesn't use industry taxonomy
+    };
   }
 
   /**
@@ -352,7 +356,7 @@ Return JSON:
    * Uses occupation-specific job titles and technologies instead of random categories
    * NOW WITH COURSE-SPECIFIC DIVERSITY: Adds course keywords for differentiation
    */
-  private async generateIntelligentFilters(context: CourseContext, courseSeed: number): Promise<ApolloSearchFilters> {
+  private async generateIntelligentFilters(context: CourseContext, courseSeed: number): Promise<{ filters: ApolloSearchFilters; excludedIndustries: string[] }> {
     console.log(`  🧠 Using O*NET occupations for intelligent filtering...`);
 
     const onetOccupations = context.onetOccupations!;
@@ -476,7 +480,10 @@ Return JSON:
     console.log(`     Job Titles: ${uniqueJobTitles.length}`);
     console.log(`     Excluded Titles: ${intelligentFilters.person_not_titles?.join(', ')}`);
 
-    return intelligentFilters;
+    return {
+      filters: intelligentFilters,
+      excludedIndustries // Pass excluded industries for post-filtering
+    };
   }
 
   /**
@@ -626,27 +633,54 @@ Return JSON:
   }
   
   private async enrichOrganizations(
-    organizations: ApolloOrganization[], 
-    targetCount: number
+    organizations: ApolloOrganization[],
+    targetCount: number,
+    excludedIndustries: string[] = []
   ): Promise<DiscoveredCompany[]> {
     const enriched: DiscoveredCompany[] = [];
-    
+    let skippedCount = 0;
+
+    console.log(`\n🔍 Enriching ${organizations.length} organizations (target: ${targetCount})`);
+    if (excludedIndustries.length > 0) {
+      console.log(`   🚫 Will skip companies in: ${excludedIndustries.join(', ')}`);
+    }
+
     for (const org of organizations) {
       if (enriched.length >= targetCount) break;
-      
+
+      // POST-FILTER: Skip companies with excluded industries
+      // This catches any staffing/recruiting companies that slipped through Apollo filters
+      if (excludedIndustries.length > 0 && org.industry) {
+        const industryLower = org.industry.toLowerCase();
+        const isExcluded = excludedIndustries.some(excluded =>
+          industryLower.includes(excluded.toLowerCase())
+        );
+
+        if (isExcluded) {
+          console.log(`   🚫 Skipping ${org.name} (industry: ${org.industry})`);
+          skippedCount++;
+          continue;
+        }
+      }
+
       try {
         const company = await this.enrichSingleOrganization(org);
         if (company) {
           enriched.push(company);
+          console.log(`   ✅ Enriched ${company.name} (${enriched.length}/${targetCount})`);
         }
       } catch (error) {
-        console.error(`Failed to enrich ${org.name}:`, error);
+        console.error(`   ❌ Failed to enrich ${org.name}:`, error);
       }
-      
+
       // Rate limiting
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
-    
+
+    if (skippedCount > 0) {
+      console.log(`   📊 Post-filter results: Skipped ${skippedCount} excluded companies`);
+    }
+
     return enriched;
   }
   

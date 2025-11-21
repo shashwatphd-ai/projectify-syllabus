@@ -178,13 +178,26 @@ export async function rankCompaniesBySimilarity(
     console.log(`      ${i + 1}. ${match.companyName} - ${(match.similarityScore * 100).toFixed(0)}% (${match.confidence})`);
   });
 
-  // Log filtered out companies
+  // Log filtered out companies with industry information for debugging
   const filtered = matches.filter(m => m.similarityScore < threshold);
   if (filtered.length > 0) {
     console.log(`\n   ❌ Filtered Out (< ${(threshold * 100).toFixed(0)}%):`);
     filtered.slice(0, 5).forEach(match => {
-      console.log(`      • ${match.companyName} - ${(match.similarityScore * 100).toFixed(0)}%`);
+      const company = companies.find(c => c.name === match.companyName);
+      const industry = company?.sector || company?.industry || 'Unknown';
+      console.log(`      • ${match.companyName} - ${(match.similarityScore * 100).toFixed(0)}% (${industry})`);
     });
+
+    // DIAGNOSTIC: Show if filtered companies are staffing/recruiting
+    const staffingFiltered = filtered.filter(m => {
+      const company = companies.find(c => c.name === m.companyName);
+      const sector = company?.sector || company?.industry || '';
+      return isExcludedIndustry(sector);
+    });
+
+    if (staffingFiltered.length > 0) {
+      console.log(`\n   ℹ️  Note: ${staffingFiltered.length}/${filtered.length} filtered companies were staffing/recruiting firms`);
+    }
   }
 
   return {

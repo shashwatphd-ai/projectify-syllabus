@@ -402,7 +402,13 @@ serve(async (req) => {
         if (viableCompanies.length === 0) {
           console.log(`   ❌ No viable companies found - all scored below ${(MINIMUM_FALLBACK_SCORE * 100).toFixed(0)}%`);
           console.log(`   Cannot generate projects with 0% similarity companies (likely staffing/recruiting firms)`);
-          console.log(`   Top scores: ${allMatchesSorted.slice(0, 3).map(m => `${(m.similarityScore * 100).toFixed(0)}%`).join(', ')}`);
+
+          // DIAGNOSTIC: Show top companies with industries for debugging
+          console.log(`   Top companies discovered:`);
+          allMatchesSorted.slice(0, 3).forEach((m, i) => {
+            const industry = m.company.sector || m.company.industry || 'Unknown';
+            console.log(`     ${i + 1}. ${m.company.name}: ${(m.similarityScore * 100).toFixed(0)}% (${industry})`);
+          });
 
           filteredCompanies = []; // Return empty - better than bad matches
 
@@ -428,6 +434,11 @@ serve(async (req) => {
             matchingDWAs,
             matchExplanation: `Preserved by fallback: Below threshold but best available match (${(similarityScore * 100).toFixed(0)}%)`
           }));
+
+          // Log preserved companies for visibility
+          filteredCompanies.forEach((c, i) => {
+            console.log(`     ${i + 1}. ${c.name}: ${(c.similarityScore * 100).toFixed(0)}% (${c.sector || 'Unknown'})`);
+          });
 
           // Update generation_run to reflect fallback was used
           await supabase
