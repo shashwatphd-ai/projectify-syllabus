@@ -92,6 +92,9 @@ export interface DiscoveredCompany {
   dataCompletenessScore: number;
   lastEnrichedAt: string;
   lastVerifiedAt?: string;
+
+  // Geographic proximity
+  distanceFromSearchMiles?: number; // Distance from search location in miles
 }
 
 export interface DiscoveryResult {

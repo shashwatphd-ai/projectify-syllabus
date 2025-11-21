@@ -5,6 +5,7 @@ import {
   DiscoveredCompany
 } from './types.ts';
 import { mapSOCIndustriesToApollo, getApolloSearchStrategy } from './apollo-industry-mapper.ts';
+import { calculateDistanceBetweenLocations, formatDistance } from '../../_shared/geo-distance.ts';
 
 interface ApolloSearchFilters {
   organization_locations: string[];
@@ -128,12 +129,14 @@ export class ApolloProvider implements DiscoveryProvider {
 
     // Step 4: Enrich organizations with contacts and market intelligence
     // Pass excluded industries and course domain for context-aware post-filtering
+    // Pass searchLocation for proximity-based sorting
     const companies = await this.enrichOrganizations(
       organizations,
       context.targetCount,
       excludedIndustries,
       courseDomain,
-      context.socMappings || []
+      context.socMappings || [],
+      context.searchLocation || context.location
     );
 
     const processingTime = (Date.now() - startTime) / 1000;
@@ -649,7 +652,8 @@ Return JSON:
     targetCount: number,
     excludedIndustries: string[] = [],
     courseDomain: string = 'unknown',
-    socMappings: any[] = []
+    socMappings: any[] = [],
+    searchLocation: string = ''
   ): Promise<DiscoveredCompany[]> {
     const enriched: DiscoveredCompany[] = [];
     let skippedCount = 0;
@@ -717,6 +721,16 @@ Return JSON:
             }
           }
 
+          // Calculate distance from search location for proximity-based sorting
+          if (searchLocation) {
+            const companyLocation = `${company.city}, ${company.state || company.country}`;
+            const distance = calculateDistanceBetweenLocations(searchLocation, companyLocation);
+            if (distance !== null) {
+              company.distanceFromSearchMiles = distance;
+              console.log(`   📍 ${company.name}: ${formatDistance(distance)} from search location`);
+            }
+          }
+
           enriched.push(company);
           console.log(`   ✅ Enriched ${company.name} (${enriched.length}/${targetCount})`);
         }
@@ -734,6 +748,25 @@ Return JSON:
       if (reconsideredCount > 0) {
         console.log(`      Reconsidered: ${reconsideredCount} companies (context-aware inclusion)`);
       }
+    }
+
+    // Sort by proximity (nearest first)
+    if (searchLocation && enriched.some(c => c.distanceFromSearchMiles !== undefined)) {
+      console.log(`\n🗺️ Sorting ${enriched.length} companies by proximity (nearest first)...`);
+      enriched.sort((a, b) => {
+        const distA = a.distanceFromSearchMiles ?? 999999;
+        const distB = b.distanceFromSearchMiles ?? 999999;
+        return distA - distB;
+      });
+
+      // Log top 5 closest companies
+      console.log(`   📍 Closest companies:`);
+      enriched.slice(0, Math.min(5, enriched.length)).forEach((company, index) => {
+        const distance = company.distanceFromSearchMiles
+          ? formatDistance(company.distanceFromSearchMiles)
+          : 'Unknown distance';
+        console.log(`      ${index + 1}. ${company.name} - ${distance}`);
+      });
     }
 
     return enriched;
