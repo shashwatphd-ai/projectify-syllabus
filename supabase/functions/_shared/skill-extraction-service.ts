@@ -154,7 +154,48 @@ function extractSkillsFromText(text: string, courseContext: string): ExtractedSk
     });
   }
 
-  // Pattern 4: Domain-specific terms from course context
+  // Pattern 4: Extract key concepts from learning outcomes
+  // "Define the properties of fluids such as density, pressure, viscosity"
+  // → Extract: "density", "pressure", "viscosity", "fluid properties"
+  const conceptPattern = /(?:define|calculate|identify|analyze|determine|compute|solve|derive|explain|describe)\s+(?:the\s+)?(?:various\s+)?([^,\.;]+?)(?:\s+such as\s+([^,\.;]+))?(?:\.|,|;|$)/gi;
+  const conceptMatches = text.matchAll(conceptPattern);
+  
+  for (const match of conceptMatches) {
+    const primaryConcept = match[1]?.trim();
+    const examples = match[2]?.trim();
+    
+    // Extract primary concept
+    if (primaryConcept && primaryConcept.length > 5 && !primaryConcept.includes('and describe')) {
+      const conceptSkill = primaryConcept.replace(/\s+of\s+.*$/, ''); // Remove "of [object]" suffix
+      if (conceptSkill.split(' ').length <= 4) { // Keep it concise
+        skills.push({
+          skill: toTitleCase(conceptSkill),
+          category: 'domain',
+          confidence: 0.75,
+          source: text.substring(0, 100) + '...',
+          keywords: extractKeywords(conceptSkill)
+        });
+      }
+    }
+    
+    // Extract example terms (e.g., "density, pressure, viscosity")
+    if (examples) {
+      const exampleTerms = examples.split(/,\s*(?:and\s+)?/).map(t => t.trim());
+      exampleTerms.forEach(term => {
+        if (term.length > 3 && term.split(' ').length <= 3) {
+          skills.push({
+            skill: toTitleCase(term),
+            category: 'technical',
+            confidence: 0.85,
+            source: text.substring(0, 100) + '...',
+            keywords: extractKeywords(term)
+          });
+        }
+      });
+    }
+  }
+
+  // Pattern 5: Domain-specific terms from course context
   const domainSkills = extractDomainSkills(text, courseContext);
   skills.push(...domainSkills);
 
@@ -172,10 +213,27 @@ function extractDomainSkills(text: string, courseContext: string): ExtractedSkil
   // Engineering/Technical domains
   if (lowerContext.includes('engineering') || lowerContext.includes('mechanics') || lowerContext.includes('physics')) {
     const engineeringTerms = [
+      // Existing terms
       'fluid dynamics', 'thermodynamics', 'heat transfer', 'mass transfer',
       'stress analysis', 'finite element', 'cad design', 'structural analysis',
       'control systems', 'circuit design', 'signal processing', 'mechanical design',
-      'thermal systems', 'hvac', 'computational fluid dynamics', 'cfd'
+      'thermal systems', 'hvac', 'computational fluid dynamics', 'cfd',
+      
+      // Fluid Mechanics specific terms
+      'fluid mechanics', 'fluid statics', 'hydrostatics', 'hydrodynamics',
+      'viscosity', 'fluid viscosity', 'kinematic viscosity', 'dynamic viscosity',
+      'pressure', 'fluid pressure', 'pressure measurement', 'pressure distribution',
+      'density', 'specific weight', 'specific gravity',
+      'surface tension', 'vapor pressure', 'cavitation',
+      'bernoulli equation', 'continuity equation', 'momentum equation',
+      'reynolds number', 'flow measurement', 'pipe flow',
+      'manometer', 'barometer', 'pressure gage',
+      'laminar flow', 'turbulent flow', 'boundary layer',
+      'drag force', 'lift force', 'hydraulic systems',
+      
+      // Related engineering analysis
+      'force analysis', 'moment analysis', 'equilibrium analysis',
+      'differential equation', 'integral analysis'
     ];
 
     engineeringTerms.forEach(term => {
