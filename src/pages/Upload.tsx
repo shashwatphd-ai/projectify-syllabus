@@ -182,31 +182,19 @@ const Upload = () => {
         country: locationData.country || 'US'
       }));
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-syllabus`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: formData,
-        }
-      );
+      // Use Supabase client method instead of raw fetch to avoid env variable issues
+      const { data, error: invokeError } = await supabase.functions.invoke('parse-syllabus', {
+        body: formData,
+      });
 
-      console.log('Response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error response:', errorText);
-        let errorMessage = `Failed to parse syllabus (${response.status})`;
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.error || errorMessage;
-        } catch {}
-        throw new Error(errorMessage);
+      if (invokeError) {
+        console.error('Error response:', invokeError);
+        throw new Error(invokeError.message || 'Failed to parse syllabus');
       }
 
-      const data = await response.json();
+      if (!data) {
+        throw new Error('No data returned from parse-syllabus');
+      }
       console.log('Parse successful:', data);
 
       toast.success("Syllabus parsed successfully!");
