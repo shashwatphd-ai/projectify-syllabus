@@ -278,10 +278,16 @@ function computeKeywordSimilarity(text1: string, text2: string): number {
   const importantTerms2 = extractImportantTerms(text2);
 
   const importantMatches = importantTerms1.filter(t => importantTerms2.includes(t)).length;
-  // REDUCED BONUS: Was 0.3 → Now 0.10 to prevent generic terms from inflating scores
-  const importantBonus = Math.min(0.10, importantMatches * 0.05);
+  
+  // BALANCED SCORING: Give appropriate weight to both broad overlap AND specific term matches
+  // Base score (Jaccard): 0.0-1.0 measuring general overlap
+  // Important bonus: Up to 0.20 for matching key technical terms (was 0.10)
+  const importantBonus = Math.min(0.20, importantMatches * 0.04);
+  
+  // If we have ZERO overlap but some important matches, give minimum viable score
+  const minimumViableScore = importantMatches > 0 ? 0.15 : 0.0;
 
-  return Math.min(1.0, jaccard + importantBonus);
+  return Math.max(minimumViableScore, Math.min(1.0, jaccard + importantBonus));
 }
 
 /**
@@ -481,21 +487,31 @@ function calculateIndustryPenalty(occupations: StandardOccupation[], companySect
     }
   }
 
-  // Irrelevant industries that should be heavily penalized
-  const irrelevantIndustries = [
+  // MODERATE penalties for industries that MAY be relevant (allow context-based matching)
+  const moderatePenaltyIndustries = [
     'recruitment', 'human resources', 'hr', 'staffing',
     'marketing', 'advertising', 'public relations',
-    'retail', 'e-commerce', 'consumer goods',
+    'retail', 'consumer goods',
     'hospitality', 'tourism', 'entertainment',
-    'real estate', 'property', 'insurance',
-    'legal services', 'law firm',
-    'education', 'training' // Unless explicitly teaching-focused
+    'real estate', 'property'
   ];
 
-  // Check if company is in an irrelevant industry
-  for (const irrelevant of irrelevantIndustries) {
-    if (companySector.includes(irrelevant)) {
-      return 0.40; // Heavy penalty (40%) for clearly irrelevant industries
+  // SEVERE penalties only for industries that are NEVER relevant for academic projects
+  const severePenaltyIndustries = [
+    'insurance', 'legal services', 'law firm'
+  ];
+
+  // Check for severe penalty (30%)
+  for (const severe of severePenaltyIndustries) {
+    if (companySector.includes(severe)) {
+      return 0.30; // Severe penalty - rarely relevant
+    }
+  }
+
+  // Check for moderate penalty (15%) - allow some flexibility
+  for (const moderate of moderatePenaltyIndustries) {
+    if (companySector.includes(moderate)) {
+      return 0.15; // Moderate penalty - may have relevant roles (e.g., HR analytics, retail operations)
     }
   }
 

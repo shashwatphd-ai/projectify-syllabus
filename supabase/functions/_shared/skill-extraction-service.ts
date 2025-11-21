@@ -138,15 +138,16 @@ function extractSkillsFromText(text: string, courseContext: string): ExtractedSk
     }
   }
 
-  // Pattern 3: Tools and software
-  // "MATLAB", "Python", "Excel", "AutoCAD", "TensorFlow"
-  const toolPattern = /\b(MATLAB|Python|Java|JavaScript|C\+\+|SQL|Excel|AutoCAD|SolidWorks|ANSYS|SPSS|Tableau|TensorFlow|PyTorch|Git|Docker|AWS|Azure|R|Stata|COMSOL|LabVIEW|Simulink)\b/gi;
+  // Pattern 3: Tools and software (EXPANDED for all disciplines)
+  const toolPattern = /\b(MATLAB|Python|Java|JavaScript|TypeScript|C\+\+|C#|Ruby|PHP|Swift|Kotlin|Go|Rust|SQL|NoSQL|MongoDB|PostgreSQL|MySQL|Redis|Excel|PowerBI|Tableau|PowerPoint|Word|Access|Outlook|AutoCAD|SolidWorks|CATIA|Revit|SketchUp|ANSYS|COMSOL|Abaqus|SPSS|SAS|Stata|R|Minitab|JMP|TensorFlow|PyTorch|Keras|Scikit-learn|Pandas|NumPy|Git|GitHub|GitLab|Bitbucket|Docker|Kubernetes|Jenkins|CircleCI|AWS|Azure|GCP|Heroku|Vercel|Netlify|Salesforce|HubSpot|Marketo|Google Analytics|Adobe Creative Suite|Photoshop|Illustrator|InDesign|Premiere|After Effects|Figma|Sketch|InVision|Zeplin|Jira|Confluence|Trello|Asana|Slack|Teams|Zoom|QuickBooks|SAP|Oracle|NetSuite|LabVIEW|Simulink|PSpice|LTSpice|NI Multisim|VHDL|Verilog|Quartus|Xilinx|Vivado|Altium|Eagle|KiCad|SCADA|HMI|PLC|Arduino|Raspberry Pi|ROS|Gazebo)\b/gi;
   const toolMatches = text.matchAll(toolPattern);
 
   for (const match of toolMatches) {
     const tool = match[1];
     skills.push({
-      skill: `${tool} Programming` || `${tool} Software`,
+      skill: tool.includes('Python') || tool.includes('Java') || tool.includes('SQL') 
+        ? `${tool} Programming` 
+        : tool,
       category: 'tool',
       confidence: 0.95,
       source: text.substring(0, 100) + '...',
@@ -169,13 +170,26 @@ function extractDomainSkills(text: string, courseContext: string): ExtractedSkil
   const lowerContext = courseContext.toLowerCase();
   const lowerText = text.toLowerCase();
 
-  // Engineering/Technical domains
-  if (lowerContext.includes('engineering') || lowerContext.includes('mechanics') || lowerContext.includes('physics')) {
+  // Engineering/Technical domains (EXPANDED)
+  if (lowerContext.includes('engineering') || lowerContext.includes('mechanics') || lowerContext.includes('physics') || 
+      lowerContext.includes('civil') || lowerContext.includes('electrical') || lowerContext.includes('chemical') ||
+      lowerContext.includes('industrial') || lowerContext.includes('aerospace') || lowerContext.includes('biomedical')) {
     const engineeringTerms = [
-      'fluid dynamics', 'thermodynamics', 'heat transfer', 'mass transfer',
-      'stress analysis', 'finite element', 'cad design', 'structural analysis',
+      'fluid dynamics', 'fluid mechanics', 'thermodynamics', 'heat transfer', 'mass transfer',
+      'stress analysis', 'finite element analysis', 'fea', 'cad design', 'structural analysis',
       'control systems', 'circuit design', 'signal processing', 'mechanical design',
-      'thermal systems', 'hvac', 'computational fluid dynamics', 'cfd'
+      'thermal systems', 'hvac', 'computational fluid dynamics', 'cfd',
+      'statics', 'dynamics', 'kinematics', 'kinetics', 'vibrations', 'acoustics',
+      'materials science', 'metallurgy', 'composites', 'polymers', 'ceramics',
+      'manufacturing processes', 'machining', 'welding', 'casting', 'forming',
+      'quality control', 'six sigma', 'lean manufacturing', 'process optimization',
+      'power systems', 'energy systems', 'renewable energy', 'solar', 'wind', 'hydro',
+      'robotics', 'automation', 'mechatronics', 'plc programming', 'scada',
+      'electronics', 'microcontrollers', 'embedded systems', 'pcb design',
+      'chemical processes', 'process control', 'reaction engineering', 'separation processes',
+      'biomedical devices', 'medical imaging', 'biomechanics', 'tissue engineering',
+      'geotechnical engineering', 'surveying', 'hydraulics', 'construction management',
+      'transportation engineering', 'traffic engineering', 'urban planning'
     ];
 
     engineeringTerms.forEach(term => {
@@ -191,13 +205,29 @@ function extractDomainSkills(text: string, courseContext: string): ExtractedSkil
     });
   }
 
-  // Computer Science/Data Science domains
-  if (lowerContext.includes('computer') || lowerContext.includes('data') || lowerContext.includes('software') || lowerContext.includes('cs')) {
+  // Computer Science/Data Science domains (EXPANDED)
+  if (lowerContext.includes('computer') || lowerContext.includes('data') || lowerContext.includes('software') || 
+      lowerContext.includes('cs') || lowerContext.includes('it') || lowerContext.includes('information') ||
+      lowerContext.includes('cyber') || lowerContext.includes('network')) {
     const csTerms = [
-      'machine learning', 'deep learning', 'neural networks', 'data structures',
-      'algorithms', 'database design', 'web development', 'api design',
-      'cloud computing', 'data analysis', 'statistical modeling', 'data visualization',
-      'natural language processing', 'computer vision', 'big data', 'nosql'
+      'machine learning', 'deep learning', 'neural networks', 'artificial intelligence', 'ai',
+      'data structures', 'algorithms', 'computational complexity', 'graph theory',
+      'database design', 'sql', 'nosql', 'database management', 'data warehousing', 'etl',
+      'web development', 'frontend development', 'backend development', 'full stack',
+      'api design', 'rest api', 'graphql', 'microservices', 'system architecture',
+      'cloud computing', 'aws', 'azure', 'gcp', 'serverless', 'containers', 'kubernetes',
+      'data analysis', 'statistical modeling', 'data visualization', 'business intelligence',
+      'natural language processing', 'nlp', 'computer vision', 'image processing',
+      'big data', 'hadoop', 'spark', 'data pipelines', 'data engineering',
+      'software engineering', 'object oriented programming', 'oop', 'design patterns',
+      'agile development', 'scrum', 'devops', 'ci cd', 'version control', 'git',
+      'mobile development', 'ios development', 'android development', 'react native',
+      'cybersecurity', 'network security', 'cryptography', 'penetration testing',
+      'operating systems', 'linux', 'unix', 'system administration',
+      'networking', 'tcp ip', 'routing', 'switching', 'firewalls',
+      'ui ux design', 'user interface', 'user experience', 'prototyping',
+      'game development', 'unity', 'unreal engine', '3d modeling',
+      'blockchain', 'smart contracts', 'cryptocurrency', 'distributed systems'
     ];
 
     csTerms.forEach(term => {
@@ -213,13 +243,31 @@ function extractDomainSkills(text: string, courseContext: string): ExtractedSkil
     });
   }
 
-  // Business domains
-  if (lowerContext.includes('business') || lowerContext.includes('management') || lowerContext.includes('marketing')) {
+  // Business/Management/Finance domains (EXPANDED)
+  if (lowerContext.includes('business') || lowerContext.includes('management') || lowerContext.includes('marketing') ||
+      lowerContext.includes('finance') || lowerContext.includes('accounting') || lowerContext.includes('economics') ||
+      lowerContext.includes('mba') || lowerContext.includes('commerce') || lowerContext.includes('entrepreneurship')) {
     const businessTerms = [
-      'financial analysis', 'market research', 'swot analysis', 'competitive analysis',
-      'business strategy', 'financial modeling', 'valuation', 'dcf analysis',
+      'financial analysis', 'financial modeling', 'valuation', 'dcf analysis', 'lbo modeling',
+      'market research', 'swot analysis', 'competitive analysis', 'porter five forces',
+      'business strategy', 'strategic planning', 'business development', 'corporate strategy',
       'marketing strategy', 'brand management', 'customer segmentation', 'roi analysis',
-      'project management', 'supply chain', 'operations management', 'process optimization'
+      'digital marketing', 'social media marketing', 'content marketing', 'seo', 'sem',
+      'project management', 'agile project management', 'pmp', 'change management',
+      'supply chain management', 'logistics', 'procurement', 'inventory management',
+      'operations management', 'process optimization', 'quality management', 'lean six sigma',
+      'financial accounting', 'managerial accounting', 'cost accounting', 'tax accounting',
+      'audit', 'internal audit', 'compliance', 'risk management', 'internal controls',
+      'investment banking', 'equity research', 'asset management', 'portfolio management',
+      'corporate finance', 'mergers acquisitions', 'm&a', 'capital markets',
+      'economics', 'microeconomics', 'macroeconomics', 'econometrics', 'regression analysis',
+      'human resources', 'hr management', 'talent acquisition', 'performance management',
+      'organizational behavior', 'leadership', 'team management', 'conflict resolution',
+      'sales management', 'business to business', 'b2b sales', 'crm', 'salesforce',
+      'entrepreneurship', 'startup', 'venture capital', 'fundraising', 'pitch deck',
+      'e-commerce', 'retail management', 'merchandising', 'pricing strategy',
+      'international business', 'global strategy', 'cross cultural management',
+      'business analytics', 'data driven decision making', 'predictive analytics', 'kpi tracking'
     ];
 
     businessTerms.forEach(term => {

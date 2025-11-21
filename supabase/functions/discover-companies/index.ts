@@ -377,19 +377,59 @@ serve(async (req) => {
 
       console.log(`✅ Semantic filtering: ${companiesBeforeFilter} → ${semanticResult.matches.length} companies`);
 
-      // Map semantic matches back to company objects with similarity data
-      filteredCompanies = semanticResult.matches.map(match => {
-        const company = discoveryResult.companies.find(c => c.name === match.companyName)!;
-        return {
+      // INTELLIGENT FALLBACK: If filtering rejected ALL companies but we have enriched companies
+      // Preserve top N with a confidence flag indicating lower quality match
+      if (semanticResult.matches.length === 0 && discoveryResult.companies.length > 0) {
+        console.log(`\n⚠️  [Intelligent Fallback] All companies filtered out by semantic threshold`);
+        console.log(`   Preserving top ${Math.min(count, discoveryResult.companies.length)} companies with 'low' confidence`);
+        
+        // Sort all companies by their raw similarity scores (before threshold filtering)
+        const allMatchesSorted = discoveryResult.companies.map(company => {
+          const match = semanticResult.matches.find(m => m.companyName === company.name);
+          return {
+            company,
+            similarityScore: match?.similarityScore || 0,
+            matchingSkills: match?.matchingSkills || [],
+            matchingDWAs: match?.matchingDWAs || []
+          };
+        }).sort((a, b) => b.similarityScore - a.similarityScore);
+        
+        // Take top N companies
+        filteredCompanies = allMatchesSorted.slice(0, count).map(({ company, similarityScore, matchingSkills, matchingDWAs }) => ({
           ...company,
-          // Add Phase 3 metadata
-          similarityScore: match.similarityScore,
-          matchConfidence: match.confidence,
-          matchingSkills: match.matchingSkills,
-          matchingDWAs: match.matchingDWAs,
-          matchExplanation: match.explanation
-        };
-      });
+          similarityScore,
+          matchConfidence: 'low' as const,
+          matchingSkills,
+          matchingDWAs,
+          matchExplanation: `Preserved by fallback: Below threshold but best available match (${(similarityScore * 100).toFixed(0)}%)`
+        }));
+        
+        // Update generation_run to reflect fallback was used
+        await supabase
+          .from('generation_runs')
+          .update({
+            companies_after_filtering: filteredCompanies.length,
+            semantic_filter_threshold: threshold,
+            scoring_notes: `Intelligent fallback activated: preserved ${filteredCompanies.length} companies below threshold`
+          })
+          .eq('id', generationRunId);
+          
+        console.log(`   ✅ Fallback preserved ${filteredCompanies.length} companies for project generation`);
+      } else {
+        // Map semantic matches back to company objects with similarity data
+        filteredCompanies = semanticResult.matches.map(match => {
+          const company = discoveryResult.companies.find(c => c.name === match.companyName)!;
+          return {
+            ...company,
+            // Add Phase 3 metadata
+            similarityScore: match.similarityScore,
+            matchConfidence: match.confidence,
+            matchingSkills: match.matchingSkills,
+            matchingDWAs: match.matchingDWAs,
+            matchExplanation: match.explanation
+          };
+        });
+      }
     }
 
     // ====================================
