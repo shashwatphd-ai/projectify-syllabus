@@ -141,8 +141,8 @@ export interface DiscoveryProvider {
  * PROVIDER CONFIGURATION
  */
 export interface ProviderConfig {
-  provider: 'apollo' | 'google' | 'hybrid';
-  fallbackProvider?: 'apollo' | 'google';
+  provider: 'apollo' | 'google' | 'adzuna' | 'hybrid';
+  fallbackProvider?: 'apollo' | 'google' | 'adzuna';
   maxRetries?: number;
   timeout?: number;
 }
