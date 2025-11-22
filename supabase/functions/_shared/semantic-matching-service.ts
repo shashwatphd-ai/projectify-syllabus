@@ -548,12 +548,12 @@ function calculateIndustryPenalty(
     'real estate', 'property'
   ];
 
-  // Check for moderate penalty (20%)
+  // Check for moderate penalty (reduced to 10% for better coverage)
   for (const moderate of moderatePenaltyIndustries) {
     if (companySector.includes(moderate)) {
       return {
         reason: `${moderate} industry - moderate penalty`,
-        penalty: 0.20
+        penalty: 0.10 // Reduced from 0.20 to 0.10
       };
     }
   }
@@ -579,10 +579,10 @@ function calculateIndustryPenalty(
     }
   }
 
-  // Default: small penalty for unknown industries
+  // Default: reduced penalty for unknown industries (many companies have vague Apollo data)
   return {
     reason: 'Unknown industry',
-    penalty: 0.20
+    penalty: 0.10 // Reduced from 0.20 to 0.10 for better coverage
   };
 }
 
