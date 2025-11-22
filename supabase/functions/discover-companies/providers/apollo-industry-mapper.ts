@@ -1,29 +1,27 @@
 /**
  * Apollo Industry Taxonomy Mapper
  *
- * Translates generic SOC/O*NET industry keywords into Apollo's structured industry taxonomy IDs.
- * This prevents false matches from keyword-based search (e.g., staffing companies that recruit FOR
- * aerospace companies matching "aerospace" keyword searches).
+ * Translates generic SOC/O*NET industry keywords into Apollo's industry keyword terms.
+ * This prevents false matches from overly broad searches.
  *
- * CRITICAL: Apollo uses industry_tag_ids (structured taxonomy) vs q_organization_keyword_tags (text search)
- * - industry_tag_ids: Precise, based on company's primary industry classification
- * - keyword_tags: Imprecise, matches any mention in company description
+ * CRITICAL: Apollo keyword-based filtering using q_organization_keyword_tags
+ * - keyword_tags: Matches industry keywords in company description/profile
+ * - More flexible than numeric taxonomy IDs (which require exact mapping)
  *
  * CONTEXT-AWARE EXCLUSION:
  * - Engineering courses: Exclude staffing/HR companies (they don't provide projects)
  * - Business/HR courses: Include staffing/HR companies (they ARE the target industry)
  * - Hybrid courses: Smart decision based on primary occupation
  *
- * NOTE: Apollo industry IDs may need to be verified/updated via Apollo API documentation
- * Current mappings are based on common industry categories.
+ * NOTE: Returns industry keyword strings for Apollo's q_organization_keyword_tags parameter
  */
 
 import { SOCMapping } from '../../_shared/course-soc-mapping.ts';
 import { classifyCourseDomain, CourseDomain } from '../../_shared/context-aware-industry-filter.ts';
 
 /**
- * Generic industry keywords (from SOC mappings) → Apollo industry tag names
- * Apollo API will resolve names to IDs automatically
+ * Generic industry keywords (from SOC mappings) → Apollo industry keyword terms
+ * Used for q_organization_keyword_tags parameter (keyword-based search)
  */
 const SOC_INDUSTRY_TO_APOLLO_TAXONOMY: Record<string, string[]> = {
   // Engineering & Manufacturing
@@ -111,7 +109,7 @@ const ALWAYS_EXCLUDED_INDUSTRIES = [
 ];
 
 /**
- * Map SOC industry keywords to Apollo industry taxonomy names
+ * Map SOC industry keywords to Apollo industry keyword terms
  * Returns both industries to INCLUDE and industries to EXCLUDE (context-aware)
  *
  * NEW: Takes socMappings to classify course domain and determine exclusions
