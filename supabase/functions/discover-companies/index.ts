@@ -782,6 +782,12 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    // Enhanced logging for debugging
+    console.error('❌ DISCOVERY_PIPELINE_FAILED');
+    console.error('   Error type:', error?.constructor?.name);
+    console.error('   Error message:', error?.message?.substring(0, 300));
+    console.error('   Stack trace:', error?.stack?.substring(0, 500));
+
     // Classify the error using our taxonomy
     const classified = classifyDiscoveryError(error, 'discovery_pipeline');
 

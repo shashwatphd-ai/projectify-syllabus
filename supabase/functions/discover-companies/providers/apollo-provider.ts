@@ -343,6 +343,10 @@ Return JSON:
     );
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ AI_FILTER_GENERATION_FAILED: HTTP ${response.status}`);
+      console.error(`   AI Gateway Error: ${errorText.substring(0, 200)}`);
+      console.error(`   Model: google/gemini-2.5-flash`);
       throw new Error(`AI filter generation failed: ${response.status}`);
     }
 
@@ -640,6 +644,10 @@ Return JSON:
     );
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ APOLLO_SEARCH_FAILED: HTTP ${response.status}`);
+      console.error(`   Details: ${errorText.substring(0, 200)}`);
+      console.error(`   Request filters:`, JSON.stringify(filters, null, 2).substring(0, 300));
       throw new Error(`Apollo search failed: ${response.status}`);
     }
 
