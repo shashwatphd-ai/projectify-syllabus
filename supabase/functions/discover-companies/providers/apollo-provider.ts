@@ -323,24 +323,40 @@ Return JSON:
   "organization_num_jobs_range": {"min": 3}
 }`;
 
-    const response = await fetch(
-      'https://ai.gateway.lovable.dev/v1/chat/completions',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.lovableApiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          temperature: 0.1,
-        }),
+    // Add timeout to prevent indefinite hangs on AI Gateway
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    let response: Response;
+    try {
+      response = await fetch(
+        'https://ai.gateway.lovable.dev/v1/chat/completions',
+        {
+          signal: controller.signal,
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.lovableApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            temperature: 0.1,
+          }),
+        }
+      );
+      clearTimeout(timeoutId);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('❌ AI_GATEWAY_TIMEOUT: Request exceeded 30 seconds');
+        throw new Error('AI Gateway timeout after 30s - please try again');
       }
-    );
+      throw error;
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
