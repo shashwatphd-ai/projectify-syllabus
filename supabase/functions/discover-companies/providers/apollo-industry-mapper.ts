@@ -1,29 +1,29 @@
 /**
- * Apollo Industry Taxonomy Mapper
+ * Apollo Industry Keyword Mapper
  *
- * Translates generic SOC/O*NET industry keywords into Apollo's structured industry taxonomy IDs.
- * This prevents false matches from keyword-based search (e.g., staffing companies that recruit FOR
- * aerospace companies matching "aerospace" keyword searches).
+ * Translates generic SOC/O*NET industry keywords into Apollo-compatible industry search terms.
+ * These keywords are used in q_organization_keyword_tags for industry filtering.
  *
- * CRITICAL: Apollo uses industry_tag_ids (structured taxonomy) vs q_organization_keyword_tags (text search)
- * - industry_tag_ids: Precise, based on company's primary industry classification
- * - keyword_tags: Imprecise, matches any mention in company description
+ * NOTE: We use keyword-based filtering instead of organization_industry_tag_ids because:
+ * - industry_tag_ids requires numeric taxonomy IDs, which Apollo doesn't document publicly
+ * - keyword_tags allows flexible matching using industry names (e.g., "Aerospace", "Manufacturing")
+ * - Combined with person_not_titles exclusions, this effectively filters out staffing companies
  *
  * CONTEXT-AWARE EXCLUSION:
  * - Engineering courses: Exclude staffing/HR companies (they don't provide projects)
  * - Business/HR courses: Include staffing/HR companies (they ARE the target industry)
  * - Hybrid courses: Smart decision based on primary occupation
  *
- * NOTE: Apollo industry IDs may need to be verified/updated via Apollo API documentation
- * Current mappings are based on common industry categories.
+ * Current mappings are based on common industry categories and O*NET SOC data.
  */
 
 import { SOCMapping } from '../../_shared/course-soc-mapping.ts';
 import { classifyCourseDomain, CourseDomain } from '../../_shared/context-aware-industry-filter.ts';
 
 /**
- * Generic industry keywords (from SOC mappings) → Apollo industry tag names
- * Apollo API will resolve names to IDs automatically
+ * Generic industry keywords (from SOC mappings) → Apollo industry keywords
+ * These are used in q_organization_keyword_tags for keyword-based industry filtering
+ * NOTE: Apollo's organization_industry_tag_ids requires numeric IDs, not string names
  */
 const SOC_INDUSTRY_TO_APOLLO_TAXONOMY: Record<string, string[]> = {
   // Engineering & Manufacturing

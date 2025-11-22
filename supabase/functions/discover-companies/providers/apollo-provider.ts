@@ -9,9 +9,8 @@ import { calculateDistanceBetweenLocations, formatDistance } from '../../_shared
 
 interface ApolloSearchFilters {
   organization_locations: string[];
-  q_organization_keyword_tags: string[];
-  organization_industry_tag_ids?: string[]; // ADDED: Structured industry filtering (precise)
-  person_not_titles?: string[]; // ADDED: Exclude recruiters/HR
+  q_organization_keyword_tags: string[]; // Industry keywords + course keywords + technologies
+  person_not_titles?: string[]; // Exclude recruiters/HR
   q_organization_job_titles: string[];
   organization_num_employees_ranges?: string[];
   organization_num_jobs_range?: { min?: number; max?: number };
@@ -451,9 +450,9 @@ Return JSON:
 
     console.log(`  🏢 Final Industries (before Apollo mapping): ${inferredIndustries.join(', ')}`);
 
-    // CRITICAL FIX: Map SOC industries to Apollo's structured taxonomy
-    // This prevents staffing companies from matching via keyword search
-    // NOW CONTEXT-AWARE: Determines exclusions based on course domain
+    // Map SOC industries to Apollo keyword search terms
+    // Combined with person_not_titles exclusions to filter out staffing companies
+    // CONTEXT-AWARE: Determines exclusions based on course domain
     const { includeIndustries, excludeIndustries, courseDomain } = mapSOCIndustriesToApollo(
       inferredIndustries,
       context.socMappings || []
@@ -482,14 +481,15 @@ Return JSON:
       }
     }
 
-    // Build intelligent filters using structured industry taxonomy
+    // Build intelligent filters using keyword-based industry search
+    // NOTE: organization_industry_tag_ids requires numeric IDs, but we have string names
+    // Using q_organization_keyword_tags instead for industry filtering
     const searchStrategy = getApolloSearchStrategy(includeIndustries.length);
     console.log(`  📊 Apollo Search Strategy: ${searchStrategy.toUpperCase()}`);
 
     const intelligentFilters: ApolloSearchFilters = {
       organization_locations: [apolloLocation],
-      organization_industry_tag_ids: includeIndustries, // STRUCTURED filtering (precise)
-      q_organization_keyword_tags: [], // Start empty, add only specific course keywords
+      q_organization_keyword_tags: [...includeIndustries], // Industry keywords for filtering
       q_organization_job_titles: uniqueJobTitles,
       person_not_titles: ['Recruiter', 'HR Manager', 'Talent Acquisition', 'Staffing'], // Exclude recruiters
       organization_num_employees_ranges: ['10,50', '51,200', '201,500'], // All sizes
@@ -510,7 +510,7 @@ Return JSON:
     }
 
     console.log(`  ✅ Generated intelligent filters:`);
-    console.log(`     Industry Tags: ${includeIndustries.slice(0, 5).join(', ')}${includeIndustries.length > 5 ? '...' : ''}`);
+    console.log(`     Industry Keywords: ${includeIndustries.slice(0, 5).join(', ')}${includeIndustries.length > 5 ? '...' : ''}`);
     console.log(`     Job Titles: ${uniqueJobTitles.length}`);
     console.log(`     Excluded Titles: ${intelligentFilters.person_not_titles?.join(', ')}`);
 
