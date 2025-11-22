@@ -534,9 +534,9 @@ serve(async (req) => {
           };
         }).sort((a, b) => b.similarityScore - a.similarityScore);
 
-        // CRITICAL FIX: Filter out companies with 0% or very low scores
-        // These are usually disqualified companies (e.g., staffing firms with 100% penalty)
-        const MINIMUM_FALLBACK_SCORE = 0.10; // 10% - companies must have SOME relevance
+        // RELAXED FIX: Filter out companies with 0% or very low scores
+        // Lowered threshold from 10% to 5% for better coverage with limited Apollo results
+        const MINIMUM_FALLBACK_SCORE = 0.05; // 5% - relaxed threshold (was 10%)
         const viableCompanies = allMatchesSorted.filter(m => m.similarityScore > MINIMUM_FALLBACK_SCORE);
 
         if (viableCompanies.length === 0) {
