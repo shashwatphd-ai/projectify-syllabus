@@ -11,9 +11,9 @@ interface ApolloSearchFilters {
   organization_locations: string[];
   q_organization_keyword_tags: string[]; // Industry keywords + course keywords + technologies
   person_not_titles?: string[]; // Exclude recruiters/HR
-  q_organization_job_titles: string[];
+  q_organization_job_titles?: string[]; // Optional - used for ranking, not filtering
   organization_num_employees_ranges?: string[];
-  organization_num_jobs_range?: { min?: number; max?: number };
+  organization_num_jobs_range?: { min?: number; max?: number }; // Not used in permissive strategy
   currently_using_any_of_technology_uids?: string[];
   revenue_range?: { min?: number; max?: number };
   latest_funding_date_range?: { min?: string; max?: string };
@@ -481,20 +481,25 @@ Return JSON:
       }
     }
 
-    // Build intelligent filters using keyword-based industry search
-    // NOTE: organization_industry_tag_ids requires numeric IDs, but we have string names
-    // Using q_organization_keyword_tags instead for industry filtering
+    // PERMISSIVE FILTER STRATEGY: Cast a wide net, then use semantic filtering to narrow down
+    // With 30,000+ companies in Apollo, we should START permissive and filter client-side
+    // rather than starting restrictive and getting 0 results
     const searchStrategy = getApolloSearchStrategy(includeIndustries.length);
     console.log(`  📊 Apollo Search Strategy: ${searchStrategy.toUpperCase()}`);
 
     const intelligentFilters: ApolloSearchFilters = {
       organization_locations: [apolloLocation],
       q_organization_keyword_tags: [...includeIndustries], // Industry keywords for filtering
-      q_organization_job_titles: uniqueJobTitles,
+      // NOTE: Job titles removed from mandatory filters - will use for ranking instead
+      // NOTE: Job posting requirement removed - most companies don't post all jobs publicly
+      // NOTE: Employee size expanded to include small startups and large enterprises
       person_not_titles: ['Recruiter', 'HR Manager', 'Talent Acquisition', 'Staffing'], // Exclude recruiters
-      organization_num_employees_ranges: ['10,50', '51,200', '201,500'], // All sizes
-      organization_num_jobs_range: { min: 1 } // Reduced from 3 to 1 for better coverage
+      organization_num_employees_ranges: ['1,10', '11,50', '51,200', '201,500', '501,1000', '1001,10000'] // All sizes
     };
+
+    // Store job titles for later ranking (not filtering)
+    const preferredJobTitles = uniqueJobTitles;
+    console.log(`  💼 Job titles for ranking (not filtering): ${preferredJobTitles.join(', ')}`);
 
     // HYBRID STRATEGY: Add course-specific keywords for diversity (not generic industries)
     // This ensures different courses (even with same occupation) get different companies
@@ -509,9 +514,10 @@ Return JSON:
       console.log(`  💻 Added ${Math.min(3, uniqueTechnologies.length)} technology keywords`);
     }
 
-    console.log(`  ✅ Generated intelligent filters:`);
+    console.log(`  ✅ Generated permissive filters (will rank/filter client-side):`);
     console.log(`     Industry Keywords: ${includeIndustries.slice(0, 5).join(', ')}${includeIndustries.length > 5 ? '...' : ''}`);
-    console.log(`     Job Titles: ${uniqueJobTitles.length}`);
+    console.log(`     Employee Ranges: All sizes (1-10,000+)`);
+    console.log(`     Job Posting Requirement: NONE (removed for better coverage)`);
     console.log(`     Excluded Titles: ${intelligentFilters.person_not_titles?.join(', ')}`);
 
     return {
@@ -607,72 +613,51 @@ Return JSON:
     pageOffset: number = 1
   ): Promise<ApolloOrganization[]> {
     const originalLocation = filters.organization_locations[0];
-    const originalJobTitles = filters.q_organization_job_titles;
-    const originalMinJobs = filters.organization_num_jobs_range?.min;
 
-    console.log(`  🔍 Searching Apollo for ${maxResults} organizations (Page ${pageOffset})...`);
-    console.log(`  📋 Initial filters: Location="${originalLocation}", Job titles=${originalJobTitles?.length || 0}, Min jobs=${originalMinJobs || 'none'}`);
+    console.log(`\n  🔍 Searching Apollo with PERMISSIVE filters (Page ${pageOffset})...`);
+    console.log(`  📋 Filter configuration:`);
+    console.log(`     Location: "${originalLocation}"`);
+    console.log(`     Industry keywords: ${filters.q_organization_keyword_tags.slice(0, 5).join(', ')}${filters.q_organization_keyword_tags.length > 5 ? '...' : ''}`);
+    console.log(`     Employee ranges: ${filters.organization_num_employees_ranges?.join(', ') || 'ALL'}`);
+    console.log(`     Job posting requirement: NONE`);
+    console.log(`     Excluded titles: ${filters.person_not_titles?.join(', ') || 'none'}`);
 
-    // STRATEGY 1: Try with ALL filters + specific location
+    // Try with specific location first (e.g., "Kansas City, Missouri, United States")
     let organizations = await this.trySearch(filters, maxResults, pageOffset);
-    console.log(`  📊 Strategy 1 (All filters + specific location): ${organizations.length} results`);
+    const specificLocationResults = organizations.length;
+    console.log(`  📊 Results with specific location "${originalLocation}": ${specificLocationResults} companies`);
 
-    // STRATEGY 2: If no results, try broader geography with same filters
-    if (organizations.length === 0 && originalLocation.includes(',')) {
+    // If insufficient results, try broader geography
+    if (organizations.length < maxResults && originalLocation.includes(',')) {
       const locationParts = originalLocation.split(',').map(p => p.trim());
 
       // Try state + country (e.g., "Missouri, United States")
-      if (locationParts.length >= 3) {
+      if (locationParts.length >= 3 && organizations.length < maxResults) {
         const broaderLocation = locationParts.slice(-2).join(', ');
-        console.log(`  🔄 Strategy 2: Broader location "${broaderLocation}" with all filters`);
+        console.log(`  🔄 Expanding to broader location: "${broaderLocation}"`);
         filters.organization_locations = [broaderLocation];
         organizations = await this.trySearch(filters, maxResults, pageOffset);
-        console.log(`  📊 Strategy 2 result: ${organizations.length} results`);
+        console.log(`  📊 Results with state/country: ${organizations.length} companies`);
       }
 
-      // Try just country (e.g., "United States")
-      if (organizations.length === 0 && locationParts.length >= 2) {
+      // Try just country (e.g., "United States") - only if still insufficient
+      if (organizations.length < maxResults && locationParts.length >= 2) {
         const countryOnly = locationParts[locationParts.length - 1];
-        console.log(`  🔄 Strategy 3: Country-wide "${countryOnly}" with all filters`);
+        console.log(`  🔄 Expanding to country-wide: "${countryOnly}"`);
         filters.organization_locations = [countryOnly];
         organizations = await this.trySearch(filters, maxResults, pageOffset);
-        console.log(`  📊 Strategy 3 result: ${organizations.length} results`);
+        console.log(`  📊 Results country-wide: ${organizations.length} companies`);
       }
     }
 
-    // STRATEGY 4: If still no results, relax job-related filters (but keep location broad)
-    if (organizations.length === 0) {
-      console.log(`  🔄 Strategy 4: Relaxing job filters (remove job title requirement, reduce min jobs to 1)`);
-
-      // Remove job title requirement (many companies use different titles)
-      delete filters.q_organization_job_titles;
-
-      // Reduce minimum job postings to 1
-      if (filters.organization_num_jobs_range) {
-        filters.organization_num_jobs_range.min = 1;
-      }
-
-      organizations = await this.trySearch(filters, maxResults, pageOffset);
-      console.log(`  📊 Strategy 4 result: ${organizations.length} results`);
-    }
-
-    // STRATEGY 5: If STILL no results, remove job posting requirement entirely
-    if (organizations.length === 0) {
-      console.log(`  🔄 Strategy 5: Removing job posting requirement (allow companies not actively hiring)`);
-      delete filters.organization_num_jobs_range;
-      organizations = await this.trySearch(filters, maxResults, pageOffset);
-      console.log(`  📊 Strategy 5 result: ${organizations.length} results`);
-    }
-
-    // Restore original location for logging clarity
-    filters.organization_locations = [originalLocation];
-
-    console.log(`  ✓ Final result: Found ${organizations.length} organizations from page ${pageOffset}`);
+    console.log(`  ✅ Apollo search complete: ${organizations.length} companies found`);
+    console.log(`     Will apply semantic filtering + proximity sorting client-side\n`);
 
     if (organizations.length === 0) {
-      console.error(`  ❌ ZERO RESULTS after all fallback strategies`);
-      console.error(`     Original: location="${originalLocation}", job_titles=${originalJobTitles?.join(', ')}, min_jobs=${originalMinJobs}`);
-      console.error(`     Final keywords: ${filters.q_organization_keyword_tags.slice(0, 5).join(', ')}`);
+      console.error(`\n  ❌ ZERO RESULTS FROM APOLLO - This should be extremely rare!`);
+      console.error(`     Location: "${originalLocation}"`);
+      console.error(`     Keywords: ${filters.q_organization_keyword_tags.slice(0, 10).join(', ')}`);
+      console.error(`     This likely indicates an Apollo API issue or invalid API key.\n`);
     }
 
     return organizations;
