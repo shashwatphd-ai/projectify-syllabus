@@ -12,6 +12,122 @@ const corsHeaders = {
 };
 
 /**
+ * ERROR CLASSIFICATION MODEL
+ *
+ * Categorizes discovery errors by domain to enable targeted debugging and user-friendly messages
+ */
+type ErrorCategory = 'CONFIG_ERROR' | 'EXTERNAL_API_ERROR' | 'DATA_ERROR' | 'DB_ERROR' | 'UNKNOWN_ERROR';
+
+interface ClassifiedError {
+  category: ErrorCategory;
+  message: string;
+  details: {
+    source?: string;        // 'APOLLO_SEARCH' | 'AI_GATEWAY' | 'APOLLO_ENRICHMENT' | etc
+    status?: number;        // HTTP status code if applicable
+    table?: string;         // DB table if DB_ERROR
+    operation?: string;     // 'insert' | 'update' | 'select'
+    code?: string;          // Error code (Supabase error codes, etc)
+    phase?: string;         // Which phase failed: 'initialization' | 'search' | 'enrichment' | 'filtering' | 'storage'
+    rawError?: string;      // Sanitized raw error for debugging
+  };
+}
+
+/**
+ * Classify an unknown error into a structured category
+ */
+function classifyDiscoveryError(error: unknown, phase: string = 'unknown'): ClassifiedError {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const errorName = error instanceof Error ? error.name : 'UnknownError';
+
+  // CONFIG_ERROR: Missing API keys, provider not configured
+  if (errorMessage.includes('not configured') ||
+      errorMessage.includes('missing API key') ||
+      errorMessage.includes('APOLLO_API_KEY') ||
+      errorMessage.includes('LOVABLE_API_KEY')) {
+    return {
+      category: 'CONFIG_ERROR',
+      message: 'Service configuration error - missing required API credentials',
+      details: {
+        phase,
+        rawError: errorMessage.substring(0, 200)
+      }
+    };
+  }
+
+  // EXTERNAL_API_ERROR: Apollo or AI gateway failures
+  if (errorMessage.includes('Apollo search failed') ||
+      errorMessage.includes('Apollo enrichment failed') ||
+      errorMessage.includes('AI filter generation failed')) {
+
+    // Extract HTTP status if present (e.g., "Apollo search failed: 401")
+    const statusMatch = errorMessage.match(/failed:?\s*(\d{3})/);
+    const status = statusMatch ? parseInt(statusMatch[1]) : undefined;
+
+    let source = 'UNKNOWN_API';
+    if (errorMessage.includes('Apollo search')) source = 'APOLLO_SEARCH';
+    else if (errorMessage.includes('Apollo enrichment')) source = 'APOLLO_ENRICHMENT';
+    else if (errorMessage.includes('AI filter')) source = 'AI_GATEWAY';
+
+    return {
+      category: 'EXTERNAL_API_ERROR',
+      message: `External API failure: ${source}`,
+      details: {
+        source,
+        status,
+        phase,
+        rawError: errorMessage.substring(0, 200)
+      }
+    };
+  }
+
+  // DB_ERROR: Supabase database operation failures
+  if (errorMessage.includes('Database') ||
+      errorMessage.includes('insert failed') ||
+      errorMessage.includes('update failed') ||
+      (error as any)?.code?.startsWith('23')) {  // PostgreSQL constraint violations
+
+    const tableMatch = errorMessage.match(/table ['"]?(\w+)['"]?/i);
+    const operationMatch = errorMessage.match(/(insert|update|select|delete)/i);
+
+    return {
+      category: 'DB_ERROR',
+      message: 'Database operation failed',
+      details: {
+        table: tableMatch?.[1],
+        operation: operationMatch?.[1]?.toLowerCase(),
+        code: (error as any)?.code,
+        phase,
+        rawError: errorMessage.substring(0, 200)
+      }
+    };
+  }
+
+  // DATA_ERROR: No viable companies, semantic filtering rejected all
+  if (errorMessage.includes('No companies found') ||
+      errorMessage.includes('No viable companies') ||
+      errorMessage.includes('all companies filtered out')) {
+    return {
+      category: 'DATA_ERROR',
+      message: 'No suitable companies found for the given criteria',
+      details: {
+        phase,
+        rawError: errorMessage.substring(0, 200)
+      }
+    };
+  }
+
+  // UNKNOWN_ERROR: Everything else
+  return {
+    category: 'UNKNOWN_ERROR',
+    message: 'An unexpected error occurred during company discovery',
+    details: {
+      phase,
+      rawError: errorMessage.substring(0, 200)
+    }
+  };
+}
+
+/**
  * MODULAR DISCOVERY ARCHITECTURE
  * 
  * This edge function uses a plugin-based provider system:
@@ -666,16 +782,54 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('❌ Discovery error:', error);
-    // Return generic error message to prevent information leakage
+    // Enhanced logging for debugging
+    console.error('❌ DISCOVERY_PIPELINE_FAILED');
+    console.error('   Error type:', error?.constructor?.name);
+    console.error('   Error message:', error?.message?.substring(0, 300));
+    console.error('   Stack trace:', error?.stack?.substring(0, 500));
+
+    // Classify the error using our taxonomy
+    const classified = classifyDiscoveryError(error, 'discovery_pipeline');
+
+    console.error('❌ Discovery error (structured):', {
+      category: classified.category,
+      message: classified.message,
+      details: classified.details
+    });
+
+    // Persist error diagnostics to generation_runs (if generationRunId exists)
+    try {
+      if (typeof generationRunId !== 'undefined') {
+        await supabase
+          .from('generation_runs')
+          .update({
+            status: 'failed',
+            error_category: classified.category,
+            error_message: classified.message,
+            error_details: classified.details
+          })
+          .eq('id', generationRunId);
+      }
+    } catch (updateError) {
+      console.error('⚠️  Failed to update generation_run with error details:', updateError);
+    }
+
+    // Determine HTTP status based on error category
+    // DATA_ERROR returns 200 with success:false (business failure, not system failure)
+    // CONFIG_ERROR and UNKNOWN_ERROR return 500 (system failures)
+    // EXTERNAL_API_ERROR and DB_ERROR return 500 but with clear categorization
+    const httpStatus = (classified.category === 'DATA_ERROR') ? 200 : 500;
+
     return new Response(
       JSON.stringify({
         success: false,
-        error: 'Failed to discover companies. Please check your configuration and try again.'
+        error: classified.message,
+        category: classified.category,
+        details: classified.details
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
+        status: httpStatus
       }
     );
   }

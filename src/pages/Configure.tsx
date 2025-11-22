@@ -193,16 +193,68 @@ const Configure = () => {
           }
         });
 
+        // Handle HTTP 500 errors (system failures)
         if (discoveryError) {
-          console.error('Company discovery failed:', discoveryError);
-          toast.error("Company discovery failed. Please check configuration.", { duration: 5000 });
+          console.error('Company discovery failed (HTTP 500):', discoveryError);
+          toast.error("System error during company discovery. Please try again later or contact support.", { duration: 6000 });
           setLoading(false);
           return;
-        } else {
-          generationRunId = discoveryData?.generation_run_id;
-          console.log('✓ Company discovery complete. Generation run ID:', generationRunId);
-          toast.success(`Found ${discoveryData?.count || 0} partner companies!`, { duration: 2000 });
         }
+
+        // Handle HTTP 200 with success:false (business failures or classified errors)
+        if (discoveryData && !discoveryData.success) {
+          const category = discoveryData.category || 'UNKNOWN_ERROR';
+          const errorMessage = discoveryData.error || 'Discovery failed';
+          const details = discoveryData.details || {};
+
+          console.error('Company discovery failed (classified):', {
+            category,
+            message: errorMessage,
+            details
+          });
+
+          // Show user-friendly message based on error category
+          switch (category) {
+            case 'DATA_ERROR':
+              toast.error(
+                "No suitable companies found for this course and location. Try adjusting the location or number of teams.",
+                { duration: 6000 }
+              );
+              break;
+            case 'CONFIG_ERROR':
+              toast.error(
+                "Service configuration error. Please contact support - this is not a user error.",
+                { duration: 6000 }
+              );
+              break;
+            case 'EXTERNAL_API_ERROR':
+              const source = details.source || 'partner API';
+              toast.error(
+                `Our ${source} is temporarily unavailable. Please try again in a few minutes.`,
+                { duration: 6000 }
+              );
+              break;
+            case 'DB_ERROR':
+              toast.error(
+                "Database error occurred. Please try again or contact support if the issue persists.",
+                { duration: 6000 }
+              );
+              break;
+            default:
+              toast.error(
+                errorMessage || "Company discovery failed. Please try again or contact support.",
+                { duration: 6000 }
+              );
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // Success path
+        generationRunId = discoveryData?.generation_run_id;
+        console.log('✓ Company discovery complete. Generation run ID:', generationRunId);
+        toast.success(`Found ${discoveryData?.count || 0} partner companies!`, { duration: 2000 });
       }
 
       // Step 2: Generate projects using enriched company data
