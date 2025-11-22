@@ -587,6 +587,8 @@ export type Database = {
           completed_at: string | null
           course_id: string
           created_at: string
+          error_category: string | null
+          error_details: Json | null
           error_message: string | null
           extracted_skills: Json | null
           id: string
@@ -622,6 +624,8 @@ export type Database = {
           completed_at?: string | null
           course_id: string
           created_at?: string
+          error_category?: string | null
+          error_details?: Json | null
           error_message?: string | null
           extracted_skills?: Json | null
           id?: string
@@ -657,6 +661,8 @@ export type Database = {
           completed_at?: string | null
           course_id?: string
           created_at?: string
+          error_category?: string | null
+          error_details?: Json | null
           error_message?: string | null
           extracted_skills?: Json | null
           id?: string
