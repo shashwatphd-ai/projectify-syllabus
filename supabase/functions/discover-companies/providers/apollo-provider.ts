@@ -493,7 +493,7 @@ Return JSON:
       q_organization_job_titles: uniqueJobTitles,
       person_not_titles: ['Recruiter', 'HR Manager', 'Talent Acquisition', 'Staffing'], // Exclude recruiters
       organization_num_employees_ranges: ['10,50', '51,200', '201,500'], // All sizes
-      organization_num_jobs_range: { min: 3 }
+      organization_num_jobs_range: { min: 1 } // Reduced from 3 to 1 for better coverage
     };
 
     // HYBRID STRATEGY: Add course-specific keywords for diversity (not generic industries)
@@ -607,33 +607,74 @@ Return JSON:
     pageOffset: number = 1
   ): Promise<ApolloOrganization[]> {
     const originalLocation = filters.organization_locations[0];
+    const originalJobTitles = filters.q_organization_job_titles;
+    const originalMinJobs = filters.organization_num_jobs_range?.min;
+
     console.log(`  🔍 Searching Apollo for ${maxResults} organizations (Page ${pageOffset})...`);
+    console.log(`  📋 Initial filters: Location="${originalLocation}", Job titles=${originalJobTitles?.length || 0}, Min jobs=${originalMinJobs || 'none'}`);
 
-    // Try with original location first
+    // STRATEGY 1: Try with ALL filters + specific location
     let organizations = await this.trySearch(filters, maxResults, pageOffset);
+    console.log(`  📊 Strategy 1 (All filters + specific location): ${organizations.length} results`);
 
-    // If no results and location has multiple parts, try broader searches
+    // STRATEGY 2: If no results, try broader geography with same filters
     if (organizations.length === 0 && originalLocation.includes(',')) {
       const locationParts = originalLocation.split(',').map(p => p.trim());
 
-      // Try state + country (e.g., "Tamil Nadu, India")
+      // Try state + country (e.g., "Missouri, United States")
       if (locationParts.length >= 3) {
         const broaderLocation = locationParts.slice(-2).join(', ');
-        console.log(`  🔄 No results for "${originalLocation}", trying broader: "${broaderLocation}"`);
+        console.log(`  🔄 Strategy 2: Broader location "${broaderLocation}" with all filters`);
         filters.organization_locations = [broaderLocation];
         organizations = await this.trySearch(filters, maxResults, pageOffset);
+        console.log(`  📊 Strategy 2 result: ${organizations.length} results`);
       }
 
-      // Try just country (e.g., "India")
+      // Try just country (e.g., "United States")
       if (organizations.length === 0 && locationParts.length >= 2) {
         const countryOnly = locationParts[locationParts.length - 1];
-        console.log(`  🔄 Still no results, trying country-wide: "${countryOnly}"`);
+        console.log(`  🔄 Strategy 3: Country-wide "${countryOnly}" with all filters`);
         filters.organization_locations = [countryOnly];
         organizations = await this.trySearch(filters, maxResults, pageOffset);
+        console.log(`  📊 Strategy 3 result: ${organizations.length} results`);
       }
     }
 
-    console.log(`  ✓ Found ${organizations.length} organizations from page ${pageOffset}`);
+    // STRATEGY 4: If still no results, relax job-related filters (but keep location broad)
+    if (organizations.length === 0) {
+      console.log(`  🔄 Strategy 4: Relaxing job filters (remove job title requirement, reduce min jobs to 1)`);
+
+      // Remove job title requirement (many companies use different titles)
+      delete filters.q_organization_job_titles;
+
+      // Reduce minimum job postings to 1
+      if (filters.organization_num_jobs_range) {
+        filters.organization_num_jobs_range.min = 1;
+      }
+
+      organizations = await this.trySearch(filters, maxResults, pageOffset);
+      console.log(`  📊 Strategy 4 result: ${organizations.length} results`);
+    }
+
+    // STRATEGY 5: If STILL no results, remove job posting requirement entirely
+    if (organizations.length === 0) {
+      console.log(`  🔄 Strategy 5: Removing job posting requirement (allow companies not actively hiring)`);
+      delete filters.organization_num_jobs_range;
+      organizations = await this.trySearch(filters, maxResults, pageOffset);
+      console.log(`  📊 Strategy 5 result: ${organizations.length} results`);
+    }
+
+    // Restore original location for logging clarity
+    filters.organization_locations = [originalLocation];
+
+    console.log(`  ✓ Final result: Found ${organizations.length} organizations from page ${pageOffset}`);
+
+    if (organizations.length === 0) {
+      console.error(`  ❌ ZERO RESULTS after all fallback strategies`);
+      console.error(`     Original: location="${originalLocation}", job_titles=${originalJobTitles?.join(', ')}, min_jobs=${originalMinJobs}`);
+      console.error(`     Final keywords: ${filters.q_organization_keyword_tags.slice(0, 5).join(', ')}`);
+    }
+
     return organizations;
   }
 
