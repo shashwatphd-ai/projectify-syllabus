@@ -10,7 +10,6 @@ import { calculateDistanceBetweenLocations, formatDistance } from '../../_shared
 interface ApolloSearchFilters {
   organization_locations: string[];
   q_organization_keyword_tags: string[];
-  organization_industry_tag_ids?: string[]; // ADDED: Structured industry filtering (precise)
   person_not_titles?: string[]; // ADDED: Exclude recruiters/HR
   q_organization_job_titles: string[];
   organization_num_employees_ranges?: string[];
@@ -482,21 +481,20 @@ Return JSON:
       }
     }
 
-    // Build intelligent filters using structured industry taxonomy
+    // Build intelligent filters using industry keyword filtering
     const searchStrategy = getApolloSearchStrategy(includeIndustries.length);
     console.log(`  📊 Apollo Search Strategy: ${searchStrategy.toUpperCase()}`);
 
     const intelligentFilters: ApolloSearchFilters = {
       organization_locations: [apolloLocation],
-      organization_industry_tag_ids: includeIndustries, // STRUCTURED filtering (precise)
-      q_organization_keyword_tags: [], // Start empty, add only specific course keywords
+      q_organization_keyword_tags: [...includeIndustries], // Use keyword search for industries
       q_organization_job_titles: uniqueJobTitles,
       person_not_titles: ['Recruiter', 'HR Manager', 'Talent Acquisition', 'Staffing'], // Exclude recruiters
       organization_num_employees_ranges: ['10,50', '51,200', '201,500'], // All sizes
       organization_num_jobs_range: { min: 3 }
     };
 
-    // HYBRID STRATEGY: Add course-specific keywords for diversity (not generic industries)
+    // HYBRID STRATEGY: Add course-specific keywords for diversity (already included in q_organization_keyword_tags)
     // This ensures different courses (even with same occupation) get different companies
     if (courseKeywords.length > 0) {
       intelligentFilters.q_organization_keyword_tags.push(...courseKeywords);
@@ -510,7 +508,7 @@ Return JSON:
     }
 
     console.log(`  ✅ Generated intelligent filters:`);
-    console.log(`     Industry Tags: ${includeIndustries.slice(0, 5).join(', ')}${includeIndustries.length > 5 ? '...' : ''}`);
+    console.log(`     Industry Keywords: ${includeIndustries.slice(0, 5).join(', ')}${includeIndustries.length > 5 ? '...' : ''}`);
     console.log(`     Job Titles: ${uniqueJobTitles.length}`);
     console.log(`     Excluded Titles: ${intelligentFilters.person_not_titles?.join(', ')}`);
 
