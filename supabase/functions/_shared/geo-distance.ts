@@ -18,13 +18,12 @@ export interface LocationParseResult {
 }
 
 /**
- * Known city coordinates for common locations worldwide
+ * Known city coordinates for common US cities and states
  * Used as fallback when geocoding API is unavailable
- * Prioritizes: University cities, major metros, tech hubs, business centers
  */
 const KNOWN_LOCATIONS: Record<string, GeoCoordinates> = {
   // ========================================
-  // US - Major Cities
+  // UNITED STATES - Major Cities
   // ========================================
   'boston, massachusetts': { latitude: 42.3601, longitude: -71.0589 },
   'cambridge, massachusetts': { latitude: 42.3736, longitude: -71.1097 },
@@ -60,7 +59,7 @@ const KNOWN_LOCATIONS: Record<string, GeoCoordinates> = {
   'salt lake city, utah': { latitude: 40.7608, longitude: -111.8910 },
 
   // ========================================
-  // US - University Cities & College Towns
+  // UNITED STATES - University Cities
   // ========================================
   'ann arbor, michigan': { latitude: 42.2808, longitude: -83.7430 },
   'berkeley, california': { latitude: 37.8715, longitude: -122.2730 },
@@ -76,16 +75,15 @@ const KNOWN_LOCATIONS: Record<string, GeoCoordinates> = {
   'bloomington, indiana': { latitude: 39.1653, longitude: -86.5264 },
   'college station, texas': { latitude: 30.6280, longitude: -96.3344 },
   'charlottesville, virginia': { latitude: 38.0293, longitude: -78.4767 },
+  'madison, wisconsin': { latitude: 43.0731, longitude: -89.4012 },
   'urbana, illinois': { latitude: 40.1106, longitude: -88.2073 },
   'champaign, illinois': { latitude: 40.1164, longitude: -88.2434 },
-  'madison, wisconsin': { latitude: 43.0731, longitude: -89.4012 },
-  'west lafayette, indiana': { latitude: 40.4259, longitude: -86.9081 },
   'state college, pennsylvania': { latitude: 40.7934, longitude: -77.8600 },
-  'gainesville, florida': { latitude: 29.6516, longitude: -82.3248 },
-  'tallahassee, florida': { latitude: 30.4383, longitude: -84.2807 },
+  'boulder, colorado': { latitude: 40.0150, longitude: -105.2705 },
+  'tucson, arizona': { latitude: 32.2226, longitude: -110.9747 },
 
   // ========================================
-  // US - Tech Hubs & Business Centers
+  // UNITED STATES - Tech Hubs
   // ========================================
   'san jose, california': { latitude: 37.3382, longitude: -121.8863 },
   'mountain view, california': { latitude: 37.3861, longitude: -122.0839 },
@@ -100,218 +98,51 @@ const KNOWN_LOCATIONS: Record<string, GeoCoordinates> = {
   'irvine, california': { latitude: 33.6846, longitude: -117.8265 },
 
   // ========================================
-  // US - Additional Metro Areas
+  // UNITED STATES - Additional Metro Areas
   // ========================================
   'st. louis, missouri': { latitude: 38.6270, longitude: -90.1994 },
   'omaha, nebraska': { latitude: 41.2565, longitude: -95.9345 },
   'buffalo, new york': { latitude: 42.8864, longitude: -78.8784 },
   'rochester, new york': { latitude: 43.1566, longitude: -77.6088 },
   'syracuse, new york': { latitude: 43.0481, longitude: -76.1474 },
-  'albany, new york': { latitude: 42.6526, longitude: -73.7562 },
   'louisville, kentucky': { latitude: 38.2527, longitude: -85.7585 },
   'memphis, tennessee': { latitude: 35.1495, longitude: -90.0490 },
   'new orleans, louisiana': { latitude: 29.9511, longitude: -90.0715 },
-  'baton rouge, louisiana': { latitude: 30.4515, longitude: -91.1871 },
   'oklahoma city, oklahoma': { latitude: 35.4676, longitude: -97.5164 },
-  'tulsa, oklahoma': { latitude: 36.1539, longitude: -95.9928 },
+  'tulsa, oklahoma': { latitude: 36.1540, longitude: -95.9928 },
   'albuquerque, new mexico': { latitude: 35.0844, longitude: -106.6504 },
-  'tucson, arizona': { latitude: 32.2226, longitude: -110.9747 },
   'las vegas, nevada': { latitude: 36.1699, longitude: -115.1398 },
-  'reno, nevada': { latitude: 39.5296, longitude: -119.8138 },
-  'boise, idaho': { latitude: 43.6150, longitude: -116.2023 },
   'sacramento, california': { latitude: 38.5816, longitude: -121.4944 },
-  'fresno, california': { latitude: 36.7378, longitude: -119.7871 },
-  'oakland, california': { latitude: 37.8044, longitude: -122.2712 },
-  'riverside, california': { latitude: 33.9533, longitude: -117.3962 },
   'tampa, florida': { latitude: 27.9506, longitude: -82.4572 },
   'orlando, florida': { latitude: 28.5383, longitude: -81.3792 },
   'jacksonville, florida': { latitude: 30.3322, longitude: -81.6557 },
-  'fort lauderdale, florida': { latitude: 26.1224, longitude: -80.1373 },
+  'cincinnati, ohio': { latitude: 39.1031, longitude: -84.5120 },
+  'richmond, virginia': { latitude: 37.5407, longitude: -77.4360 },
+  'norfolk, virginia': { latitude: 36.8508, longitude: -76.2859 },
+  'greensboro, north carolina': { latitude: 36.0726, longitude: -79.7920 },
 
   // ========================================
-  // INTERNATIONAL - Canada
+  // UNITED STATES - State Abbreviations
   // ========================================
-  'toronto, ontario': { latitude: 43.6532, longitude: -79.3832 },
-  'toronto, canada': { latitude: 43.6532, longitude: -79.3832 },
-  'vancouver, british columbia': { latitude: 49.2827, longitude: -123.1207 },
-  'vancouver, canada': { latitude: 49.2827, longitude: -123.1207 },
-  'montreal, quebec': { latitude: 45.5017, longitude: -73.5673 },
-  'montreal, canada': { latitude: 45.5017, longitude: -73.5673 },
-  'ottawa, ontario': { latitude: 45.4215, longitude: -75.6972 },
-  'ottawa, canada': { latitude: 45.4215, longitude: -75.6972 },
-  'calgary, alberta': { latitude: 51.0447, longitude: -114.0719 },
-  'calgary, canada': { latitude: 51.0447, longitude: -114.0719 },
-  'edmonton, alberta': { latitude: 53.5461, longitude: -113.4938 },
-  'waterloo, ontario': { latitude: 43.4643, longitude: -80.5204 },
+  'boston, ma': { latitude: 42.3601, longitude: -71.0589 },
+  'new york, ny': { latitude: 40.7128, longitude: -74.0060 },
+  'san francisco, ca': { latitude: 37.7749, longitude: -122.4194 },
+  'los angeles, ca': { latitude: 34.0522, longitude: -118.2437 },
+  'chicago, il': { latitude: 41.8781, longitude: -87.6298 },
+  'seattle, wa': { latitude: 47.6062, longitude: -122.3321 },
+  'kansas city, mo': { latitude: 39.0997, longitude: -94.5786 },
+  'kansas city, ks': { latitude: 39.1142, longitude: -94.6275 },
+  'arlington, va': { latitude: 38.8816, longitude: -77.0910 },
+  'new haven, ct': { latitude: 41.3083, longitude: -72.9279 },
+  'princeton, nj': { latitude: 40.3573, longitude: -74.6672 },
+  'providence, ri': { latitude: 41.8240, longitude: -71.4128 },
+  'louisville, ky': { latitude: 38.2527, longitude: -85.7585 },
+  'new orleans, la': { latitude: 29.9511, longitude: -90.0715 },
+  'oklahoma city, ok': { latitude: 35.4676, longitude: -97.5164 },
+  'albuquerque, nm': { latitude: 35.0844, longitude: -106.6504 },
 
   // ========================================
-  // INTERNATIONAL - United Kingdom
-  // ========================================
-  'london, england': { latitude: 51.5074, longitude: -0.1278 },
-  'london, united kingdom': { latitude: 51.5074, longitude: -0.1278 },
-  'london, uk': { latitude: 51.5074, longitude: -0.1278 },
-  'cambridge, england': { latitude: 52.2053, longitude: 0.1218 },
-  'cambridge, united kingdom': { latitude: 52.2053, longitude: 0.1218 },
-  'oxford, england': { latitude: 51.7520, longitude: -1.2577 },
-  'oxford, united kingdom': { latitude: 51.7520, longitude: -1.2577 },
-  'manchester, england': { latitude: 53.4808, longitude: -2.2426 },
-  'manchester, united kingdom': { latitude: 53.4808, longitude: -2.2426 },
-  'edinburgh, scotland': { latitude: 55.9533, longitude: -3.1883 },
-  'edinburgh, united kingdom': { latitude: 55.9533, longitude: -3.1883 },
-  'glasgow, scotland': { latitude: 55.8642, longitude: -4.2518 },
-  'birmingham, england': { latitude: 52.4862, longitude: -1.8904 },
-  'bristol, england': { latitude: 51.4545, longitude: -2.5879 },
-
-  // ========================================
-  // INTERNATIONAL - Australia
-  // ========================================
-  'sydney, australia': { latitude: -33.8688, longitude: 151.2093 },
-  'sydney, new south wales': { latitude: -33.8688, longitude: 151.2093 },
-  'melbourne, australia': { latitude: -37.8136, longitude: 144.9631 },
-  'melbourne, victoria': { latitude: -37.8136, longitude: 144.9631 },
-  'brisbane, australia': { latitude: -27.4698, longitude: 153.0251 },
-  'brisbane, queensland': { latitude: -27.4698, longitude: 153.0251 },
-  'perth, australia': { latitude: -31.9505, longitude: 115.8605 },
-  'perth, western australia': { latitude: -31.9505, longitude: 115.8605 },
-  'adelaide, australia': { latitude: -34.9285, longitude: 138.6007 },
-  'canberra, australia': { latitude: -35.2809, longitude: 149.1300 },
-
-  // ========================================
-  // INTERNATIONAL - India
-  // ========================================
-  'bangalore, india': { latitude: 12.9716, longitude: 77.5946 },
-  'bengaluru, india': { latitude: 12.9716, longitude: 77.5946 },
-  'mumbai, india': { latitude: 19.0760, longitude: 72.8777 },
-  'delhi, india': { latitude: 28.7041, longitude: 77.1025 },
-  'new delhi, india': { latitude: 28.6139, longitude: 77.2090 },
-  'hyderabad, india': { latitude: 17.3850, longitude: 78.4867 },
-  'chennai, india': { latitude: 13.0827, longitude: 80.2707 },
-  'pune, india': { latitude: 18.5204, longitude: 73.8567 },
-  'kolkata, india': { latitude: 22.5726, longitude: 88.3639 },
-  'ahmedabad, india': { latitude: 23.0225, longitude: 72.5714 },
-
-  // ========================================
-  // INTERNATIONAL - Other Major Cities
-  // ========================================
-  'singapore': { latitude: 1.3521, longitude: 103.8198 },
-  'singapore, singapore': { latitude: 1.3521, longitude: 103.8198 },
-  'dublin, ireland': { latitude: 53.3498, longitude: -6.2603 },
-  'amsterdam, netherlands': { latitude: 52.3676, longitude: 4.9041 },
-  'berlin, germany': { latitude: 52.5200, longitude: 13.4050 },
-  'munich, germany': { latitude: 48.1351, longitude: 11.5820 },
-  'paris, france': { latitude: 48.8566, longitude: 2.3522 },
-  'zurich, switzerland': { latitude: 47.3769, longitude: 8.5417 },
-  'stockholm, sweden': { latitude: 59.3293, longitude: 18.0686 },
-  'copenhagen, denmark': { latitude: 55.6761, longitude: 12.5683 },
-  'oslo, norway': { latitude: 59.9139, longitude: 10.7522 },
-  'helsinki, finland': { latitude: 60.1699, longitude: 24.9384 },
-  'tokyo, japan': { latitude: 35.6762, longitude: 139.6503 },
-  'seoul, south korea': { latitude: 37.5665, longitude: 126.9780 },
-  'shanghai, china': { latitude: 31.2304, longitude: 121.4737 },
-  'beijing, china': { latitude: 39.9042, longitude: 116.4074 },
-  'hong kong': { latitude: 22.3193, longitude: 114.1694 },
-  'dubai, united arab emirates': { latitude: 25.2048, longitude: 55.2708 },
-  'tel aviv, israel': { latitude: 32.0853, longitude: 34.7818 },
-  'mexico city, mexico': { latitude: 19.4326, longitude: -99.1332 },
-  'buenos aires, argentina': { latitude: -34.6037, longitude: -58.3816 },
-  'sao paulo, brazil': { latitude: -23.5505, longitude: -46.6333 },
-
-  // ========================================
-  // INTERNATIONAL - Africa
-  // ========================================
-  'cairo, egypt': { latitude: 30.0444, longitude: 31.2357 },
-  'lagos, nigeria': { latitude: 6.5244, longitude: 3.3792 },
-  'johannesburg, south africa': { latitude: -26.2041, longitude: 28.0473 },
-  'cape town, south africa': { latitude: -33.9249, longitude: 18.4241 },
-  'nairobi, kenya': { latitude: -1.2864, longitude: 36.8172 },
-  'accra, ghana': { latitude: 5.6037, longitude: -0.1870 },
-  'addis ababa, ethiopia': { latitude: 9.0320, longitude: 38.7469 },
-  'casablanca, morocco': { latitude: 33.5731, longitude: -7.5898 },
-  'tunis, tunisia': { latitude: 36.8065, longitude: 10.1815 },
-  'algiers, algeria': { latitude: 36.7538, longitude: 3.0588 },
-  'dar es salaam, tanzania': { latitude: -6.7924, longitude: 39.2083 },
-  'kampala, uganda': { latitude: 0.3476, longitude: 32.5825 },
-  'khartoum, sudan': { latitude: 15.5007, longitude: 32.5599 },
-  'lusaka, zambia': { latitude: -15.3875, longitude: 28.3228 },
-  'harare, zimbabwe': { latitude: -17.8252, longitude: 31.0335 },
-
-  // ========================================
-  // INTERNATIONAL - Middle East (Expanded)
-  // ========================================
-  'dubai, uae': { latitude: 25.2048, longitude: 55.2708 },
-  'abu dhabi, united arab emirates': { latitude: 24.4539, longitude: 54.3773 },
-  'abu dhabi, uae': { latitude: 24.4539, longitude: 54.3773 },
-  'doha, qatar': { latitude: 25.2854, longitude: 51.5310 },
-  'riyadh, saudi arabia': { latitude: 24.7136, longitude: 46.6753 },
-  'jeddah, saudi arabia': { latitude: 21.4858, longitude: 39.1925 },
-  'jerusalem, israel': { latitude: 31.7683, longitude: 35.2137 },
-  'amman, jordan': { latitude: 31.9454, longitude: 35.9284 },
-  'beirut, lebanon': { latitude: 33.8886, longitude: 35.4955 },
-  'istanbul, turkey': { latitude: 41.0082, longitude: 28.9784 },
-  'ankara, turkey': { latitude: 39.9334, longitude: 32.8597 },
-  'kuwait city, kuwait': { latitude: 29.3759, longitude: 47.9774 },
-  'muscat, oman': { latitude: 23.5880, longitude: 58.3829 },
-  'manama, bahrain': { latitude: 26.0667, longitude: 50.5577 },
-
-  // ========================================
-  // INTERNATIONAL - Latin America (Expanded)
-  // ========================================
-  'rio de janeiro, brazil': { latitude: -22.9068, longitude: -43.1729 },
-  'brasilia, brazil': { latitude: -15.8267, longitude: -47.9218 },
-  'santiago, chile': { latitude: -33.4489, longitude: -70.6693 },
-  'bogota, colombia': { latitude: 4.7110, longitude: -74.0721 },
-  'lima, peru': { latitude: -12.0464, longitude: -77.0428 },
-  'quito, ecuador': { latitude: -0.1807, longitude: -78.4678 },
-  'caracas, venezuela': { latitude: 10.4806, longitude: -66.9036 },
-  'panama city, panama': { latitude: 8.9824, longitude: -79.5199 },
-  'san jose, costa rica': { latitude: 9.9281, longitude: -84.0907 },
-  'guatemala city, guatemala': { latitude: 14.6349, longitude: -90.5069 },
-  'havana, cuba': { latitude: 23.1136, longitude: -82.3666 },
-  'santo domingo, dominican republic': { latitude: 18.4861, longitude: -69.9312 },
-  'san juan, puerto rico': { latitude: 18.4655, longitude: -66.1057 },
-  'montevideo, uruguay': { latitude: -34.9011, longitude: -56.1645 },
-  'la paz, bolivia': { latitude: -16.5000, longitude: -68.1500 },
-  'asuncion, paraguay': { latitude: -25.2637, longitude: -57.5759 },
-
-  // ========================================
-  // INTERNATIONAL - Southeast Asia & Pacific
-  // ========================================
-  'bangkok, thailand': { latitude: 13.7563, longitude: 100.5018 },
-  'kuala lumpur, malaysia': { latitude: 3.1390, longitude: 101.6869 },
-  'jakarta, indonesia': { latitude: -6.2088, longitude: 106.8456 },
-  'manila, philippines': { latitude: 14.5995, longitude: 120.9842 },
-  'ho chi minh city, vietnam': { latitude: 10.8231, longitude: 106.6297 },
-  'hanoi, vietnam': { latitude: 21.0285, longitude: 105.8542 },
-  'phnom penh, cambodia': { latitude: 11.5564, longitude: 104.9282 },
-  'yangon, myanmar': { latitude: 16.8661, longitude: 96.1951 },
-  'dhaka, bangladesh': { latitude: 23.8103, longitude: 90.4125 },
-  'colombo, sri lanka': { latitude: 6.9271, longitude: 79.8612 },
-  'kathmandu, nepal': { latitude: 27.7172, longitude: 85.3240 },
-  'wellington, new zealand': { latitude: -41.2865, longitude: 174.7762 },
-  'auckland, new zealand': { latitude: -36.8485, longitude: 174.7633 },
-
-  // ========================================
-  // INTERNATIONAL - Eastern Europe & Central Asia
-  // ========================================
-  'moscow, russia': { latitude: 55.7558, longitude: 37.6173 },
-  'saint petersburg, russia': { latitude: 59.9311, longitude: 30.3609 },
-  'warsaw, poland': { latitude: 52.2297, longitude: 21.0122 },
-  'prague, czech republic': { latitude: 50.0755, longitude: 14.4378 },
-  'budapest, hungary': { latitude: 47.4979, longitude: 19.0402 },
-  'bucharest, romania': { latitude: 44.4268, longitude: 26.1025 },
-  'vienna, austria': { latitude: 48.2082, longitude: 16.3738 },
-  'athens, greece': { latitude: 37.9838, longitude: 23.7275 },
-  'sofia, bulgaria': { latitude: 42.6977, longitude: 23.3219 },
-  'bratislava, slovakia': { latitude: 48.1486, longitude: 17.1077 },
-  'tallinn, estonia': { latitude: 59.4370, longitude: 24.7536 },
-  'riga, latvia': { latitude: 56.9496, longitude: 24.1052 },
-  'vilnius, lithuania': { latitude: 54.6872, longitude: 25.2797 },
-  'kiev, ukraine': { latitude: 50.4501, longitude: 30.5234 },
-  'almaty, kazakhstan': { latitude: 43.2220, longitude: 76.8512 },
-  'tashkent, uzbekistan': { latitude: 41.2995, longitude: 69.2401 },
-
-  // ========================================
-  // US State-Level Fallbacks (Geographic Center)
+  // UNITED STATES - State-Level Fallbacks
   // ========================================
   'massachusetts': { latitude: 42.4072, longitude: -71.3824 },
   'california': { latitude: 36.7783, longitude: -119.4179 },
@@ -343,39 +174,219 @@ const KNOWN_LOCATIONS: Record<string, GeoCoordinates> = {
   'rhode island': { latitude: 41.5801, longitude: -71.4774 },
   'kentucky': { latitude: 37.8393, longitude: -84.2700 },
   'louisiana': { latitude: 30.9843, longitude: -91.9623 },
-  'oklahoma': { latitude: 35.0078, longitude: -97.0929 },
+  'oklahoma': { latitude: 35.4676, longitude: -97.5164 },
   'new mexico': { latitude: 34.5199, longitude: -105.8701 },
   'idaho': { latitude: 44.0682, longitude: -114.7420 },
   'nebraska': { latitude: 41.4925, longitude: -99.9018 },
   'alabama': { latitude: 32.3182, longitude: -86.9023 },
   'south carolina': { latitude: 33.8361, longitude: -81.1637 },
+  'iowa': { latitude: 41.8780, longitude: -93.0977 },
+  'maine': { latitude: 45.2538, longitude: -69.4455 },
+  'vermont': { latitude: 44.5588, longitude: -72.5778 },
+  'new hampshire': { latitude: 43.1939, longitude: -71.5724 },
+  'delaware': { latitude: 38.9108, longitude: -75.5277 },
+  'west virginia': { latitude: 38.5976, longitude: -80.4549 },
+  'arkansas': { latitude: 35.2010, longitude: -91.8318 },
+  'mississippi': { latitude: 32.3547, longitude: -89.3985 },
+  'montana': { latitude: 46.8797, longitude: -110.3626 },
+  'wyoming': { latitude: 43.0760, longitude: -107.2903 },
+  'south dakota': { latitude: 43.9695, longitude: -99.9018 },
+  'north dakota': { latitude: 47.5515, longitude: -101.0020 },
+  'alaska': { latitude: 64.2008, longitude: -149.4937 },
+  'hawaii': { latitude: 19.8968, longitude: -155.5828 },
 
   // ========================================
-  // Common Abbreviations (US)
+  // CANADA
   // ========================================
-  'boston, ma': { latitude: 42.3601, longitude: -71.0589 },
-  'new york, ny': { latitude: 40.7128, longitude: -74.0060 },
-  'san francisco, ca': { latitude: 37.7749, longitude: -122.4194 },
-  'los angeles, ca': { latitude: 34.0522, longitude: -118.2437 },
-  'chicago, il': { latitude: 41.8781, longitude: -87.6298 },
-  'seattle, wa': { latitude: 47.6062, longitude: -122.3321 },
-  'austin, tx': { latitude: 30.2672, longitude: -97.7431 },
-  'denver, co': { latitude: 39.7392, longitude: -104.9903 },
-  'miami, fl': { latitude: 25.7617, longitude: -80.1918 },
-  'atlanta, ga': { latitude: 33.7490, longitude: -84.3880 },
-  'philadelphia, pa': { latitude: 39.9526, longitude: -75.1652 },
-  'kansas city, mo': { latitude: 39.0997, longitude: -94.5786 },
-  'columbus, oh': { latitude: 39.9612, longitude: -82.9988 },
+  'toronto, canada': { latitude: 43.6532, longitude: -79.3832 },
+  'toronto, ontario': { latitude: 43.6532, longitude: -79.3832 },
+  'vancouver, canada': { latitude: 49.2827, longitude: -123.1207 },
+  'vancouver, british columbia': { latitude: 49.2827, longitude: -123.1207 },
+  'montreal, canada': { latitude: 45.5017, longitude: -73.5673 },
+  'montreal, quebec': { latitude: 45.5017, longitude: -73.5673 },
+  'ottawa, canada': { latitude: 45.4215, longitude: -75.6972 },
+  'calgary, canada': { latitude: 51.0447, longitude: -114.0719 },
+  'edmonton, canada': { latitude: 53.5461, longitude: -113.4938 },
+  'waterloo, canada': { latitude: 43.4643, longitude: -80.5204 },
+  'waterloo, ontario': { latitude: 43.4643, longitude: -80.5204 },
 
   // ========================================
-  // Country-Level Fallbacks
+  // UNITED KINGDOM
+  // ========================================
+  'london, united kingdom': { latitude: 51.5074, longitude: -0.1278 },
+  'london, uk': { latitude: 51.5074, longitude: -0.1278 },
+  'london, england': { latitude: 51.5074, longitude: -0.1278 },
+  'cambridge, united kingdom': { latitude: 52.2053, longitude: 0.1218 },
+  'oxford, united kingdom': { latitude: 51.7520, longitude: -1.2577 },
+  'manchester, united kingdom': { latitude: 53.4808, longitude: -2.2426 },
+  'edinburgh, united kingdom': { latitude: 55.9533, longitude: -3.1883 },
+  'glasgow, united kingdom': { latitude: 55.8642, longitude: -4.2518 },
+  'birmingham, united kingdom': { latitude: 52.4862, longitude: -1.8904 },
+  'bristol, united kingdom': { latitude: 51.4545, longitude: -2.5879 },
+
+  // ========================================
+  // AUSTRALIA
+  // ========================================
+  'sydney, australia': { latitude: -33.8688, longitude: 151.2093 },
+  'melbourne, australia': { latitude: -37.8136, longitude: 144.9631 },
+  'brisbane, australia': { latitude: -27.4698, longitude: 153.0251 },
+  'perth, australia': { latitude: -31.9505, longitude: 115.8605 },
+  'adelaide, australia': { latitude: -34.9285, longitude: 138.6007 },
+  'canberra, australia': { latitude: -35.2809, longitude: 149.1300 },
+
+  // ========================================
+  // INDIA
+  // ========================================
+  'bangalore, india': { latitude: 12.9716, longitude: 77.5946 },
+  'bengaluru, india': { latitude: 12.9716, longitude: 77.5946 },
+  'mumbai, india': { latitude: 19.0760, longitude: 72.8777 },
+  'delhi, india': { latitude: 28.7041, longitude: 77.1025 },
+  'new delhi, india': { latitude: 28.6139, longitude: 77.2090 },
+  'hyderabad, india': { latitude: 17.3850, longitude: 78.4867 },
+  'chennai, india': { latitude: 13.0827, longitude: 80.2707 },
+  'pune, india': { latitude: 18.5204, longitude: 73.8567 },
+  'kolkata, india': { latitude: 22.5726, longitude: 88.3639 },
+  'ahmedabad, india': { latitude: 23.0225, longitude: 72.5714 },
+  'gurgaon, india': { latitude: 28.4595, longitude: 77.0266 },
+  'noida, india': { latitude: 28.5355, longitude: 77.3910 },
+
+  // ========================================
+  // AFRICA
+  // ========================================
+  'cairo, egypt': { latitude: 30.0444, longitude: 31.2357 },
+  'lagos, nigeria': { latitude: 6.5244, longitude: 3.3792 },
+  'johannesburg, south africa': { latitude: -26.2041, longitude: 28.0473 },
+  'cape town, south africa': { latitude: -33.9249, longitude: 18.4241 },
+  'nairobi, kenya': { latitude: -1.2864, longitude: 36.8172 },
+  'accra, ghana': { latitude: 5.6037, longitude: -0.1870 },
+  'addis ababa, ethiopia': { latitude: 9.0320, longitude: 38.7469 },
+  'casablanca, morocco': { latitude: 33.5731, longitude: -7.5898 },
+  'tunis, tunisia': { latitude: 36.8065, longitude: 10.1815 },
+  'algiers, algeria': { latitude: 36.7538, longitude: 3.0588 },
+  'dar es salaam, tanzania': { latitude: -6.7924, longitude: 39.2083 },
+  'kampala, uganda': { latitude: 0.3476, longitude: 32.5825 },
+  'khartoum, sudan': { latitude: 15.5007, longitude: 32.5599 },
+  'lusaka, zambia': { latitude: -15.3875, longitude: 28.3228 },
+  'harare, zimbabwe': { latitude: -17.8252, longitude: 31.0335 },
+
+  // ========================================
+  // MIDDLE EAST
+  // ========================================
+  'dubai, uae': { latitude: 25.2048, longitude: 55.2708 },
+  'dubai, united arab emirates': { latitude: 25.2048, longitude: 55.2708 },
+  'abu dhabi, uae': { latitude: 24.4539, longitude: 54.3773 },
+  'abu dhabi, united arab emirates': { latitude: 24.4539, longitude: 54.3773 },
+  'doha, qatar': { latitude: 25.2854, longitude: 51.5310 },
+  'riyadh, saudi arabia': { latitude: 24.7136, longitude: 46.6753 },
+  'jeddah, saudi arabia': { latitude: 21.5433, longitude: 39.1728 },
+  'tel aviv, israel': { latitude: 32.0853, longitude: 34.7818 },
+  'jerusalem, israel': { latitude: 31.7683, longitude: 35.2137 },
+  'amman, jordan': { latitude: 31.9454, longitude: 35.9284 },
+  'beirut, lebanon': { latitude: 33.8886, longitude: 35.4955 },
+  'istanbul, turkey': { latitude: 41.0082, longitude: 28.9784 },
+  'ankara, turkey': { latitude: 39.9334, longitude: 32.8597 },
+  'kuwait city, kuwait': { latitude: 29.3759, longitude: 47.9774 },
+  'muscat, oman': { latitude: 23.5880, longitude: 58.3829 },
+  'manama, bahrain': { latitude: 26.2285, longitude: 50.5860 },
+
+  // ========================================
+  // LATIN AMERICA
+  // ========================================
+  'mexico city, mexico': { latitude: 19.4326, longitude: -99.1332 },
+  'buenos aires, argentina': { latitude: -34.6037, longitude: -58.3816 },
+  'sao paulo, brazil': { latitude: -23.5505, longitude: -46.6333 },
+  'rio de janeiro, brazil': { latitude: -22.9068, longitude: -43.1729 },
+  'brasilia, brazil': { latitude: -15.8267, longitude: -47.9218 },
+  'santiago, chile': { latitude: -33.4489, longitude: -70.6693 },
+  'bogota, colombia': { latitude: 4.7110, longitude: -74.0721 },
+  'lima, peru': { latitude: -12.0464, longitude: -77.0428 },
+  'quito, ecuador': { latitude: -0.1807, longitude: -78.4678 },
+  'caracas, venezuela': { latitude: 10.4806, longitude: -66.9036 },
+  'panama city, panama': { latitude: 8.9824, longitude: -79.5199 },
+  'san jose, costa rica': { latitude: 9.9281, longitude: -84.0907 },
+  'guatemala city, guatemala': { latitude: 14.6349, longitude: -90.5069 },
+  'havana, cuba': { latitude: 23.1136, longitude: -82.3666 },
+  'santo domingo, dominican republic': { latitude: 18.4861, longitude: -69.9312 },
+  'san juan, puerto rico': { latitude: 18.4655, longitude: -66.1057 },
+  'montevideo, uruguay': { latitude: -34.9011, longitude: -56.1645 },
+  'la paz, bolivia': { latitude: -16.5000, longitude: -68.1500 },
+  'asuncion, paraguay': { latitude: -25.2637, longitude: -57.5759 },
+
+  // ========================================
+  // ASIA - EAST & SOUTHEAST
+  // ========================================
+  'singapore': { latitude: 1.3521, longitude: 103.8198 },
+  'singapore, singapore': { latitude: 1.3521, longitude: 103.8198 },
+  'tokyo, japan': { latitude: 35.6762, longitude: 139.6503 },
+  'seoul, south korea': { latitude: 37.5665, longitude: 126.9780 },
+  'shanghai, china': { latitude: 31.2304, longitude: 121.4737 },
+  'beijing, china': { latitude: 39.9042, longitude: 116.4074 },
+  'hong kong': { latitude: 22.3193, longitude: 114.1694 },
+  'hong kong, china': { latitude: 22.3193, longitude: 114.1694 },
+  'bangkok, thailand': { latitude: 13.7563, longitude: 100.5018 },
+  'kuala lumpur, malaysia': { latitude: 3.1390, longitude: 101.6869 },
+  'jakarta, indonesia': { latitude: -6.2088, longitude: 106.8456 },
+  'manila, philippines': { latitude: 14.5995, longitude: 120.9842 },
+  'ho chi minh city, vietnam': { latitude: 10.8231, longitude: 106.6297 },
+  'hanoi, vietnam': { latitude: 21.0285, longitude: 105.8542 },
+  'phnom penh, cambodia': { latitude: 11.5564, longitude: 104.9282 },
+  'yangon, myanmar': { latitude: 16.8661, longitude: 96.1951 },
+  'dhaka, bangladesh': { latitude: 23.8103, longitude: 90.4125 },
+  'colombo, sri lanka': { latitude: 6.9271, longitude: 79.8612 },
+  'kathmandu, nepal': { latitude: 27.7172, longitude: 85.3240 },
+  'wellington, new zealand': { latitude: -41.2865, longitude: 174.7762 },
+  'auckland, new zealand': { latitude: -36.8485, longitude: 174.7633 },
+
+  // ========================================
+  // EUROPE - EASTERN & CENTRAL
+  // ========================================
+  'moscow, russia': { latitude: 55.7558, longitude: 37.6173 },
+  'saint petersburg, russia': { latitude: 59.9343, longitude: 30.3351 },
+  'warsaw, poland': { latitude: 52.2297, longitude: 21.0122 },
+  'prague, czech republic': { latitude: 50.0755, longitude: 14.4378 },
+  'budapest, hungary': { latitude: 47.4979, longitude: 19.0402 },
+  'bucharest, romania': { latitude: 44.4268, longitude: 26.1025 },
+  'vienna, austria': { latitude: 48.2082, longitude: 16.3738 },
+  'athens, greece': { latitude: 37.9838, longitude: 23.7275 },
+  'sofia, bulgaria': { latitude: 42.6977, longitude: 23.3219 },
+  'bratislava, slovakia': { latitude: 48.1486, longitude: 17.1077 },
+  'tallinn, estonia': { latitude: 59.4370, longitude: 24.7536 },
+  'riga, latvia': { latitude: 56.9496, longitude: 24.1052 },
+  'vilnius, lithuania': { latitude: 54.6872, longitude: 25.2797 },
+  'kiev, ukraine': { latitude: 50.4501, longitude: 30.5234 },
+  'almaty, kazakhstan': { latitude: 43.2220, longitude: 76.8512 },
+  'tashkent, uzbekistan': { latitude: 41.2995, longitude: 69.2401 },
+
+  // ========================================
+  // EUROPE - WESTERN
+  // ========================================
+  'dublin, ireland': { latitude: 53.3498, longitude: -6.2603 },
+  'amsterdam, netherlands': { latitude: 52.3676, longitude: 4.9041 },
+  'berlin, germany': { latitude: 52.5200, longitude: 13.4050 },
+  'munich, germany': { latitude: 48.1351, longitude: 11.5820 },
+  'paris, france': { latitude: 48.8566, longitude: 2.3522 },
+  'zurich, switzerland': { latitude: 47.3769, longitude: 8.5417 },
+  'stockholm, sweden': { latitude: 59.3293, longitude: 18.0686 },
+  'copenhagen, denmark': { latitude: 55.6761, longitude: 12.5683 },
+  'oslo, norway': { latitude: 59.9139, longitude: 10.7522 },
+  'helsinki, finland': { latitude: 60.1699, longitude: 24.9384 },
+  'madrid, spain': { latitude: 40.4168, longitude: -3.7038 },
+  'barcelona, spain': { latitude: 41.3851, longitude: 2.1734 },
+  'rome, italy': { latitude: 41.9028, longitude: 12.4964 },
+  'milan, italy': { latitude: 45.4642, longitude: 9.1900 },
+  'brussels, belgium': { latitude: 50.8503, longitude: 4.3517 },
+  'lisbon, portugal': { latitude: 38.7223, longitude: -9.1393 },
+  'geneva, switzerland': { latitude: 46.2044, longitude: 6.1432 },
+
+  // ========================================
+  // COUNTRY-LEVEL FALLBACKS
   // ========================================
   // North America
   'united states': { latitude: 37.0902, longitude: -95.7129 },
   'usa': { latitude: 37.0902, longitude: -95.7129 },
   'canada': { latitude: 56.1304, longitude: -106.3468 },
   'mexico': { latitude: 23.6345, longitude: -102.5528 },
-
+  
   // Europe
   'united kingdom': { latitude: 55.3781, longitude: -3.4360 },
   'uk': { latitude: 55.3781, longitude: -3.4360 },
@@ -400,10 +411,11 @@ const KNOWN_LOCATIONS: Record<string, GeoCoordinates> = {
   'ireland': { latitude: 53.4129, longitude: -8.2439 },
   'russia': { latitude: 61.5240, longitude: 105.3188 },
 
-  // Asia
+  // Asia-Pacific
+  'australia': { latitude: -25.2744, longitude: 133.7751 },
+  'india': { latitude: 20.5937, longitude: 78.9629 },
   'japan': { latitude: 36.2048, longitude: 138.2529 },
   'china': { latitude: 35.8617, longitude: 104.1954 },
-  'india': { latitude: 20.5937, longitude: 78.9629 },
   'south korea': { latitude: 35.9078, longitude: 127.7669 },
   'thailand': { latitude: 15.8700, longitude: 100.9925 },
   'malaysia': { latitude: 4.2105, longitude: 101.9758 },
@@ -415,13 +427,14 @@ const KNOWN_LOCATIONS: Record<string, GeoCoordinates> = {
   'sri lanka': { latitude: 7.8731, longitude: 80.7718 },
   'nepal': { latitude: 28.3949, longitude: 84.1240 },
   'taiwan': { latitude: 23.6978, longitude: 120.9605 },
+  'new zealand': { latitude: -40.9006, longitude: 174.8860 },
 
   // Middle East
   'israel': { latitude: 31.0461, longitude: 34.8516 },
   'turkey': { latitude: 38.9637, longitude: 35.2433 },
   'saudi arabia': { latitude: 23.8859, longitude: 45.0792 },
-  'united arab emirates': { latitude: 23.4241, longitude: 53.8478 },
   'uae': { latitude: 23.4241, longitude: 53.8478 },
+  'united arab emirates': { latitude: 23.4241, longitude: 53.8478 },
   'qatar': { latitude: 25.3548, longitude: 51.1839 },
   'kuwait': { latitude: 29.3117, longitude: 47.4818 },
   'oman': { latitude: 21.4735, longitude: 55.9754 },
@@ -460,10 +473,6 @@ const KNOWN_LOCATIONS: Record<string, GeoCoordinates> = {
   'guatemala': { latitude: 15.7835, longitude: -90.2308 },
   'cuba': { latitude: 21.5218, longitude: -77.7812 },
   'dominican republic': { latitude: 18.7357, longitude: -70.1627 },
-
-  // Oceania
-  'australia': { latitude: -25.2744, longitude: 133.7751 },
-  'new zealand': { latitude: -40.9006, longitude: 174.8860 },
 };
 
 /**
@@ -633,55 +642,49 @@ export function getLocationDiagnostics(location: string): {
   const parts = normalized.split(',').map(p => p.trim());
 
   // Check for exact match
-  const exactMatch = KNOWN_LOCATIONS[normalized] !== undefined;
+  const exactMatch = !!KNOWN_LOCATIONS[normalized];
 
   // Find partial matches
   const partialMatches: string[] = [];
+  const suggestions: string[] = [];
+  
   for (const key in KNOWN_LOCATIONS) {
-    if (KNOWN_LOCATIONS.hasOwnProperty(key)) {
-      if (normalized.indexOf(key) !== -1 || key.indexOf(normalized) !== -1) {
-        partialMatches.push(key);
+    if (normalized.includes(key) || key.includes(normalized)) {
+      partialMatches.push(key);
+    }
+    
+    // Suggest locations with similar parts
+    const keyParts = key.split(',').map(p => p.trim());
+    if (parts.length >= 2 && keyParts.length >= 2) {
+      if (parts[0] === keyParts[0] || parts[1] === keyParts[1]) {
+        suggestions.push(key);
       }
     }
   }
 
-  // Check city, state pattern
+  // Try city, state match
   let cityStateMatch: string | null = null;
   if (parts.length >= 2) {
-    const cityState = `${parts[0]}, ${parts[1]}`;
-    if (KNOWN_LOCATIONS[cityState]) {
-      cityStateMatch = cityState;
+    const testKey = `${parts[0]}, ${parts[1]}`;
+    if (KNOWN_LOCATIONS[testKey]) {
+      cityStateMatch = testKey;
     }
   }
 
-  // Check state-only match
+  // Try state match
   let stateMatch: string | null = null;
   if (parts.length >= 2 && KNOWN_LOCATIONS[parts[1]]) {
     stateMatch = parts[1];
-  } else if (parts.length > 0 && KNOWN_LOCATIONS[parts[0]]) {
-    stateMatch = parts[0];
-  }
-
-  // Generate suggestions based on first part
-  const suggestions: string[] = [];
-  if (parts.length > 0) {
-    const firstPart = parts[0];
-    for (const key in KNOWN_LOCATIONS) {
-      if (KNOWN_LOCATIONS.hasOwnProperty(key) && key.indexOf(firstPart) !== -1) {
-        suggestions.push(key);
-        if (suggestions.length >= 5) break; // Limit to 5 suggestions
-      }
-    }
   }
 
   return {
     normalized,
     parts,
     exactMatch,
-    partialMatches,
+    partialMatches: partialMatches.slice(0, 5), // Limit to 5
     cityStateMatch,
     stateMatch,
-    suggestions,
+    suggestions: suggestions.slice(0, 5), // Limit to 5
     totalKnownLocations: Object.keys(KNOWN_LOCATIONS).length
   };
 }
@@ -703,32 +706,80 @@ export function getKnownLocationsStats(): {
   let countries = 0;
 
   for (const key of keys) {
-    // Count US states (single word or two words without comma)
-    if (key.indexOf(',') === -1) {
-      if (key.indexOf('united states') !== -1 || key === 'usa' ||
-          key.indexOf('canada') !== -1 || key === 'uk' ||
-          key.indexOf('australia') !== -1 || key.indexOf('india') !== -1) {
-        countries++;
-      } else {
-        states++;
-      }
-    } else {
-      // Has comma - it's a city
-      const parts = key.split(',').map(p => p.trim());
-      const lastPart = parts[parts.length - 1];
-
-      // Check if last part is a US state or US-related
-      const usStates = ['massachusetts', 'california', 'new york', 'texas', 'florida',
-                        'illinois', 'pennsylvania', 'ohio', 'georgia', 'north carolina',
-                        'michigan', 'washington', 'colorado', 'oregon', 'arizona',
-                        'ma', 'ca', 'ny', 'tx', 'fl', 'il', 'pa', 'oh', 'ga', 'nc',
-                        'mi', 'wa', 'co', 'or', 'az'];
-
-      if (usStates.indexOf(lastPart) !== -1 || lastPart === 'district of columbia') {
-        usCities++;
-      } else {
-        internationalCities++;
-      }
+    const parts = key.split(',').map(p => p.trim());
+    
+    // US states (single part, lowercase state names)
+    if (parts.length === 1 && 
+        (key.includes('massachusetts') || key.includes('california') || 
+         key.includes('new york') || key.includes('texas') ||
+         key.includes('florida') || key.includes('illinois') ||
+         key.includes('pennsylvania') || key.includes('ohio') ||
+         key.includes('georgia') || key.includes('north carolina') ||
+         key.includes('michigan') || key.includes('washington') ||
+         key.includes('colorado') || key.includes('oregon') ||
+         key.includes('arizona') || key.includes('tennessee') ||
+         key.includes('missouri') || key.includes('maryland') ||
+         key.includes('wisconsin') || key.includes('minnesota') ||
+         key.includes('indiana') || key.includes('utah') ||
+         key.includes('kansas') || key.includes('nevada') ||
+         key.includes('virginia') || key.includes('connecticut') ||
+         key.includes('jersey') || key.includes('island') ||
+         key.includes('kentucky') || key.includes('louisiana') ||
+         key.includes('oklahoma') || key.includes('mexico') ||
+         key.includes('idaho') || key.includes('nebraska') ||
+         key.includes('alabama') || key.includes('carolina') ||
+         key.includes('iowa') || key.includes('maine') ||
+         key.includes('vermont') || key.includes('hampshire') ||
+         key.includes('delaware') || key.includes('west virginia') ||
+         key.includes('arkansas') || key.includes('mississippi') ||
+         key.includes('montana') || key.includes('wyoming') ||
+         key.includes('dakota') || key.includes('alaska') ||
+         key.includes('hawaii'))) {
+      states++;
+    }
+    // Countries (single part without state names)
+    else if (parts.length === 1) {
+      countries++;
+    }
+    // US cities (contains state name in second part)
+    else if (parts.length >= 2 && 
+             (key.includes(', massachusetts') || key.includes(', california') ||
+              key.includes(', new york') || key.includes(', texas') ||
+              key.includes(', florida') || key.includes(', illinois') ||
+              key.includes(', pennsylvania') || key.includes(', ohio') ||
+              key.includes(', georgia') || key.includes(', carolina') ||
+              key.includes(', michigan') || key.includes(', washington') ||
+              key.includes(', colorado') || key.includes(', oregon') ||
+              key.includes(', arizona') || key.includes(', tennessee') ||
+              key.includes(', missouri') || key.includes(', maryland') ||
+              key.includes(', wisconsin') || key.includes(', minnesota') ||
+              key.includes(', indiana') || key.includes(', utah') ||
+              key.includes(', kansas') || key.includes(', nevada') ||
+              key.includes(', virginia') || key.includes(', connecticut') ||
+              key.includes(', jersey') || key.includes(', island') ||
+              key.includes(', kentucky') || key.includes(', louisiana') ||
+              key.includes(', oklahoma') || key.includes(', mexico') ||
+              key.includes(', idaho') || key.includes(', nebraska') ||
+              key.includes(', alabama') || key.includes(', iowa') ||
+              key.includes(', maine') || key.includes(', vermont') ||
+              key.includes(', hampshire') || key.includes(', delaware') ||
+              key.includes(', arkansas') || key.includes(', mississippi') ||
+              key.includes(', montana') || key.includes(', wyoming') ||
+              key.includes(', dakota') || key.includes(', alaska') ||
+              key.includes(', hawaii') || key.includes(', dc') ||
+              key.includes(', ma') || key.includes(', ca') ||
+              key.includes(', ny') || key.includes(', il') ||
+              key.includes(', wa') || key.includes(', mo') ||
+              key.includes(', ks') || key.includes(', va') ||
+              key.includes(', ct') || key.includes(', nj') ||
+              key.includes(', ri') || key.includes(', ky') ||
+              key.includes(', la') || key.includes(', ok') ||
+              key.includes(', nm'))) {
+      usCities++;
+    }
+    // International cities
+    else if (parts.length >= 2) {
+      internationalCities++;
     }
   }
 
