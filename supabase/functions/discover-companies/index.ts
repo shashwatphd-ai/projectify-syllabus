@@ -524,8 +524,9 @@ serve(async (req) => {
         console.log(`\n⚠️  [Intelligent Fallback] All companies filtered out by semantic threshold`);
 
         // Sort all companies by their raw similarity scores (before threshold filtering)
+        // FIX: Use allMatches instead of matches to get raw scores for ALL companies
         const allMatchesSorted = discoveryResult.companies.map(company => {
-          const match = semanticResult.matches.find(m => m.companyName === company.name);
+          const match = semanticResult.allMatches.find(m => m.companyName === company.name);
           return {
             company,
             similarityScore: match?.similarityScore || 0,
