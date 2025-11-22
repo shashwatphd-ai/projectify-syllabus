@@ -122,12 +122,10 @@ export class ApolloProvider implements DiscoveryProvider {
     // Step 2: Generate Apollo search filters using AI
     const { filters, excludedIndustries, courseDomain } = await this.generateFilters(context, courseSeed);
 
-    // Step 3: MULTI-PASS SEARCH STRATEGY for maximum coverage
-    // Pass 1: Strict (top 3 industries + job requirement)
-    // Pass 2: Medium (top 7 industries + job requirement)
-    // Pass 3: Broad (all industries, no job requirement)
+    // Step 3: Search for organizations
+    // NOTE: Simplified from multi-pass search. For job-based discovery, use Adzuna provider.
     const pageOffset = this.calculatePageOffset(courseSeed);
-    const organizations = await this.multiPassSearch(filters, context.targetCount * 3, pageOffset);
+    const organizations = await this.searchOrganizations(filters, context.targetCount * 3, pageOffset);
 
     // Step 4: Enrich organizations with contacts and market intelligence
     // Pass excluded industries and course domain for context-aware post-filtering
@@ -611,72 +609,8 @@ Return JSON:
   }
 
   /**
-   * Multi-pass search strategy for maximum company coverage
-   * Pass 1: Strict (top 3 industries, job requirement)
-   * Pass 2: Medium (top 7 industries, job requirement)
-   * Pass 3: Broad (all industries, no job requirement)
+   * Search Apollo API for organizations matching filters
    */
-  private async multiPassSearch(
-    baseFilters: ApolloSearchFilters,
-    targetCount: number,
-    pageOffset: number
-  ): Promise<ApolloOrganization[]> {
-    console.log(`\n🎯 [Multi-Pass Search] Target: ${targetCount} companies`);
-
-    const allOrganizations = new Map<string, ApolloOrganization>(); // Deduplicate by ID
-    const industryKeywords = baseFilters.q_organization_keyword_tags;
-    const originalLocation = baseFilters.organization_locations[0];
-
-    // PASS 1: STRICT - Top 3 industries + job requirement
-    if (allOrganizations.size < targetCount) {
-      console.log(`\n  🔍 Pass 1: STRICT (top 3 industries + job requirement)`);
-      const pass1Filters: ApolloSearchFilters = {
-        ...baseFilters,
-        q_organization_keyword_tags: industryKeywords.slice(0, 3), // Top 3 only
-        organization_num_jobs_range: { min: 1 } // Require job postings
-      };
-
-      const pass1Results = await this.searchOrganizations(pass1Filters, targetCount, pageOffset);
-      pass1Results.forEach(org => allOrganizations.set(org.id, org));
-      console.log(`  ✓ Pass 1 found ${pass1Results.length} companies (total unique: ${allOrganizations.size})`);
-    }
-
-    // PASS 2: MEDIUM - Top 7 industries + job requirement
-    if (allOrganizations.size < targetCount) {
-      console.log(`\n  🔍 Pass 2: MEDIUM (top 7 industries + job requirement)`);
-      const pass2Filters: ApolloSearchFilters = {
-        ...baseFilters,
-        q_organization_keyword_tags: industryKeywords.slice(0, 7), // Top 7
-        organization_num_jobs_range: { min: 1 } // Require job postings
-      };
-
-      const pass2Results = await this.searchOrganizations(pass2Filters, targetCount, pageOffset);
-      pass2Results.forEach(org => allOrganizations.set(org.id, org));
-      console.log(`  ✓ Pass 2 found ${pass2Results.length} companies (total unique: ${allOrganizations.size})`);
-    }
-
-    // PASS 3: BROAD - All industries, no job requirement
-    if (allOrganizations.size < targetCount) {
-      console.log(`\n  🔍 Pass 3: BROAD (all industries, no job requirement)`);
-      const pass3Filters: ApolloSearchFilters = {
-        ...baseFilters,
-        q_organization_keyword_tags: industryKeywords, // All keywords
-        // No job requirement - allows companies not actively hiring
-      };
-
-      const pass3Results = await this.searchOrganizations(pass3Filters, targetCount, pageOffset);
-      pass3Results.forEach(org => allOrganizations.set(org.id, org));
-      console.log(`  ✓ Pass 3 found ${pass3Results.length} companies (total unique: ${allOrganizations.size})`);
-    }
-
-    const finalResults = Array.from(allOrganizations.values());
-    console.log(`\n✅ Multi-pass search complete: ${finalResults.length} unique companies found`);
-    console.log(`   Location: "${originalLocation}"`);
-    console.log(`   Industry keywords: ${industryKeywords.slice(0, 5).join(', ')}${industryKeywords.length > 5 ? '...' : ''}`);
-
-    return finalResults;
-  }
-
   private async searchOrganizations(
     filters: ApolloSearchFilters,
     maxResults: number,

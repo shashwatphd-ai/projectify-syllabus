@@ -1,5 +1,6 @@
 import { DiscoveryProvider, ProviderConfig } from './types.ts';
 import { ApolloProvider } from './apollo-provider.ts';
+import { AdzunaProvider } from './adzuna-provider.ts';
 
 /**
  * PROVIDER FACTORY
@@ -81,14 +82,17 @@ export class ProviderFactory {
    */
   private static initializeProviders(): void {
     console.log('🔧 Initializing discovery providers...');
-    
+
     // Register Apollo provider
     this.register('apollo', new ApolloProvider());
-    
+
+    // Register Adzuna provider (job-based discovery)
+    this.register('adzuna', new AdzunaProvider());
+
     // Future providers can be added here:
     // this.register('google', new GoogleProvider());
     // this.register('clearbit', new ClearbitProvider());
-    
+
     console.log(`✓ Initialized ${this.providers.size} providers`);
   }
   
@@ -128,9 +132,9 @@ export class ProviderFactory {
    * Get provider configuration from environment or defaults
    */
   static getConfigFromEnv(): ProviderConfig {
-    const providerName = (Deno.env.get('DISCOVERY_PROVIDER') || 'apollo') as 'apollo' | 'google' | 'hybrid';
-    const fallbackName = Deno.env.get('FALLBACK_PROVIDER') as 'apollo' | 'google' | undefined;
-    
+    const providerName = (Deno.env.get('DISCOVERY_PROVIDER') || 'apollo') as 'apollo' | 'google' | 'adzuna' | 'hybrid';
+    const fallbackName = Deno.env.get('FALLBACK_PROVIDER') as 'apollo' | 'google' | 'adzuna' | undefined;
+
     return {
       provider: providerName,
       fallbackProvider: fallbackName,
