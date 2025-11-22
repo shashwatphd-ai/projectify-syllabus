@@ -740,16 +740,16 @@ Return JSON:
             }
           }
 
-          // 🗺️ ENHANCED: Calculate distance with comprehensive error handling
+          // 🗺️ ENHANCED: Calculate distance with comprehensive error handling (now async with geocoding API)
           if (searchLocation && searchLocation.trim().length > 0) {
             const companyLocation = `${company.city}, ${company.state || company.country}`;
-            const distance = calculateDistanceBetweenLocations(searchLocation, companyLocation);
+            const distance = await calculateDistanceBetweenLocations(searchLocation, companyLocation);
 
             if (distance !== null) {
               company.distanceFromSearchMiles = distance;
               console.log(`   📍 ${company.name} (${companyLocation}): ${formatDistance(distance)}`);
             } else {
-              // Location parsing failed - log for debugging
+              // Location parsing/geocoding failed - log for debugging
               console.log(`   ⚠️  ${company.name}: Could not calculate distance`);
               console.log(`      Search: "${searchLocation}" → Company: "${companyLocation}"`);
               // Don't set distance - company will sort to end

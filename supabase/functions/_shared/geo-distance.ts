@@ -476,10 +476,54 @@ const KNOWN_LOCATIONS: Record<string, GeoCoordinates> = {
 };
 
 /**
- * Parse location string to coordinates
- * Tries known locations first, falls back to approximate parsing
+ * Geocode location using Nominatim (OpenStreetMap) API
+ * Free service, no API key required
+ * @param location Location string to geocode
+ * @returns Coordinates or null if geocoding fails
  */
-export function parseLocationToCoordinates(location: string): LocationParseResult {
+async function geocodeLocation(location: string): Promise<GeoCoordinates | null> {
+  try {
+    const encodedLocation = encodeURIComponent(location);
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodedLocation}&format=json&limit=1`,
+      {
+        headers: {
+          'User-Agent': 'EduThree-Discovery-Pipeline/1.0'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      console.warn(`Nominatim geocoding failed (HTTP ${response.status}) for: ${location}`);
+      return null;
+    }
+
+    const data = await response.json();
+    if (data && data.length > 0 && data[0].lat && data[0].lon) {
+      const coords = {
+        latitude: parseFloat(data[0].lat),
+        longitude: parseFloat(data[0].lon)
+      };
+      console.log(`🌍 Geocoded "${location}" → ${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
+      return coords;
+    }
+
+    console.warn(`Nominatim returned no results for: ${location}`);
+    return null;
+  } catch (error) {
+    console.warn(`Geocoding error for "${location}":`, error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
+
+/**
+ * Parse location string to coordinates
+ * NEW STRATEGY:
+ * 1. Try Nominatim geocoding API (works for ANY location worldwide)
+ * 2. Fall back to hardcoded KNOWN_LOCATIONS (374 major cities)
+ * 3. Try partial matching and parsing as last resort
+ */
+export async function parseLocationToCoordinates(location: string): Promise<LocationParseResult> {
   if (!location || location.trim().length === 0) {
     return {
       success: false,
@@ -490,8 +534,19 @@ export function parseLocationToCoordinates(location: string): LocationParseResul
 
   const normalizedLocation = location.toLowerCase().trim();
 
-  // Check known locations
+  // PRIORITY 1: Try Nominatim geocoding API (works for ANY location worldwide)
+  const geocodedCoords = await geocodeLocation(location);
+  if (geocodedCoords) {
+    return {
+      success: true,
+      coordinates: geocodedCoords,
+      location
+    };
+  }
+
+  // PRIORITY 2: Check hardcoded known locations (374 major cities - fast fallback)
   if (KNOWN_LOCATIONS[normalizedLocation]) {
+    console.log(`📍 Using hardcoded coordinates for: ${location}`);
     return {
       success: true,
       coordinates: KNOWN_LOCATIONS[normalizedLocation],
@@ -582,17 +637,18 @@ export function calculateDistance(coord1: GeoCoordinates, coord2: GeoCoordinates
 
 /**
  * Calculate distance between two location strings
+ * NEW: Uses async geocoding API, so this function is now async
  *
  * @param location1 First location string (e.g., "Boston, MA")
  * @param location2 Second location string (e.g., "New York, NY")
  * @returns Distance in miles, or null if locations cannot be parsed
  */
-export function calculateDistanceBetweenLocations(
+export async function calculateDistanceBetweenLocations(
   location1: string,
   location2: string
-): number | null {
-  const parse1 = parseLocationToCoordinates(location1);
-  const parse2 = parseLocationToCoordinates(location2);
+): Promise<number | null> {
+  const parse1 = await parseLocationToCoordinates(location1);
+  const parse2 = await parseLocationToCoordinates(location2);
 
   if (!parse1.success || !parse2.success) {
     console.warn(`⚠️ Could not calculate distance: ${parse1.error || parse2.error}`);

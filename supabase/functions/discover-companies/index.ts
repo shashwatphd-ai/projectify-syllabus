@@ -148,8 +148,12 @@ serve(async (req) => {
 
   const startTime = Date.now();
 
+  // Declare variables outside try block for catch block access
+  let supabase: any;
+  let generationRunId: string | undefined;
+
   try {
-    const supabase = createClient(
+    supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
@@ -208,7 +212,7 @@ serve(async (req) => {
       .single();
 
     if (runError) throw runError;
-    const generationRunId = generationRun.id;
+    generationRunId = generationRun.id;
 
     // ====================================
     // Step 2: PHASE 1: Direct SOC Code Mapping (SURGICAL FIX)
@@ -782,11 +786,15 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    // Enhanced logging for debugging
+    // Enhanced logging for debugging with proper type guards
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    const errorName = error instanceof Error ? error.constructor.name : typeof error;
+
     console.error('❌ DISCOVERY_PIPELINE_FAILED');
-    console.error('   Error type:', error?.constructor?.name);
-    console.error('   Error message:', error?.message?.substring(0, 300));
-    console.error('   Stack trace:', error?.stack?.substring(0, 500));
+    console.error('   Error type:', errorName);
+    console.error('   Error message:', errorMessage?.substring(0, 300));
+    console.error('   Stack trace:', errorStack?.substring(0, 500));
 
     // Classify the error using our taxonomy
     const classified = classifyDiscoveryError(error, 'discovery_pipeline');
