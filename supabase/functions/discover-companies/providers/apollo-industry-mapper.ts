@@ -1,27 +1,29 @@
 /**
- * Apollo Industry Taxonomy Mapper
+ * Apollo Industry Keyword Mapper
  *
- * Translates generic SOC/O*NET industry keywords into Apollo's industry keyword terms.
- * This prevents false matches from overly broad searches.
+ * Translates generic SOC/O*NET industry keywords into Apollo-compatible industry search terms.
+ * These keywords are used in q_organization_keyword_tags for industry filtering.
  *
- * CRITICAL: Apollo keyword-based filtering using q_organization_keyword_tags
- * - keyword_tags: Matches industry keywords in company description/profile
- * - More flexible than numeric taxonomy IDs (which require exact mapping)
+ * NOTE: We use keyword-based filtering instead of organization_industry_tag_ids because:
+ * - industry_tag_ids requires numeric taxonomy IDs, which Apollo doesn't document publicly
+ * - keyword_tags allows flexible matching using industry names (e.g., "Aerospace", "Manufacturing")
+ * - Combined with person_not_titles exclusions, this effectively filters out staffing companies
  *
  * CONTEXT-AWARE EXCLUSION:
  * - Engineering courses: Exclude staffing/HR companies (they don't provide projects)
  * - Business/HR courses: Include staffing/HR companies (they ARE the target industry)
  * - Hybrid courses: Smart decision based on primary occupation
  *
- * NOTE: Returns industry keyword strings for Apollo's q_organization_keyword_tags parameter
+ * Current mappings are based on common industry categories and O*NET SOC data.
  */
 
 import { SOCMapping } from '../../_shared/course-soc-mapping.ts';
 import { classifyCourseDomain, CourseDomain } from '../../_shared/context-aware-industry-filter.ts';
 
 /**
- * Generic industry keywords (from SOC mappings) → Apollo industry keyword terms
- * Used for q_organization_keyword_tags parameter (keyword-based search)
+ * Generic industry keywords (from SOC mappings) → Apollo industry keywords
+ * These are used in q_organization_keyword_tags for keyword-based industry filtering
+ * NOTE: Apollo's organization_industry_tag_ids requires numeric IDs, not string names
  */
 const SOC_INDUSTRY_TO_APOLLO_TAXONOMY: Record<string, string[]> = {
   // Engineering & Manufacturing
@@ -109,7 +111,7 @@ const ALWAYS_EXCLUDED_INDUSTRIES = [
 ];
 
 /**
- * Map SOC industry keywords to Apollo industry keyword terms
+ * Map SOC industry keywords to Apollo industry taxonomy names
  * Returns both industries to INCLUDE and industries to EXCLUDE (context-aware)
  *
  * NEW: Takes socMappings to classify course domain and determine exclusions

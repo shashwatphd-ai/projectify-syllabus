@@ -9,11 +9,11 @@ import { calculateDistanceBetweenLocations, formatDistance } from '../../_shared
 
 interface ApolloSearchFilters {
   organization_locations: string[];
-  q_organization_keyword_tags: string[];
-  person_not_titles?: string[]; // ADDED: Exclude recruiters/HR
-  q_organization_job_titles: string[];
+  q_organization_keyword_tags: string[]; // Industry keywords + course keywords + technologies
+  person_not_titles?: string[]; // Exclude recruiters/HR
+  q_organization_job_titles?: string[]; // Optional - used for ranking, not filtering
   organization_num_employees_ranges?: string[];
-  organization_num_jobs_range?: { min?: number; max?: number };
+  organization_num_jobs_range?: { min?: number; max?: number }; // Not used in permissive strategy
   currently_using_any_of_technology_uids?: string[];
   revenue_range?: { min?: number; max?: number };
   latest_funding_date_range?: { min?: string; max?: string };
@@ -450,9 +450,9 @@ Return JSON:
 
     console.log(`  🏢 Final Industries (before Apollo mapping): ${inferredIndustries.join(', ')}`);
 
-    // CRITICAL FIX: Map SOC industries to Apollo's structured taxonomy
-    // This prevents staffing companies from matching via keyword search
-    // NOW CONTEXT-AWARE: Determines exclusions based on course domain
+    // Map SOC industries to Apollo keyword search terms
+    // Combined with person_not_titles exclusions to filter out staffing companies
+    // CONTEXT-AWARE: Determines exclusions based on course domain
     const { includeIndustries, excludeIndustries, courseDomain } = mapSOCIndustriesToApollo(
       inferredIndustries,
       context.socMappings || []
@@ -481,20 +481,27 @@ Return JSON:
       }
     }
 
-    // Build intelligent filters using industry keyword filtering
+    // PERMISSIVE FILTER STRATEGY: Cast a wide net, then use semantic filtering to narrow down
+    // With 30,000+ companies in Apollo, we should START permissive and filter client-side
+    // rather than starting restrictive and getting 0 results
     const searchStrategy = getApolloSearchStrategy(includeIndustries.length);
     console.log(`  📊 Apollo Search Strategy: ${searchStrategy.toUpperCase()}`);
 
     const intelligentFilters: ApolloSearchFilters = {
       organization_locations: [apolloLocation],
-      q_organization_keyword_tags: [...includeIndustries], // Use keyword search for industries
-      q_organization_job_titles: uniqueJobTitles,
+      q_organization_keyword_tags: [...includeIndustries], // Industry keywords for filtering
+      // NOTE: Job titles removed from mandatory filters - will use for ranking instead
+      // NOTE: Job posting requirement removed - most companies don't post all jobs publicly
+      // NOTE: Employee size expanded to include small startups and large enterprises
       person_not_titles: ['Recruiter', 'HR Manager', 'Talent Acquisition', 'Staffing'], // Exclude recruiters
-      organization_num_employees_ranges: ['10,50', '51,200', '201,500'], // All sizes
-      organization_num_jobs_range: { min: 3 }
+      organization_num_employees_ranges: ['1,10', '11,50', '51,200', '201,500', '501,1000', '1001,10000'] // All sizes
     };
 
-    // HYBRID STRATEGY: Add course-specific keywords for diversity (already included in q_organization_keyword_tags)
+    // Store job titles for later ranking (not filtering)
+    const preferredJobTitles = uniqueJobTitles;
+    console.log(`  💼 Job titles for ranking (not filtering): ${preferredJobTitles.join(', ')}`);
+
+    // HYBRID STRATEGY: Add course-specific keywords for diversity (not generic industries)
     // This ensures different courses (even with same occupation) get different companies
     if (courseKeywords.length > 0) {
       intelligentFilters.q_organization_keyword_tags.push(...courseKeywords);
@@ -507,9 +514,10 @@ Return JSON:
       console.log(`  💻 Added ${Math.min(3, uniqueTechnologies.length)} technology keywords`);
     }
 
-    console.log(`  ✅ Generated intelligent filters:`);
+    console.log(`  ✅ Generated permissive filters (will rank/filter client-side):`);
     console.log(`     Industry Keywords: ${includeIndustries.slice(0, 5).join(', ')}${includeIndustries.length > 5 ? '...' : ''}`);
-    console.log(`     Job Titles: ${uniqueJobTitles.length}`);
+    console.log(`     Employee Ranges: All sizes (1-10,000+)`);
+    console.log(`     Job Posting Requirement: NONE (removed for better coverage)`);
     console.log(`     Excluded Titles: ${intelligentFilters.person_not_titles?.join(', ')}`);
 
     return {
@@ -605,33 +613,53 @@ Return JSON:
     pageOffset: number = 1
   ): Promise<ApolloOrganization[]> {
     const originalLocation = filters.organization_locations[0];
-    console.log(`  🔍 Searching Apollo for ${maxResults} organizations (Page ${pageOffset})...`);
 
-    // Try with original location first
+    console.log(`\n  🔍 Searching Apollo with PERMISSIVE filters (Page ${pageOffset})...`);
+    console.log(`  📋 Filter configuration:`);
+    console.log(`     Location: "${originalLocation}"`);
+    console.log(`     Industry keywords: ${filters.q_organization_keyword_tags.slice(0, 5).join(', ')}${filters.q_organization_keyword_tags.length > 5 ? '...' : ''}`);
+    console.log(`     Employee ranges: ${filters.organization_num_employees_ranges?.join(', ') || 'ALL'}`);
+    console.log(`     Job posting requirement: NONE`);
+    console.log(`     Excluded titles: ${filters.person_not_titles?.join(', ') || 'none'}`);
+
+    // Try with specific location first (e.g., "Kansas City, Missouri, United States")
     let organizations = await this.trySearch(filters, maxResults, pageOffset);
+    const specificLocationResults = organizations.length;
+    console.log(`  📊 Results with specific location "${originalLocation}": ${specificLocationResults} companies`);
 
-    // If no results and location has multiple parts, try broader searches
-    if (organizations.length === 0 && originalLocation.includes(',')) {
+    // If insufficient results, try broader geography
+    if (organizations.length < maxResults && originalLocation.includes(',')) {
       const locationParts = originalLocation.split(',').map(p => p.trim());
 
-      // Try state + country (e.g., "Tamil Nadu, India")
-      if (locationParts.length >= 3) {
+      // Try state + country (e.g., "Missouri, United States")
+      if (locationParts.length >= 3 && organizations.length < maxResults) {
         const broaderLocation = locationParts.slice(-2).join(', ');
-        console.log(`  🔄 No results for "${originalLocation}", trying broader: "${broaderLocation}"`);
+        console.log(`  🔄 Expanding to broader location: "${broaderLocation}"`);
         filters.organization_locations = [broaderLocation];
         organizations = await this.trySearch(filters, maxResults, pageOffset);
+        console.log(`  📊 Results with state/country: ${organizations.length} companies`);
       }
 
-      // Try just country (e.g., "India")
-      if (organizations.length === 0 && locationParts.length >= 2) {
+      // Try just country (e.g., "United States") - only if still insufficient
+      if (organizations.length < maxResults && locationParts.length >= 2) {
         const countryOnly = locationParts[locationParts.length - 1];
-        console.log(`  🔄 Still no results, trying country-wide: "${countryOnly}"`);
+        console.log(`  🔄 Expanding to country-wide: "${countryOnly}"`);
         filters.organization_locations = [countryOnly];
         organizations = await this.trySearch(filters, maxResults, pageOffset);
+        console.log(`  📊 Results country-wide: ${organizations.length} companies`);
       }
     }
 
-    console.log(`  ✓ Found ${organizations.length} organizations from page ${pageOffset}`);
+    console.log(`  ✅ Apollo search complete: ${organizations.length} companies found`);
+    console.log(`     Will apply semantic filtering + proximity sorting client-side\n`);
+
+    if (organizations.length === 0) {
+      console.error(`\n  ❌ ZERO RESULTS FROM APOLLO - This should be extremely rare!`);
+      console.error(`     Location: "${originalLocation}"`);
+      console.error(`     Keywords: ${filters.q_organization_keyword_tags.slice(0, 10).join(', ')}`);
+      console.error(`     This likely indicates an Apollo API issue or invalid API key.\n`);
+    }
+
     return organizations;
   }
 
