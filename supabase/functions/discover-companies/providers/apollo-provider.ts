@@ -126,7 +126,8 @@ export class ApolloProvider implements DiscoveryProvider {
     // Step 3: Search for organizations
     // NOTE: Simplified from multi-pass search. For job-based discovery, use Adzuna provider.
     const pageOffset = this.calculatePageOffset(courseSeed);
-    const organizations = await this.searchOrganizations(filters, context.targetCount * 3, pageOffset);
+    // FIX #6: Increased from targetCount * 3 (12) to targetCount * 10 (40) for better filtering coverage
+    const organizations = await this.searchOrganizations(filters, context.targetCount * 10, pageOffset);
 
     // Step 4: Enrich organizations with contacts and market intelligence
     // Pass excluded industries and course domain for context-aware post-filtering
@@ -644,27 +645,34 @@ Return JSON:
     const specificLocationResults = organizations.length;
     console.log(`  📊 Results with specific location "${originalCityLocation}": ${specificLocationResults} companies`);
 
-    // If insufficient results, try broader geography
-    if (organizations.length < maxResults && originalCityLocation.includes(',')) {
+    // FIX B: ONLY expand geography if we have ZERO local results
+    // Changed from "< maxResults" to "=== 0" to prevent premature geographic expansion
+    // Rationale: Better to return 5 LOCAL companies than 40 DISTANT companies
+    if (organizations.length === 0 && originalCityLocation.includes(',')) {
       const locationParts = originalCityLocation.split(',').map(p => p.trim());
 
+      console.log(`  ⚠️  ZERO local companies found - trying broader geography as last resort...`);
+
       // Try state + country (e.g., "Missouri, United States")
-      if (locationParts.length >= 3 && organizations.length < maxResults) {
+      if (locationParts.length >= 3 && organizations.length === 0) {
         const broaderLocation = locationParts.slice(-2).join(', ');
-        console.log(`  🔄 Expanding to broader location: "${broaderLocation}"`);
+        console.log(`  🔄 Expanding to state-wide: "${broaderLocation}"`);
         filters.organization_locations = [broaderLocation];
         organizations = await this.trySearch(filters, maxResults, pageOffset);
         console.log(`  📊 Results with state/country: ${organizations.length} companies`);
       }
 
-      // Try just country (e.g., "United States") - only if still insufficient
-      if (organizations.length < maxResults && locationParts.length >= 2) {
+      // Try just country (e.g., "United States") - only if still zero
+      if (organizations.length === 0 && locationParts.length >= 2) {
         const countryOnly = locationParts[locationParts.length - 1];
         console.log(`  🔄 Expanding to country-wide: "${countryOnly}"`);
         filters.organization_locations = [countryOnly];
         organizations = await this.trySearch(filters, maxResults, pageOffset);
         console.log(`  📊 Results country-wide: ${organizations.length} companies`);
       }
+    } else if (organizations.length > 0 && organizations.length < maxResults) {
+      console.log(`  ✅ Found ${organizations.length} local companies - SKIPPING geographic expansion`);
+      console.log(`     (Prefer local companies over distant ones, even if fewer than target ${maxResults})`);
     }
 
     // 🔥 CRITICAL FIX: If still insufficient results, try relaxing industry filters
@@ -712,13 +720,65 @@ Return JSON:
     }
 
     console.log(`  ✅ Apollo search complete: ${organizations.length} companies found`);
+
+    // FIX C: Add maximum distance enforcement to prevent distant companies
+    // This is a critical safeguard against Virginia/Pittsburgh companies appearing for Kansas City searches
+    const MAX_DISTANCE_MILES = 150;
+    const beforeDistanceFilter = organizations.length;
+
+    if (organizations.length > 0) {
+      const filteredOrgs: ApolloOrganization[] = [];
+      let distantCount = 0;
+
+      for (const org of organizations) {
+        const orgLocation = `${org.city || ''}, ${org.state || ''}`.trim();
+        if (!orgLocation || orgLocation === ',') {
+          // No location data - keep it (will be sorted by relevance)
+          filteredOrgs.push(org);
+          continue;
+        }
+
+        try {
+          const distance = calculateDistanceBetweenLocations(
+            originalCityLocation,
+            orgLocation
+          );
+
+          if (distance <= MAX_DISTANCE_MILES) {
+            filteredOrgs.push(org);
+          } else {
+            distantCount++;
+            if (distantCount <= 3) {  // Log first 3 excluded
+              console.log(`     🚫 Excluded ${org.name} (${orgLocation}) - ${formatDistance(distance)} away (> ${MAX_DISTANCE_MILES} miles)`);
+            }
+          }
+        } catch (error) {
+          // Distance calculation failed - keep the company (safer than excluding)
+          filteredOrgs.push(org);
+        }
+      }
+
+      organizations = filteredOrgs;
+
+      if (distantCount > 0) {
+        console.log(`  📍 Distance filter: ${beforeDistanceFilter} → ${organizations.length} companies (excluded ${distantCount} distant companies)`);
+      }
+    }
+
     console.log(`     Will apply semantic filtering + proximity sorting client-side\n`);
 
     if (organizations.length === 0) {
-      console.error(`\n  ❌ ZERO RESULTS FROM APOLLO - This should be extremely rare!`);
-      console.error(`     Location: "${originalCityLocation}"`);
-      console.error(`     Keywords: ${originalIndustryTags.slice(0, 10).join(', ')}`);
-      console.error(`     This likely indicates an Apollo API issue or invalid API key.\n`);
+      if (beforeDistanceFilter > 0) {
+        console.error(`\n  ⚠️  Distance filter removed ALL companies (${beforeDistanceFilter} companies were > ${MAX_DISTANCE_MILES} miles away)`);
+        console.error(`     Location: "${originalCityLocation}"`);
+        console.error(`     This suggests Apollo is returning companies from wrong geographic area.`);
+        console.error(`     Check if location format in database is correct (should be "City, State", not "City, State, Country")\n`);
+      } else {
+        console.error(`\n  ❌ ZERO RESULTS FROM APOLLO - This should be extremely rare!`);
+        console.error(`     Location: "${originalCityLocation}"`);
+        console.error(`     Keywords: ${originalIndustryTags.slice(0, 10).join(', ')}`);
+        console.error(`     This likely indicates an Apollo API issue or invalid API key.\n`);
+      }
     }
 
     return organizations;
