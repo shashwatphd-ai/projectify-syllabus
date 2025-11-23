@@ -35,6 +35,10 @@ const SOC_INDUSTRY_TO_APOLLO_TAXONOMY: Record<string, string[]> = {
   'energy': ['Energy', 'Renewables & Environment', 'Oil & Energy'],
   'mechanical': ['Mechanical Or Industrial Engineering', 'Manufacturing'],
   'industrial': ['Industrial Automation', 'Manufacturing', 'Machinery'],
+  'industrial engineering': ['Mechanical Or Industrial Engineering', 'Industrial Automation', 'Manufacturing'],
+  'automation': ['Industrial Automation', 'Robotics', 'Manufacturing'],
+  'production': ['Manufacturing', 'Industrial Manufacturing', 'Production'],
+  'quality assurance': ['Manufacturing', 'Industrial Manufacturing', 'Quality Control'],
   'renewables': ['Renewables & Environment', 'Environmental Services'],
   'environment': ['Environmental Services', 'Renewables & Environment'],
 
