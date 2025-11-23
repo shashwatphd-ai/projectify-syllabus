@@ -616,11 +616,13 @@ Return JSON:
     maxResults: number,
     pageOffset: number = 1
   ): Promise<ApolloOrganization[]> {
-    const originalLocation = filters.organization_locations[0];
+    // CRITICAL FIX: Store original location for fallback reset
+    const originalCityLocation = filters.organization_locations[0];
+    const originalIndustryTags = [...filters.q_organization_keyword_tags];
 
     console.log(`\n  🔍 Searching Apollo with PERMISSIVE filters (Page ${pageOffset})...`);
     console.log(`  📋 Filter configuration:`);
-    console.log(`     Location: "${originalLocation}"`);
+    console.log(`     Location: "${originalCityLocation}"`);
     console.log(`     Industry keywords: ${filters.q_organization_keyword_tags.slice(0, 5).join(', ')}${filters.q_organization_keyword_tags.length > 5 ? '...' : ''}`);
     console.log(`     Employee ranges: ${filters.organization_num_employees_ranges?.join(', ') || 'ALL'}`);
     console.log(`     Job posting requirement: NONE`);
@@ -629,11 +631,11 @@ Return JSON:
     // Try with specific location first (e.g., "Kansas City, Missouri, United States")
     let organizations = await this.trySearch(filters, maxResults, pageOffset);
     const specificLocationResults = organizations.length;
-    console.log(`  📊 Results with specific location "${originalLocation}": ${specificLocationResults} companies`);
+    console.log(`  📊 Results with specific location "${originalCityLocation}": ${specificLocationResults} companies`);
 
     // If insufficient results, try broader geography
-    if (organizations.length < maxResults && originalLocation.includes(',')) {
-      const locationParts = originalLocation.split(',').map(p => p.trim());
+    if (organizations.length < maxResults && originalCityLocation.includes(',')) {
+      const locationParts = originalCityLocation.split(',').map(p => p.trim());
 
       // Try state + country (e.g., "Missouri, United States")
       if (locationParts.length >= 3 && organizations.length < maxResults) {
@@ -656,7 +658,6 @@ Return JSON:
 
     // 🔥 CRITICAL FIX: If still insufficient results, try relaxing industry filters
     // This is the KEY to making the platform work for ANY syllabus - don't be too specific with industries
-    const originalIndustryTags = [...filters.q_organization_keyword_tags];
 
     if (organizations.length < 3 && originalIndustryTags.length > 3) {
       console.log(`  ⚠️  Only ${organizations.length} companies found with specific industry filters`);
@@ -681,6 +682,10 @@ Return JSON:
     if (organizations.length < 2) {
       console.log(`  ⚠️  Still only ${organizations.length} companies - trying LOCATION-ONLY search`);
       console.log(`  🔄 Removing ALL industry filters - semantic filtering will handle relevance`);
+      
+      // CRITICAL FIX: Reset to ORIGINAL city-specific location (not state/country from previous fallbacks)
+      console.log(`  📍 Resetting location filter to original: "${originalCityLocation}"`);
+      filters.organization_locations = [originalCityLocation];
 
       // Remove industry tags completely - just search by location
       filters.q_organization_keyword_tags = []; // Empty array instead of delete
@@ -699,7 +704,7 @@ Return JSON:
 
     if (organizations.length === 0) {
       console.error(`\n  ❌ ZERO RESULTS FROM APOLLO - This should be extremely rare!`);
-      console.error(`     Location: "${originalLocation}"`);
+      console.error(`     Location: "${originalCityLocation}"`);
       console.error(`     Keywords: ${originalIndustryTags.slice(0, 10).join(', ')}`);
       console.error(`     This likely indicates an Apollo API issue or invalid API key.\n`);
     }
@@ -889,47 +894,71 @@ Return JSON:
       }
     }
 
-    // 🗺️ ENHANCED: Sort by proximity with comprehensive statistics
+    // 🗺️ ENHANCED: Sort by proximity with comprehensive statistics AND distance filtering
     if (searchLocation && searchLocation.trim().length > 0) {
       const withDistance = enriched.filter(c => c.distanceFromSearchMiles !== undefined);
       const withoutDistance = enriched.filter(c => c.distanceFromSearchMiles === undefined);
 
       if (withDistance.length > 0) {
-        console.log(`\n🗺️ PROXIMITY SORTING`);
+        console.log(`\n🗺️ PROXIMITY FILTERING & SORTING`);
         console.log(`   ${withDistance.length} companies with calculated distance`);
         if (withoutDistance.length > 0) {
-          console.log(`   ${withoutDistance.length} companies without distance (will sort to end)`);
+          console.log(`   ${withoutDistance.length} companies without distance (will be kept)`);
         }
 
+        // CRITICAL FIX: Apply maximum distance threshold
+        // Determine threshold based on search location specificity
+        const MAX_DISTANCE_MILES = 150; // Reasonable commuting/regional radius
+        console.log(`   🎯 Maximum distance threshold: ${MAX_DISTANCE_MILES} miles`);
+
+        const withinRange = withDistance.filter(c => c.distanceFromSearchMiles! <= MAX_DISTANCE_MILES);
+        const beyondRange = withDistance.filter(c => c.distanceFromSearchMiles! > MAX_DISTANCE_MILES);
+
+        if (beyondRange.length > 0) {
+          console.log(`   ❌ Filtered out ${beyondRange.length} companies beyond ${MAX_DISTANCE_MILES} miles:`);
+          beyondRange.slice(0, 3).forEach(c => {
+            const loc = `${c.city}, ${c.state || c.country}`;
+            console.log(`      • ${c.name} (${loc}) - ${formatDistance(c.distanceFromSearchMiles!)} (TOO FAR)`);
+          });
+        }
+
+        // Combine: companies within range + companies without calculable distance
+        const finalEnriched = [...withinRange, ...withoutDistance];
+
         // Sort: nearest first, then companies without distance
-        enriched.sort((a, b) => {
+        finalEnriched.sort((a, b) => {
           const distA = a.distanceFromSearchMiles ?? 999999;
           const distB = b.distanceFromSearchMiles ?? 999999;
           return distA - distB;
         });
 
-        // Log top 5 closest
-        console.log(`\n   📍 TOP ${Math.min(5, withDistance.length)} CLOSEST:`);
-        withDistance
-          .slice(0, 5)
-          .forEach((c, i) => {
-            const loc = `${c.city}, ${c.state || c.country}`;
-            console.log(`      ${i + 1}. ${c.name} (${loc}) - ${formatDistance(c.distanceFromSearchMiles!)}`);
-          });
+        console.log(`   ✅ ${withinRange.length} companies within ${MAX_DISTANCE_MILES} miles`);
 
-        // Statistics
-        const distances = withDistance.map(c => c.distanceFromSearchMiles!).sort((a, b) => a - b);
-        const avg = distances.reduce((a, b) => a + b, 0) / distances.length;
+        if (withinRange.length > 0) {
+          // Log top 5 closest
+          console.log(`\n   📍 TOP ${Math.min(5, withinRange.length)} CLOSEST:`);
+          withinRange
+            .slice(0, 5)
+            .forEach((c, i) => {
+              const loc = `${c.city}, ${c.state || c.country}`;
+              console.log(`      ${i + 1}. ${c.name} (${loc}) - ${formatDistance(c.distanceFromSearchMiles!)}`);
+            });
 
-        console.log(`\n   📊 STATISTICS:`);
-        console.log(`      Closest: ${formatDistance(distances[0])}`);
-        console.log(`      Farthest: ${formatDistance(distances[distances.length - 1])}`);
-        console.log(`      Average: ${formatDistance(avg)}`);
+          // Statistics
+          const distances = withinRange.map(c => c.distanceFromSearchMiles!).sort((a, b) => a - b);
+          const avg = distances.reduce((a, b) => a + b, 0) / distances.length;
+
+          console.log(`\n   📊 STATISTICS (companies within range):`);
+          console.log(`      Closest: ${formatDistance(distances[0])}`);
+          console.log(`      Farthest: ${formatDistance(distances[distances.length - 1])}`);
+          console.log(`      Average: ${formatDistance(avg)}`);
+        }
+
       } else {
-        console.log(`\n⚠️  PROXIMITY SORTING SKIPPED: No calculable distances`);
+        console.log(`\n⚠️  PROXIMITY FILTERING SKIPPED: No calculable distances`);
       }
     } else {
-      console.log(`\n⚠️  PROXIMITY SORTING SKIPPED: No search location provided`);
+      console.log(`\n⚠️  PROXIMITY FILTERING SKIPPED: No search location provided`);
     }
 
     return enriched;
