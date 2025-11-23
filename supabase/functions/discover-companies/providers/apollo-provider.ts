@@ -654,13 +654,53 @@ Return JSON:
       }
     }
 
+    // 🔥 CRITICAL FIX: If still insufficient results, try relaxing industry filters
+    // This is the KEY to making the platform work for ANY syllabus - don't be too specific with industries
+    const originalIndustryTags = [...filters.q_organization_keyword_tags];
+
+    if (organizations.length < 3 && originalIndustryTags.length > 3) {
+      console.log(`  ⚠️  Only ${organizations.length} companies found with specific industry filters`);
+      console.log(`  🔄 Trying BROADER industry search (top 50% of industry keywords)...`);
+
+      // Keep only the most important industry keywords (first half)
+      filters.q_organization_keyword_tags = originalIndustryTags.slice(0, Math.ceil(originalIndustryTags.length / 2));
+
+      const broaderResults = await this.trySearch(filters, maxResults, pageOffset);
+      console.log(`  📊 Results with broader industries: ${broaderResults.length} companies`);
+
+      if (broaderResults.length > organizations.length) {
+        organizations = broaderResults;
+      } else {
+        // Restore original tags for next fallback
+        filters.q_organization_keyword_tags = originalIndustryTags;
+      }
+    }
+
+    // 🔥 ULTIMATE FALLBACK: If STILL too few results, try location-only search
+    // Let semantic filtering handle relevance instead of Apollo industry tags
+    if (organizations.length < 2) {
+      console.log(`  ⚠️  Still only ${organizations.length} companies - trying LOCATION-ONLY search`);
+      console.log(`  🔄 Removing ALL industry filters - semantic filtering will handle relevance`);
+
+      // Remove industry tags completely - just search by location
+      filters.q_organization_keyword_tags = []; // Empty array instead of delete
+
+      const locationOnlyResults = await this.trySearch(filters, maxResults * 2, pageOffset); // Request more since we're not filtering
+      console.log(`  📊 Results with location-only search: ${locationOnlyResults.length} companies`);
+      console.log(`     ✅ Semantic filtering will rank these by relevance to course`);
+
+      if (locationOnlyResults.length > organizations.length) {
+        organizations = locationOnlyResults;
+      }
+    }
+
     console.log(`  ✅ Apollo search complete: ${organizations.length} companies found`);
     console.log(`     Will apply semantic filtering + proximity sorting client-side\n`);
 
     if (organizations.length === 0) {
       console.error(`\n  ❌ ZERO RESULTS FROM APOLLO - This should be extremely rare!`);
       console.error(`     Location: "${originalLocation}"`);
-      console.error(`     Keywords: ${filters.q_organization_keyword_tags.slice(0, 10).join(', ')}`);
+      console.error(`     Keywords: ${originalIndustryTags.slice(0, 10).join(', ')}`);
       console.error(`     This likely indicates an Apollo API issue or invalid API key.\n`);
     }
 
