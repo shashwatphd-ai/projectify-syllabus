@@ -41,7 +41,7 @@ const DISCIPLINE_SOC_MAP: Record<string, SOCMapping[]> = {
       socCode: '17-2112.00',
       title: 'Industrial Engineers',
       confidence: 0.95,
-      industries: ['manufacturing', 'logistics', 'operations', 'consulting', 'supply chain'],
+      industries: ['manufacturing', 'logistics', 'operations', 'industrial engineering', 'supply chain', 'automation', 'production', 'quality assurance'],
       keywords: ['systems', 'optimization', 'processes', 'efficiency', 'operations']
     },
     {

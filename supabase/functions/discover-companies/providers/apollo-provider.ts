@@ -672,6 +672,18 @@ Return JSON:
     maxResults: number,
     pageOffset: number = 1
   ): Promise<ApolloOrganization[]> {
+    const requestBody = {
+      ...filters,
+      page: pageOffset, // CRITICAL FIX: Use dynamic page instead of always page 1
+      per_page: Math.min(maxResults, 100)
+    };
+
+    // 🔍 DIAGNOSTIC: Log complete request being sent to Apollo
+    console.log(`\n  🔍 [Apollo API Request - DIAGNOSTIC]`);
+    console.log(`     Endpoint: POST https://api.apollo.io/v1/mixed_companies/search`);
+    console.log(`     Request Body:`);
+    console.log(JSON.stringify(requestBody, null, 2));
+
     const response = await fetch(
       'https://api.apollo.io/v1/mixed_companies/search',
       {
@@ -681,11 +693,7 @@ Return JSON:
           'Cache-Control': 'no-cache',
           'X-Api-Key': this.apolloApiKey!
         },
-        body: JSON.stringify({
-          ...filters,
-          page: pageOffset, // CRITICAL FIX: Use dynamic page instead of always page 1
-          per_page: Math.min(maxResults, 100)
-        })
+        body: JSON.stringify(requestBody)
       }
     );
 
@@ -698,7 +706,27 @@ Return JSON:
     }
 
     const data = await response.json();
-    return data.organizations || [];
+    const organizations = data.organizations || [];
+
+    // 🔍 DIAGNOSTIC: Log response received from Apollo
+    console.log(`\n  📥 [Apollo API Response - DIAGNOSTIC]`);
+    console.log(`     Total Results: ${organizations.length}`);
+    console.log(`     Pagination: ${data.pagination ? JSON.stringify(data.pagination) : 'N/A'}`);
+
+    if (organizations.length > 0) {
+      console.log(`\n     Sample Results (first 3):`);
+      organizations.slice(0, 3).forEach((org: ApolloOrganization, idx: number) => {
+        console.log(`       ${idx + 1}. ${org.name}`);
+        console.log(`          Industry: ${org.industry || 'N/A'}`);
+        console.log(`          Location: ${org.city || '?'}, ${org.state || '?'}, ${org.country || '?'}`);
+        console.log(`          Employees: ${org.estimated_num_employees || 'N/A'}`);
+        console.log(`          Keywords: ${org.keywords?.slice(0, 3).join(', ') || 'N/A'}`);
+      });
+    } else {
+      console.log(`     ❌ No organizations returned`);
+    }
+
+    return organizations;
   }
   
   private async enrichOrganizations(
