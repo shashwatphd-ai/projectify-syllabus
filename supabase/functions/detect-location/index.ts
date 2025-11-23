@@ -61,14 +61,14 @@ serve(async (req) => {
         // Fall through to University Domains API + Geocoding path
       } else {
         // Use complete cached data
+        // SIMPLIFIED: Apollo expects "City, State" format, not "City, State, Country"
         const searchParts = [
           universityData.city,
-          universityData.state,
-          universityData.country
+          universityData.state
         ].filter(Boolean);
-        const searchLocation = searchParts.join(', ');
-        
-        console.log(`✅ Using complete cached data: "${searchLocation}"`);
+        const searchLocation = searchParts.length > 0 ? searchParts.join(', ') : universityData.country;
+
+        console.log(`✅ Using complete cached data: "${searchLocation}" (simplified for Apollo)`);
         
         return new Response(
           JSON.stringify({
@@ -186,12 +186,12 @@ serve(async (req) => {
           
           // Construct display and search locations
           const formatted = `${match.name}, ${fullCountryName}`;
-          
-          // Build Apollo search location with city, state, country (if available)
-          const searchParts = [city, state, fullCountryName].filter(Boolean);
-          const searchLocation = searchParts.length > 1 ? searchParts.join(', ') : fullCountryName;
-          
-          console.log(`  📍 Location Format - Display: "${formatted}", Apollo Search: "${searchLocation}"`);
+
+          // Build Apollo search location - SIMPLIFIED: "City, State" not "City, State, Country"
+          const searchParts = [city, state].filter(Boolean);
+          const searchLocation = searchParts.length > 0 ? searchParts.join(', ') : fullCountryName;
+
+          console.log(`  📍 Location Format - Display: "${formatted}", Apollo Search: "${searchLocation}" (simplified)`);
           
           // Cache this result with full location data for future lookups (UPSERT to update existing entries)
           await supabaseClient
@@ -350,14 +350,14 @@ serve(async (req) => {
     };
     
     const fullCountryName = countryCodeMap[country] || country;
-    
-    // Create Apollo-friendly search location with full country name
-    const searchParts = [city, state, fullCountryName].filter(Boolean);
-    const searchLocation = searchParts.join(', ');
-    
+
+    // Create Apollo-friendly search location - SIMPLIFIED: "City, State" not "City, State, Country"
+    const searchParts = [city, state].filter(Boolean);
+    const searchLocation = searchParts.length > 0 ? searchParts.join(', ') : fullCountryName;
+
     console.log('📍 Location detected via Nominatim:', detectedLocation);
-    console.log('🔍 Apollo search format:', searchLocation);
-    console.log(`  🌍 Country conversion: ${country} → ${fullCountryName}`);
+    console.log('🔍 Apollo search format (simplified):', searchLocation);
+    console.log(`  🌍 Country conversion: ${country} → ${fullCountryName} (not included in Apollo search)`);
 
     return new Response(
       JSON.stringify({
