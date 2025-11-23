@@ -134,18 +134,23 @@ export function validateLocationFormat(location: string | null | undefined): Loc
       }
     }
 
-    const normalized = normalizedParts.join(', ');
+    // CRITICAL FIX: For Apollo API, always use 2-part format (City, State) for local searches
+    // Even if 3-part format is provided, strip the country to get local results
+    // Apollo searches too broadly with "City, State, Country" format
+    const apolloFormat = parts.length >= 2
+      ? `${parts[0]}, ${parts[1]}`  // Always use just City, State
+      : normalizedParts.join(', ');
 
     if (parts.length === 2) {
       return {
         isValid: true,
-        normalized,
+        normalized: apolloFormat,
         parts: { city: parts[0], state: parts[1] }
       };
     } else {
       return {
         isValid: true,
-        normalized,
+        normalized: apolloFormat,  // Use 2-part format for Apollo
         parts: { city: parts[0], state: parts[1], country: normalizedParts[2] }
       };
     }
