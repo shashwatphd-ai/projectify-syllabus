@@ -27,71 +27,72 @@ import { classifyCourseDomain, CourseDomain } from '../../_shared/context-aware-
  */
 const SOC_INDUSTRY_TO_APOLLO_TAXONOMY: Record<string, string[]> = {
   // Engineering & Manufacturing
-  'aerospace': ['Aerospace', 'Aviation & Aerospace', 'Defense & Space'],
-  'automotive': ['Automotive', 'Motor Vehicle Manufacturing'],
-  'manufacturing': ['Manufacturing', 'Industrial Manufacturing', 'Machinery'],
-  'HVAC': ['Mechanical Or Industrial Engineering', 'Building Services', 'Energy & Utilities'],
-  'robotics': ['Robotics', 'Industrial Automation', 'Manufacturing'],
-  'energy': ['Energy', 'Renewables & Environment', 'Oil & Energy'],
-  'mechanical': ['Mechanical Or Industrial Engineering', 'Manufacturing'],
-  'industrial': ['Industrial Automation', 'Manufacturing', 'Machinery'],
-  'industrial engineering': ['Mechanical Or Industrial Engineering', 'Industrial Automation', 'Manufacturing'],
-  'automation': ['Industrial Automation', 'Robotics', 'Manufacturing'],
-  'production': ['Manufacturing', 'Industrial Manufacturing', 'Production'],
-  'quality assurance': ['Manufacturing', 'Industrial Manufacturing', 'Quality Control'],
-  'renewables': ['Renewables & Environment', 'Environmental Services'],
-  'environment': ['Environmental Services', 'Renewables & Environment'],
+  // SIMPLIFIED: Use Apollo's simple keyword matching, not made-up taxonomy
+  'aerospace': ['aerospace', 'aviation', 'defense'],
+  'automotive': ['automotive', 'manufacturing'],
+  'manufacturing': ['manufacturing', 'industrial', 'production'],
+  'HVAC': ['engineering', 'hvac', 'energy', 'mechanical'],
+  'robotics': ['robotics', 'automation', 'manufacturing'],
+  'energy': ['energy', 'renewables', 'utilities'],
+  'mechanical': ['engineering', 'mechanical', 'manufacturing'],
+  'industrial': ['industrial', 'automation', 'manufacturing'],
+  'industrial engineering': ['engineering', 'industrial', 'manufacturing', 'automation'],
+  'automation': ['automation', 'robotics', 'manufacturing', 'industrial'],
+  'production': ['manufacturing', 'production', 'industrial'],
+  'quality assurance': ['manufacturing', 'quality', 'industrial'],
+  'renewables': ['renewables', 'energy', 'environmental'],
+  'environment': ['environmental', 'renewables', 'sustainability'],
 
   // Civil & Construction
-  'construction': ['Construction', 'Civil Engineering'],
-  'infrastructure': ['Civil Engineering', 'Construction', 'Transportation'],
-  'transportation': ['Transportation/Trucking/Railroad', 'Logistics & Supply Chain'],
+  'construction': ['construction', 'engineering', 'infrastructure'],
+  'infrastructure': ['engineering', 'construction', 'infrastructure'],
+  'transportation': ['transportation', 'logistics'],
 
   // Electrical & Electronics
-  'electronics': ['Electrical & Electronic Manufacturing', 'Semiconductors'],
-  'semiconductors': ['Semiconductors', 'Electrical & Electronic Manufacturing'],
-  'power systems': ['Utilities', 'Energy'],
-  'telecommunications': ['Telecommunications'],
-  'IoT': ['Internet', 'Computer Hardware', 'Electrical & Electronic Manufacturing'],
+  'electronics': ['electronics', 'manufacturing', 'hardware'],
+  'semiconductors': ['semiconductors', 'electronics', 'manufacturing'],
+  'power systems': ['utilities', 'energy', 'power'],
+  'telecommunications': ['telecommunications', 'technology'],
+  'IoT': ['iot', 'technology', 'hardware', 'software'],
 
   // Chemical & Materials
-  'chemical': ['Chemicals', 'Petrochemicals'],
-  'pharmaceutical': ['Pharmaceuticals', 'Biotechnology'],
-  'petrochemical': ['Oil & Energy', 'Chemicals'],
-  'materials': ['Plastics', 'Materials', 'Chemicals'],
-  'biotech': ['Biotechnology', 'Pharmaceuticals'],
+  'chemical': ['chemicals', 'manufacturing'],
+  'pharmaceutical': ['pharmaceuticals', 'biotech', 'healthcare'],
+  'petrochemical': ['energy', 'chemicals', 'oil'],
+  'materials': ['materials', 'manufacturing'],
+  'biotech': ['biotech', 'pharmaceuticals', 'life sciences'],
 
   // Software & Technology
-  'software': ['Computer Software', 'Information Technology & Services'],
-  'technology': ['Information Technology & Services', 'Computer Software'],
-  'fintech': ['Financial Services', 'Computer Software'],
-  'SaaS': ['Computer Software', 'Internet'],
-  'cloud computing': ['Computer Software', 'Information Technology & Services'],
-  'it services': ['Information Technology & Services', 'Computer Software'],
-  'cloud': ['Computer Software', 'Information Technology & Services'],
-  'cybersecurity': ['Computer & Network Security', 'Information Technology & Services'],
+  'software': ['software', 'technology', 'saas'],
+  'technology': ['technology', 'software', 'it'],
+  'fintech': ['fintech', 'financial services', 'technology'],
+  'SaaS': ['saas', 'software', 'cloud'],
+  'cloud computing': ['cloud', 'software', 'technology'],
+  'it services': ['it services', 'technology', 'software'],
+  'cloud': ['cloud', 'software', 'technology'],
+  'cybersecurity': ['cybersecurity', 'security', 'technology'],
 
   // Data & Analytics
-  'data analytics': ['Computer Software', 'Information Technology & Services'],
-  'business intelligence': ['Computer Software', 'Management Consulting'],
-  'AI': ['Computer Software', 'Research'],
+  'data analytics': ['analytics', 'data', 'software'],
+  'business intelligence': ['analytics', 'software', 'data'],
+  'AI': ['ai', 'machine learning', 'technology'],
 
   // Business & Consulting
-  'consulting': ['Management Consulting', 'Business Consulting'],
-  'business services': ['Business Supplies & Equipment', 'Outsourcing/Offshoring'],
-  'finance': ['Financial Services', 'Investment Banking', 'Venture Capital & Private Equity'],
-  'enterprise software': ['Computer Software', 'Information Technology & Services'],
-  'enterprise': ['Computer Software', 'Information Technology & Services'],
+  'consulting': ['consulting', 'professional services'],
+  'business services': ['business services', 'professional services'],
+  'finance': ['financial services', 'banking', 'finance'],
+  'enterprise software': ['software', 'enterprise', 'technology'],
+  'enterprise': ['enterprise', 'software', 'technology'],
 
   // Logistics & Operations
-  'logistics': ['Logistics & Supply Chain', 'Transportation/Trucking/Railroad'],
-  'operations': ['Logistics & Supply Chain', 'Manufacturing'],
-  'supply chain': ['Logistics & Supply Chain', 'Warehousing'],
+  'logistics': ['logistics', 'supply chain', 'transportation'],
+  'operations': ['operations', 'logistics', 'manufacturing'],
+  'supply chain': ['supply chain', 'logistics', 'operations'],
 
   // Healthcare & Life Sciences
-  'healthcare': ['Hospital & Health Care', 'Medical Devices'],
-  'medical devices': ['Medical Devices', 'Hospital & Health Care'],
-  'research': ['Research', 'Biotechnology'],
+  'healthcare': ['healthcare', 'medical', 'hospital'],
+  'medical devices': ['medical devices', 'healthcare'],
+  'research': ['research', 'biotech', 'life sciences'],
 };
 
 /**
