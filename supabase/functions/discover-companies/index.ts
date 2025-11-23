@@ -493,6 +493,18 @@ serve(async (req) => {
       console.log(`\n🧠 [Phase 3] Applying semantic similarity filtering...`);
       console.log(`   Threshold: ${(threshold * 100).toFixed(0)}% (adaptive based on ${companiesBeforeFilter} companies)`);
 
+      // DIAGNOSTIC: Log what companies Apollo returned BEFORE filtering
+      console.log(`\n📊 [DIAGNOSTIC] Companies from Apollo (BEFORE semantic filtering):`);
+      discoveryResult.companies.slice(0, 5).forEach((c, i) => {
+        console.log(`   ${i + 1}. ${c.name}`);
+        console.log(`      Industry: ${c.sector || 'Unknown'}`);
+        console.log(`      Location: ${c.city || 'Unknown'}, ${c.state || 'Unknown'}`);
+        console.log(`      Technologies: ${c.technologiesUsed?.length || 0} listed`);
+        console.log(`      Job Postings: ${c.jobPostings?.length || 0}`);
+      });
+      console.log(`\n📦 [DIAGNOSTIC] Skills being used for matching (${skillExtractionResult.skills.length} total):`);
+      console.log(`   ${skillExtractionResult.skills.slice(0, 10).map(s => s.skill).join(', ')}...`);
+
       const semanticResult = await rankCompaniesBySimilarity(
         skillExtractionResult.skills,
         primaryOccupations, // Use O*NET direct results
