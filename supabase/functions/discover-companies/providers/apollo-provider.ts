@@ -677,8 +677,7 @@ Return JSON:
 
     // 🔥 CRITICAL FIX: If still insufficient results, try relaxing industry filters
     // This is the KEY to making the platform work for ANY syllabus - don't be too specific with industries
-    const originalIndustryTags = [...filters.q_organization_keyword_tags];
-
+    
     if (organizations.length < 3 && originalIndustryTags.length > 3) {
       console.log(`  ⚠️  Only ${organizations.length} companies found with specific industry filters`);
       console.log(`  🔄 Trying BROADER industry search (top 50% of industry keywords)...`);
@@ -739,18 +738,21 @@ Return JSON:
         }
 
         try {
-          const distance = calculateDistanceBetweenLocations(
+          const distance = await calculateDistanceBetweenLocations(
             originalCityLocation,
             orgLocation
           );
 
-          if (distance <= MAX_DISTANCE_MILES) {
+          if (distance !== null && distance <= MAX_DISTANCE_MILES) {
             filteredOrgs.push(org);
-          } else {
+          } else if (distance !== null) {
             distantCount++;
             if (distantCount <= 3) {  // Log first 3 excluded
               console.log(`     🚫 Excluded ${org.name} (${orgLocation}) - ${formatDistance(distance)} away (> ${MAX_DISTANCE_MILES} miles)`);
             }
+          } else {
+            // Distance calculation failed - keep the company (safer than excluding)
+            filteredOrgs.push(org);
           }
         } catch (error) {
           // Distance calculation failed - keep the company (safer than excluding)
