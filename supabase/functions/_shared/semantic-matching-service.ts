@@ -20,13 +20,14 @@ import { SOCMapping } from './course-soc-mapping.ts';
 // ========================================
 // FEATURE FLAG: Toggle between keyword and embedding-based matching
 // ========================================
-const USE_SEMANTIC_EMBEDDINGS = Deno.env.get('USE_SEMANTIC_EMBEDDINGS') === 'true';
+// PRODUCTION MODE: Embeddings enabled by default (can disable with USE_SEMANTIC_EMBEDDINGS=false)
+const USE_SEMANTIC_EMBEDDINGS = Deno.env.get('USE_SEMANTIC_EMBEDDINGS') !== 'false'; // Default: true
 const EMBEDDING_FALLBACK_ENABLED = Deno.env.get('EMBEDDING_FALLBACK_ENABLED') !== 'false'; // Default: true
 
 // Log current mode on module load
-console.log(`\n🔧 [Semantic Matching] Mode: ${USE_SEMANTIC_EMBEDDINGS ? 'EMBEDDINGS' : 'KEYWORDS'}`);
+console.log(`\n🔧 [Semantic Matching] Mode: ${USE_SEMANTIC_EMBEDDINGS ? 'EMBEDDINGS (High Quality)' : 'KEYWORDS (Fallback)'}`);
 if (USE_SEMANTIC_EMBEDDINGS && EMBEDDING_FALLBACK_ENABLED) {
-  console.log('   Fallback to keywords: ENABLED');
+  console.log('   Fallback to keywords: ENABLED (failsafe)');
 }
 
 export interface SemanticMatch {
@@ -142,9 +143,15 @@ export async function rankCompaniesBySimilarity(
       company.job_postings || company.jobPostings || []
     );
 
+    const rawSimilarity = similarity; // Save for logging
     if (industryDecision.penalty > 0) {
-      console.log(`   ⚠️  ${company.name}: ${industryDecision.reason} → ${(industryDecision.penalty * 100).toFixed(0)}% penalty`);
-      similarity = Math.max(0, similarity - industryDecision.penalty);
+      // MULTIPLICATIVE PENALTY: Gentler than subtractive
+      // 100% penalty (1.0) → multiply by 0 → score = 0 (hard exclude)
+      // 15% penalty (0.15) → multiply by 0.85 → score reduced by 15% (soft penalty)
+      // Example: 40% similarity with 15% penalty = 40% * 0.85 = 34% (vs 25% with subtraction)
+      similarity = similarity * (1 - industryDecision.penalty);
+      console.log(`   ⚠️  ${company.name}: ${industryDecision.reason}`);
+      console.log(`      Raw: ${(rawSimilarity * 100).toFixed(0)}% → Penalized: ${(similarity * 100).toFixed(0)}% (${(industryDecision.penalty * 100).toFixed(0)}% reduction)`);
     }
 
     // Determine confidence level
@@ -182,14 +189,22 @@ export async function rankCompaniesBySimilarity(
     ? matches.reduce((sum, m) => sum + m.similarityScore, 0) / matches.length
     : 0;
 
-  console.log(`   ✅ Filtered: ${companies.length} → ${filteredMatches.length} companies`);
-  console.log(`   📊 Average similarity: ${averageSimilarity.toFixed(2)}`);
-  console.log(`   ⏱️  Processing time: ${processingTimeMs}ms`);
+  console.log(`\n📊 [Semantic Filtering Results]`);
+  console.log(`   Total Companies: ${companies.length}`);
+  console.log(`   Threshold: ${(threshold * 100).toFixed(0)}%`);
+  console.log(`   Passed Filter: ${filteredMatches.length}`);
+  console.log(`   Filtered Out: ${companies.length - filteredMatches.length}`);
+  console.log(`   Average Similarity: ${(averageSimilarity * 100).toFixed(0)}%`);
+  console.log(`   Processing Time: ${processingTimeMs}ms`);
 
-  // Log top 5 matches
-  console.log(`\n   🏆 Top 5 Matches:`);
-  filteredMatches.slice(0, 5).forEach((match, i) => {
-    console.log(`      ${i + 1}. ${match.companyName} - ${(match.similarityScore * 100).toFixed(0)}% (${match.confidence})`);
+  // Log ALL companies with their scores (for debugging)
+  console.log(`\n   📋 All Companies (sorted by similarity):`);
+  matches.forEach((match, i) => {
+    const company = companies.find(c => c.name === match.companyName);
+    const industry = company?.sector || 'Unknown';
+    const status = match.similarityScore >= threshold ? '✅ PASS' : '❌ FAIL';
+    console.log(`      ${i + 1}. ${match.companyName} - ${(match.similarityScore * 100).toFixed(0)}% (${match.confidence}) ${status}`);
+    console.log(`         Industry: ${industry} | Skills: ${match.matchingSkills.length} | DWAs: ${match.matchingDWAs.length}`);
   });
 
   // Log filtered out companies with industry information for debugging
@@ -347,23 +362,51 @@ function isStopWord(word: string): boolean {
 
 /**
  * Extract important terms (technical skills, technologies)
+ * Enhanced with more comprehensive patterns
  */
 function extractImportantTerms(text: string): string[] {
   const terms: string[] = [];
   const lower = text.toLowerCase();
 
-  // Common technical terms
+  // Comprehensive technical terms patterns
   const technicalPatterns = [
-    /\b(python|java|javascript|typescript|c\+\+|sql|excel|matlab|ansys|tensorflow|pytorch|react|angular|vue)\b/gi,
-    /\b(machine learning|deep learning|data analysis|cloud computing|devops|agile|scrum)\b/gi,
-    /\b(engineering|software|hardware|mechanical|thermal|fluid|structural|civil)\b/gi,
-    /\b(analysis|design|development|modeling|simulation|optimization)\b/gi
+    // Programming languages
+    /\b(python|java|javascript|typescript|c\+\+|c#|ruby|php|swift|kotlin|go|rust|scala|r|matlab)\b/gi,
+
+    // Web & Mobile frameworks
+    /\b(react|angular|vue|node\.js|express|django|flask|spring|laravel|flutter|react native)\b/gi,
+
+    // Data & AI
+    /\b(sql|nosql|mongodb|postgresql|mysql|redis|elasticsearch)\b/gi,
+    /\b(machine learning|deep learning|data analysis|data science|artificial intelligence|neural networks)\b/gi,
+    /\b(tensorflow|pytorch|scikit-learn|pandas|numpy|keras|spark|hadoop)\b/gi,
+
+    // Cloud & DevOps
+    /\b(aws|azure|gcp|google cloud|cloud computing|kubernetes|docker|jenkins|terraform)\b/gi,
+    /\b(devops|ci\/cd|agile|scrum|git|github|gitlab)\b/gi,
+
+    // Engineering software & tools
+    /\b(cad|autocad|solidworks|catia|ansys|matlab|simulink|labview|plc)\b/gi,
+    /\b(finite element|cfd|computational fluid dynamics|fem|fea)\b/gi,
+
+    // Engineering disciplines
+    /\b(mechanical|electrical|civil|chemical|industrial|aerospace|automotive|manufacturing)\b/gi,
+    /\b(thermal|fluid|structural|power systems|hvac|robotics)\b/gi,
+    /\b(engineering|software|hardware|firmware|embedded systems)\b/gi,
+
+    // Technical activities
+    /\b(analysis|design|development|modeling|simulation|optimization|testing|validation)\b/gi,
+    /\b(prototyping|fabrication|integration|deployment|maintenance|troubleshooting)\b/gi,
+
+    // Business & Analytics
+    /\b(excel|powerbi|tableau|salesforce|crm|erp|sap|oracle)\b/gi,
+    /\b(business intelligence|analytics|reporting|dashboard|kpi|metrics)\b/gi
   ];
 
   for (const pattern of technicalPatterns) {
     const matches = text.match(pattern);
     if (matches) {
-      terms.push(...matches.map(m => m.toLowerCase()));
+      terms.push(...matches.map(m => m.toLowerCase().trim()));
     }
   }
 

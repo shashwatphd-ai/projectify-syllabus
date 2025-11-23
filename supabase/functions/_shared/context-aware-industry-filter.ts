@@ -305,26 +305,52 @@ export function analyzeJobPostingsForProjects(jobPostings: any[]): boolean {
 
   // Keywords indicating REAL project work (internal roles)
   const projectRoleKeywords = [
-    // Technical roles
-    'software engineer', 'data scientist', 'data analyst', 'data engineer',
-    'machine learning', 'ai engineer', 'full stack', 'backend', 'frontend',
+    // Technical roles - Software
+    'software engineer', 'software developer', 'programmer', 'coder',
+    'full stack', 'backend', 'frontend', 'web developer', 'mobile developer',
+    'application developer', 'systems developer',
+
+    // Technical roles - Data & AI
+    'data scientist', 'data analyst', 'data engineer', 'database administrator',
+    'machine learning', 'ai engineer', 'ml engineer', 'deep learning',
+    'computer vision', 'nlp engineer', 'ai researcher',
+
+    // Technical roles - Infrastructure
     'devops', 'cloud engineer', 'systems engineer', 'network engineer',
+    'site reliability', 'infrastructure engineer', 'platform engineer',
+    'security engineer', 'cybersecurity',
+
+    // Engineering roles - Mechanical/Industrial
+    'mechanical engineer', 'design engineer', 'manufacturing engineer',
+    'industrial engineer', 'process engineer', 'quality engineer',
+    'product engineer', 'test engineer', 'cad engineer', 'r&d engineer',
+
+    // Engineering roles - Electrical/Electronics
+    'electrical engineer', 'electronics engineer', 'firmware engineer',
+    'hardware engineer', 'embedded systems', 'pcb design',
+
+    // Engineering roles - Civil/Construction
+    'civil engineer', 'structural engineer', 'construction engineer',
+    'project engineer', 'field engineer', 'geotechnical engineer',
 
     // Business/Analytics roles
     'business analyst', 'product manager', 'product owner', 'project manager',
     'financial analyst', 'business intelligence', 'analytics manager',
-    'operations analyst', 'strategy analyst',
+    'operations analyst', 'strategy analyst', 'management consultant',
+    'process analyst', 'systems analyst',
 
     // Research/Science roles
-    'research scientist', 'research analyst', 'lab technician',
-    'biostatistician', 'clinical analyst'
+    'research scientist', 'research engineer', 'research analyst', 'lab technician',
+    'biostatistician', 'clinical analyst', 'scientist', 'chemist', 'physicist',
+    'materials scientist', 'research associate'
   ];
 
   // Keywords indicating RECRUITING roles (not project work)
   const recruitingKeywords = [
-    'recruiter', 'recruitment', 'talent acquisition', 'sourcer',
-    'hr specialist', 'hr coordinator', 'hr generalist', 'hr manager',
-    'staffing', 'headhunter', 'talent partner', 'people operations'
+    'recruiter', 'recruitment', 'talent acquisition', 'sourcer', 'sourcing',
+    'hr specialist', 'hr coordinator', 'hr generalist', 'hr manager', 'hr business partner',
+    'staffing', 'headhunter', 'talent partner', 'people operations', 'people ops',
+    'talent coordinator', 'recruiting coordinator', 'employment specialist'
   ];
 
   let legitimateRoleCount = 0;
@@ -364,16 +390,13 @@ export function analyzeJobPostingsForProjects(jobPostings: any[]): boolean {
     }
   }
 
-  // Decision: Company needs at least 2 legitimate roles AND more legitimate than recruiting
+  // RELAXED Decision: Company needs at least 1 legitimate role (was 2)
+  // Allow ties (was strict > comparison)
   const hasLegitimateProjects =
-    legitimateRoleCount >= 2 &&
-    legitimateRoleCount > recruitingRoleCount;
+    legitimateRoleCount >= 1 &&
+    legitimateRoleCount >= recruitingRoleCount;
 
-  if (hasLegitimateProjects) {
-    console.log(`   📊 Job posting analysis: ${legitimateRoleCount} legitimate roles, ${recruitingRoleCount} recruiting roles → PASS`);
-  } else {
-    console.log(`   📊 Job posting analysis: ${legitimateRoleCount} legitimate roles, ${recruitingRoleCount} recruiting roles → FAIL`);
-  }
+  console.log(`   📊 Job posting analysis: ${legitimateRoleCount} legitimate roles, ${recruitingRoleCount} recruiting roles → ${hasLegitimateProjects ? 'PASS ✅' : 'FAIL ❌'}`);
 
   return hasLegitimateProjects;
 }
