@@ -359,7 +359,7 @@ export class AdzunaProvider implements DiscoveryProvider {
         .filter(s => s.category === 'technical' || s.category === 'domain')
         .slice(0, 5);
 
-      searchQuery = topSkills.map(s => s.name).join(' ');
+      searchQuery = topSkills.map(s => s.skill).join(' ');
       console.log(`   Using skills: ${searchQuery}`);
     } else {
       // Last resort: Use course topics
