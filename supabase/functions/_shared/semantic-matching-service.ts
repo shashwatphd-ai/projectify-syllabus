@@ -40,7 +40,8 @@ export interface SemanticMatch {
 }
 
 export interface SemanticFilteringResult {
-  matches: SemanticMatch[];
+  matches: SemanticMatch[];        // Companies that passed threshold
+  allMatches: SemanticMatch[];     // ALL companies with raw scores (for fallback)
   totalCompanies: number;
   filteredCount: number;           // How many were filtered out
   averageSimilarity: number;
@@ -217,6 +218,7 @@ export async function rankCompaniesBySimilarity(
 
   return {
     matches: filteredMatches,
+    allMatches: matches,             // ALL companies with raw scores (for fallback)
     totalCompanies: companies.length,
     filteredCount: filtered.length,
     averageSimilarity,
