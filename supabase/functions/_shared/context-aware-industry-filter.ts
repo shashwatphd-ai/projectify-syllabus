@@ -218,7 +218,6 @@ export function shouldExcludeIndustry(
     case 'engineering_technical':
     case 'computer_tech':
     case 'healthcare_science':
-      // Engineering/Tech courses → Staffing companies are NOT relevant
       // REDUCED penalty from 1.0 to 0.8 to avoid complete exclusion
       // With 0.8 penalty, staffing firms still have 20% similarity remaining,
       // enough to pass fallback minimum (5%) if Apollo returns very few companies
@@ -286,7 +285,6 @@ function handleHybridCourseIndustry(
     }
   }
 
-  // Hybrid course with Tech primary + no legitimate projects → Exclude
   // REDUCED penalty from 1.0 to 0.8 for graceful degradation
   return {
     shouldExclude: true,
