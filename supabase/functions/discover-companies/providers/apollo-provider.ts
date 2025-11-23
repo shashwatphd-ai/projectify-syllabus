@@ -5,6 +5,7 @@ import {
   DiscoveredCompany
 } from './types.ts';
 import { mapSOCIndustriesToApollo, getApolloSearchStrategy } from './apollo-industry-mapper.ts';
+import { getTechnologiesForSOCCodes } from './apollo-technology-mapping.ts';
 import { calculateDistanceBetweenLocations, formatDistance } from '../../_shared/geo-distance.ts';
 
 interface ApolloSearchFilters {
@@ -488,9 +489,14 @@ Return JSON:
     const searchStrategy = getApolloSearchStrategy(includeIndustries.length);
     console.log(`  📊 Apollo Search Strategy: ${searchStrategy.toUpperCase()}`);
 
+    // TECHNOLOGY FILTERING: Use verified Apollo technology UIDs for precise targeting
+    const socCodes = context.socMappings?.map(soc => soc.socCode) || [];
+    const technologyUIDs = socCodes.length > 0 ? getTechnologiesForSOCCodes(socCodes) : [];
+
     const intelligentFilters: ApolloSearchFilters = {
       organization_locations: [apolloLocation],
       q_organization_keyword_tags: [...includeIndustries], // Industry keywords for filtering
+      currently_using_any_of_technology_uids: technologyUIDs.length > 0 ? technologyUIDs : undefined, // Verified tech usage
       // NOTE: Job titles removed from mandatory filters - will use for ranking instead
       // NOTE: Job posting requirement removed - most companies don't post all jobs publicly
       // NOTE: Employee size expanded to include small startups and large enterprises
@@ -501,6 +507,11 @@ Return JSON:
     // Store job titles for later ranking (not filtering)
     const preferredJobTitles = uniqueJobTitles;
     console.log(`  💼 Job titles for ranking (not filtering): ${preferredJobTitles.join(', ')}`);
+
+    if (technologyUIDs.length > 0) {
+      console.log(`  🔧 Technology filtering enabled: ${technologyUIDs.slice(0, 5).join(', ')}${technologyUIDs.length > 5 ? '...' : ''}`);
+      console.log(`     (Automatically excludes staffing firms - they don't use engineering software)`);
+    }
 
     // HYBRID STRATEGY: Add course-specific keywords for diversity (not generic industries)
     // This ensures different courses (even with same occupation) get different companies
