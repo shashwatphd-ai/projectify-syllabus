@@ -1,14 +1,14 @@
-import { Button } from "@/components/ui/button";
+import logo from "@/assets/logo-eduthree.jpg";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Shield, Building2, GraduationCap } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { authService } from "@/lib/supabase";
-import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useNewJobMatchCount } from "@/hooks/useNewJobMatchCount";
 import { supabase } from "@/integrations/supabase/client";
+import { authService } from "@/lib/supabase";
+import { Building2, GraduationCap, LogOut, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
-import logo from "@/assets/logo-eduthree.jpg";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 export const Header = () => {
   const navigate = useNavigate();
@@ -105,12 +105,12 @@ export const Header = () => {
                   Projects
                 </Button>
                 <Button onClick={() => navigate("/my-opportunities")} variant="ghost" size="sm" className="relative">
-                  JobLines
-                  {newMatchCount && newMatchCount > 0 && (
+                  Job Lines
+                  {newMatchCount && newMatchCount > 0 ? (
                     <Badge variant="destructive" className="ml-2 h-5 min-w-5 px-1.5">
                       {newMatchCount}
                     </Badge>
-                  )}
+                  ): null}
                 </Button>
                 <Button onClick={() => navigate("/my-competencies")} variant="ghost" size="sm">
                   My Skills
