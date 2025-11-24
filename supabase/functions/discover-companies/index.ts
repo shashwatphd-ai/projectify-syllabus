@@ -415,7 +415,7 @@ serve(async (req) => {
     console.log(`\n✓ Using provider: ${provider.name} v${provider.version}`);
 
     // ====================================
-    // Step 4: Run discovery
+    // Step 4: Run discovery (WITH AUTOMATIC FALLBACK)
     // ====================================
     const courseContext: CourseContext = {
       outcomes,
@@ -431,13 +431,70 @@ serve(async (req) => {
       socMappings // Pass SOC mappings for industry-based search
     };
 
-    const discoveryResult = await provider.discover(courseContext);
+    // HYBRID DISCOVERY: Try primary provider, auto-fallback to Adzuna if 0 results
+    let discoveryResult;
+    let usedFallback = false;
+    let primaryProviderError: string | null = null;
+
+    try {
+      discoveryResult = await provider.discover(courseContext);
+
+      // Check if primary provider returned 0 companies
+      if (discoveryResult.companies.length === 0 && providerConfig.provider === 'apollo') {
+        console.log(`\n⚠️  PRIMARY PROVIDER (${provider.name}) RETURNED 0 COMPANIES`);
+        console.log(`   Attempting automatic fallback to Adzuna...`);
+
+        primaryProviderError = `${provider.name} returned 0 companies for location: ${searchLocation}`;
+
+        // Try Adzuna fallback
+        const adzunaProvider = await ProviderFactory.getProvider({ provider: 'adzuna' });
+        console.log(`   Fallback provider: ${adzunaProvider.name} v${adzunaProvider.version}`);
+
+        try {
+          discoveryResult = await adzunaProvider.discover(courseContext);
+          usedFallback = true;
+
+          console.log(`   ✅ Fallback successful: ${discoveryResult.companies.length} companies from Adzuna`);
+        } catch (fallbackError) {
+          console.error(`   ❌ Fallback to Adzuna also failed:`, fallbackError);
+          // Keep original Apollo result (0 companies) and continue
+          // Error will be handled in later stages
+        }
+      }
+    } catch (primaryError) {
+      console.error(`\n❌ PRIMARY PROVIDER (${provider.name}) FAILED WITH ERROR`);
+      console.error(`   Error:`, primaryError);
+
+      primaryProviderError = primaryError instanceof Error ? primaryError.message : String(primaryError);
+
+      // Try Adzuna as fallback for any primary provider error
+      if (providerConfig.provider === 'apollo') {
+        console.log(`   Attempting automatic fallback to Adzuna...`);
+
+        try {
+          const adzunaProvider = await ProviderFactory.getProvider({ provider: 'adzuna' });
+          discoveryResult = await adzunaProvider.discover(courseContext);
+          usedFallback = true;
+
+          console.log(`   ✅ Fallback successful: ${discoveryResult.companies.length} companies from Adzuna`);
+        } catch (fallbackError) {
+          console.error(`   ❌ Fallback to Adzuna also failed:`, fallbackError);
+          throw primaryError; // Re-throw original error if fallback also fails
+        }
+      } else {
+        throw primaryError; // No fallback available for non-Apollo providers
+      }
+    }
 
     console.log(`\n✅ Discovery Complete:`);
     console.log(`   Discovered: ${discoveryResult.stats.discovered}`);
     console.log(`   Enriched: ${discoveryResult.stats.enriched}`);
     console.log(`   Time: ${discoveryResult.stats.processingTimeSeconds.toFixed(2)}s`);
     console.log(`   Provider: ${discoveryResult.stats.providerUsed}`);
+    if (usedFallback) {
+      console.log(`   ⚠️  FALLBACK USED: Primary provider (${providerConfig.provider}) failed/returned 0`);
+      console.log(`   Primary error: ${primaryProviderError}`);
+    }
 
     // ====================================
     // Step 5: PHASE 3: Semantic similarity filtering (WITH GRACEFUL DEGRADATION)
@@ -806,6 +863,20 @@ serve(async (req) => {
         stats: {
           ...discoveryResult.stats,
           totalProcessingTime
+        },
+        // DIAGNOSTICS: Provider and fallback information
+        diagnostics: {
+          primaryProvider: providerConfig.provider,
+          usedFallback: usedFallback,
+          fallbackProvider: usedFallback ? 'adzuna' : null,
+          primaryProviderError: primaryProviderError,
+          locationUsed: searchLocation,
+          companiesBeforeFiltering: companiesBeforeFilter,
+          companiesAfterFiltering: filteredCompanies.length,
+          semanticFilterApplied: !skipFiltering,
+          averageSimilarity: !skipFiltering && filteredCompanies.length > 0
+            ? (filteredCompanies.reduce((sum, c) => sum + (c.similarityScore || 0), 0) / filteredCompanies.length).toFixed(2)
+            : null
         }
       }),
       {
