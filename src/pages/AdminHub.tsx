@@ -206,24 +206,43 @@ const AdminHub = () => {
 
   const loadPendingFaculty = async () => {
     try {
-      const { data, error } = await supabase
+      // First, get all users with the pending_faculty role
+      const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
-        .select(`
-          user_id,
-          assigned_at,
-          profiles!inner(email, created_at)
-        `)
+        .select('user_id, assigned_at')
         .eq('role', 'pending_faculty')
         .order('assigned_at', { ascending: false });
 
-      if (error) throw error;
-      
-      const formattedData = (data || []).map(item => ({
-        user_id: item.user_id,
-        email: (item.profiles as any).email,
-        created_at: (item.profiles as any).created_at
-      }));
-      
+      if (roleError) throw roleError;
+
+      if (!roleData || roleData.length === 0) {
+        setPendingFaculty([]);
+        return;
+      }
+
+      const userIds = roleData.map((item) => item.user_id);
+
+      // Then, fetch profile info for those users
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, email, created_at')
+        .in('id', userIds);
+
+      if (profileError) throw profileError;
+
+      const profileMap = new Map(
+        (profileData || []).map((p) => [p.id, p])
+      );
+
+      const formattedData = roleData.map((item) => {
+        const profile = profileMap.get(item.user_id);
+        return {
+          user_id: item.user_id,
+          email: profile?.email ?? 'Unknown email',
+          created_at: profile?.created_at ?? item.assigned_at,
+        };
+      });
+
       setPendingFaculty(formattedData);
     } catch (error: any) {
       console.error('Load pending faculty error:', error);
