@@ -20,50 +20,31 @@ interface CourseMetrics {
 
 export default function InstructorDashboard() {
   const navigate = useNavigate();
-  const { user, loading } = useAuth();
+  const { user, loading, isFaculty } = useAuth();
   const [courses, setCourses] = useState<CourseMetrics[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(true);
-  const [isFaculty, setIsFaculty] = useState(false);
 
+  // Handle auth and faculty access
   useEffect(() => {
-    if (!loading && !user) {
-      navigate("/auth");
-    }
-  }, [user, loading, navigate]);
-
-  useEffect(() => {
-    if (user) {
-      checkFacultyStatus();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (isFaculty) {
-      fetchCoursesWithMetrics();
-    }
-  }, [isFaculty]);
-
-  const checkFacultyStatus = async () => {
-    try {
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user!.id)
-        .in('role', ['faculty', 'admin'])
-        .maybeSingle();
-      
-      if (!data) {
-        toast.error("Access denied: Faculty role required");
-        navigate("/projects");
+    if (!loading) {
+      if (!user) {
+        navigate("/auth");
         return;
       }
-      
-      setIsFaculty(true);
-    } catch (error) {
-      console.error('Faculty check error:', error);
-      navigate("/projects");
+
+      if (!isFaculty) {
+        toast.error("Access denied: Faculty role required");
+        navigate("/projects");
+      }
     }
-  };
+  }, [user, loading, isFaculty, navigate]);
+
+  // Fetch courses when faculty status is confirmed
+  useEffect(() => {
+    if (isFaculty && user) {
+      fetchCoursesWithMetrics();
+    }
+  }, [isFaculty, user]);
 
   const fetchCoursesWithMetrics = async () => {
     try {
@@ -115,7 +96,7 @@ export default function InstructorDashboard() {
     }
   };
 
-  if (loading || !isFaculty) {
+  if (loading || !isFaculty || !user) {
     return (
       <>
         <Header />

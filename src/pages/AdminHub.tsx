@@ -81,13 +81,12 @@ interface PendingFaculty {
 }
 
 const AdminHub = () => {
-  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { user, loading: authLoading, requireAuth, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<ProjectWithSignal[]>([]);
   const [submissions, setSubmissions] = useState<EmployerSubmission[]>([]);
   const [pendingFaculty, setPendingFaculty] = useState<PendingFaculty[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [sortBy, setSortBy] = useState<'score' | 'date'>('score');
   const [matchModalOpen, setMatchModalOpen] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState<EmployerSubmission | null>(null);
@@ -100,37 +99,20 @@ const AdminHub = () => {
     requireAuth();
   }, [authLoading]);
 
+  // Handle admin access check and redirect
   useEffect(() => {
-    if (user) {
-      checkAdminStatus();
-    }
-  }, [user]);
-
-  const checkAdminStatus = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user!.id)
-        .eq('role', 'admin')
-        .maybeSingle();
-
-      if (error) throw error;
-      
-      if (!data) {
-        toast.error('Access denied. Admin privileges required.');
-        navigate('/projects');
-        return;
-      }
-
-      setIsAdmin(true);
-      loadData();
-    } catch (error: any) {
-      console.error('Admin check error:', error);
-      toast.error('Failed to verify admin access');
+    if (!authLoading && user && !isAdmin) {
+      toast.error('Access denied. Admin privileges required.');
       navigate('/projects');
     }
-  };
+  }, [authLoading, user, isAdmin, navigate]);
+
+  // Load data when admin status is confirmed
+  useEffect(() => {
+    if (isAdmin && user) {
+      loadData();
+    }
+  }, [isAdmin, user]);
 
   const loadData = async () => {
     try {
