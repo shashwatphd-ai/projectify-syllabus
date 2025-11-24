@@ -47,21 +47,45 @@ export async function extractSkillsFromOutcomes(
   }
 
   // Deduplicate and merge similar skills
-  const deduplicated = deduplicateSkills(skills);
+  let deduplicated = deduplicateSkills(skills);
+
+  // ✨ NEW: Fallback to course-title-based inference for generic courses
+  // If we extracted very few skills (< 3), the learning outcomes are probably too generic
+  // In this case, infer skills from the course title itself
+  if (deduplicated.length < 3 && courseTitle) {
+    console.log(`  ⚠️  Low skill count (${deduplicated.length}) - learning outcomes too generic`);
+    console.log(`  🎯 Inferring skills from course title: "${courseTitle}"`);
+    
+    const inferredSkills = inferSkillsFromCourseTitle(courseTitle, courseLevel || '');
+    
+    if (inferredSkills.length > 0) {
+      console.log(`  ✅ Inferred ${inferredSkills.length} skills from course title`);
+      inferredSkills.forEach(skill => {
+        console.log(`    • ${skill.skill} (${skill.category}, confidence: ${skill.confidence.toFixed(2)})`);
+      });
+      
+      // Merge inferred skills with extracted skills
+      deduplicated = deduplicateSkills([...deduplicated, ...inferredSkills]);
+    }
+  }
 
   // Sort by confidence (highest first)
   const sorted = deduplicated.sort((a, b) => b.confidence - a.confidence);
 
-  console.log(`  ✅ Extracted ${sorted.length} unique skills`);
+  console.log(`  ✅ Final: ${sorted.length} unique skills`);
   sorted.forEach(skill => {
     console.log(`    • ${skill.skill} (${skill.category}, confidence: ${skill.confidence.toFixed(2)})`);
   });
+
+  const extractionMethod = sorted.some(s => s.source.includes('Inferred from course title'))
+    ? 'pattern-based-nlp + title-inference'
+    : 'pattern-based-nlp';
 
   return {
     skills: sorted,
     totalExtracted: sorted.length,
     courseContext,
-    extractionMethod: 'pattern-based-nlp'
+    extractionMethod
   };
 }
 
@@ -158,6 +182,138 @@ function extractSkillsFromText(text: string, courseContext: string): ExtractedSk
   // Pattern 4: Domain-specific terms from course context
   const domainSkills = extractDomainSkills(text, courseContext);
   skills.push(...domainSkills);
+
+  return skills;
+}
+
+/**
+ * Infer skills from course title when learning outcomes are too generic
+ * Handles introductory courses with generic outcomes like "explain", "describe"
+ */
+function inferSkillsFromCourseTitle(courseTitle: string, courseLevel: string): ExtractedSkill[] {
+  const skills: ExtractedSkill[] = [];
+  const lowerTitle = courseTitle.toLowerCase();
+  const isIntro = courseLevel.toLowerCase().includes('intro') || 
+                  lowerTitle.includes('intro') || 
+                  lowerTitle.includes('fundamentals') ||
+                  lowerTitle.includes('principles') ||
+                  lowerTitle.includes('basics');
+
+  // Confidence multiplier for intro courses (slightly lower)
+  const confidenceMultiplier = isIntro ? 0.85 : 0.90;
+
+  // Course-to-skills mapping for all major disciplines
+  const courseMappings: Record<string, { skills: string[], category: SkillCategory }> = {
+    // Engineering disciplines
+    'systems engineering': {
+      skills: ['Systems Design', 'Requirements Analysis', 'System Integration', 'Process Modeling', 'Systems Thinking', 'Technical Documentation', 'Systems Architecture', 'Lifecycle Management'],
+      category: 'technical'
+    },
+    'industrial engineering': {
+      skills: ['Process Optimization', 'Lean Manufacturing', 'Six Sigma', 'Supply Chain Management', 'Operations Research', 'Quality Control', 'Process Improvement', 'Facility Layout', 'Work Study', 'Production Planning', 'Inventory Management'],
+      category: 'technical'
+    },
+    'mechanical engineering': {
+      skills: ['Mechanical Design', 'CAD Design', 'Thermodynamics', 'Fluid Mechanics', 'Materials Science', 'Manufacturing Processes', 'Finite Element Analysis', 'Stress Analysis', 'Machine Design', 'HVAC Systems'],
+      category: 'technical'
+    },
+    'civil engineering': {
+      skills: ['Structural Analysis', 'Geotechnical Engineering', 'Surveying', 'Construction Management', 'Hydraulics', 'Transportation Engineering', 'Concrete Design', 'Steel Design', 'Project Planning'],
+      category: 'technical'
+    },
+    'electrical engineering': {
+      skills: ['Circuit Design', 'Signal Processing', 'Power Systems', 'Control Systems', 'Electronics', 'Microcontrollers', 'PCB Design', 'Embedded Systems', 'Digital Systems', 'Analog Design'],
+      category: 'technical'
+    },
+    'chemical engineering': {
+      skills: ['Chemical Processes', 'Process Control', 'Reaction Engineering', 'Separation Processes', 'Mass Transfer', 'Heat Transfer', 'Process Design', 'Chemical Safety', 'Plant Design'],
+      category: 'technical'
+    },
+    'computer science': {
+      skills: ['Programming', 'Data Structures', 'Algorithms', 'Software Development', 'Database Management', 'Web Development', 'Object-Oriented Programming', 'Software Engineering', 'Problem Solving'],
+      category: 'technical'
+    },
+    'software engineering': {
+      skills: ['Software Design', 'Agile Development', 'Version Control', 'Testing', 'Code Review', 'System Architecture', 'API Design', 'DevOps', 'Software Documentation'],
+      category: 'technical'
+    },
+    'data science': {
+      skills: ['Data Analysis', 'Statistical Modeling', 'Machine Learning', 'Data Visualization', 'Python Programming', 'SQL', 'Data Cleaning', 'Predictive Analytics', 'Data Mining'],
+      category: 'analytical'
+    },
+    'business analytics': {
+      skills: ['Business Intelligence', 'Data Analysis', 'KPI Tracking', 'Statistical Analysis', 'Reporting', 'Dashboard Design', 'Predictive Modeling', 'Data-Driven Decision Making'],
+      category: 'analytical'
+    },
+    'project management': {
+      skills: ['Project Planning', 'Risk Management', 'Stakeholder Management', 'Budgeting', 'Scheduling', 'Team Leadership', 'Change Management', 'Agile Methodologies', 'Communication'],
+      category: 'framework'
+    },
+    'supply chain': {
+      skills: ['Supply Chain Planning', 'Logistics', 'Procurement', 'Inventory Management', 'Demand Forecasting', 'Warehouse Management', 'Distribution', 'Supplier Relations'],
+      category: 'analytical'
+    },
+    'operations management': {
+      skills: ['Process Analysis', 'Capacity Planning', 'Quality Management', 'Lean Operations', 'Operations Strategy', 'Workflow Optimization', 'Resource Allocation', 'Performance Metrics'],
+      category: 'analytical'
+    },
+    'marketing': {
+      skills: ['Market Research', 'Brand Management', 'Digital Marketing', 'Customer Segmentation', 'Marketing Strategy', 'Content Marketing', 'Social Media Marketing', 'Marketing Analytics'],
+      category: 'analytical'
+    },
+    'finance': {
+      skills: ['Financial Analysis', 'Financial Modeling', 'Valuation', 'Investment Analysis', 'Risk Assessment', 'Portfolio Management', 'Financial Reporting', 'Corporate Finance'],
+      category: 'analytical'
+    },
+    'accounting': {
+      skills: ['Financial Accounting', 'Managerial Accounting', 'Cost Accounting', 'Tax Accounting', 'Audit', 'Financial Statements', 'Bookkeeping', 'Compliance'],
+      category: 'analytical'
+    },
+    'human resources': {
+      skills: ['Talent Acquisition', 'Performance Management', 'Employee Relations', 'HR Analytics', 'Compensation Planning', 'Training & Development', 'HR Compliance', 'Workforce Planning'],
+      category: 'analytical'
+    }
+  };
+
+  // Match course title to skill mappings
+  for (const [courseName, mapping] of Object.entries(courseMappings)) {
+    if (lowerTitle.includes(courseName)) {
+      console.log(`    🎯 Matched course pattern: "${courseName}"`);
+      
+      mapping.skills.forEach(skill => {
+        skills.push({
+          skill,
+          category: mapping.category,
+          confidence: 0.75 * confidenceMultiplier, // Base confidence 0.75, reduced for intro courses
+          source: `Inferred from course title: ${courseTitle}`,
+          keywords: skill.toLowerCase().split(' ').filter(w => w.length > 2)
+        });
+      });
+      
+      break; // Only match one pattern to avoid duplicates
+    }
+  }
+
+  // If no specific match, try to extract discipline keywords
+  if (skills.length === 0) {
+    const disciplines = ['engineering', 'computer', 'business', 'management', 'science', 'design'];
+    const foundDiscipline = disciplines.find(d => lowerTitle.includes(d));
+    
+    if (foundDiscipline) {
+      console.log(`    🎯 Found general discipline: "${foundDiscipline}"`);
+      // Add generic analytical/problem-solving skills
+      const genericSkills = ['Problem Solving', 'Critical Thinking', 'Analytical Skills', 'Technical Communication', 'Teamwork'];
+      genericSkills.forEach(skill => {
+        skills.push({
+          skill,
+          category: 'analytical',
+          confidence: 0.60 * confidenceMultiplier,
+          source: `Inferred from discipline: ${foundDiscipline}`,
+          keywords: skill.toLowerCase().split(' ').filter(w => w.length > 2)
+        });
+      });
+    }
+  }
 
   return skills;
 }
