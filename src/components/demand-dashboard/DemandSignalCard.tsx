@@ -1,8 +1,8 @@
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Users, GraduationCap, Clock, Briefcase } from "lucide-react";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { DemandSignal } from "@/hooks/useDemandSignals";
+import { Briefcase, Clock, GraduationCap, MapPin, Users } from "lucide-react";
 
 interface DemandSignalCardProps {
   signal: DemandSignal;
@@ -16,7 +16,7 @@ export const DemandSignalCard = ({ signal, onExpressInterest }: DemandSignalCard
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
             <Briefcase className="w-5 h-5 sm:w-6 sm:h-6 shrink-0 text-primary" />
-            <CardTitle className="text-lg sm:text-xl font-bold line-clamp-2 leading-tight">{signal.project_category}</CardTitle>
+            <CardTitle className="text-lg sm:text-md font-bold line-clamp-2 leading-tight">{signal.project_category.toUpperCase()}</CardTitle>
           </div>
           <Badge variant="secondary" className="shrink-0 text-xs">
             {signal.course_count}
