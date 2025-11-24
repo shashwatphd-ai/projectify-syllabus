@@ -213,12 +213,20 @@ const Configure = () => {
             details
           });
 
-          // Show user-friendly message based on error category
+          // Show user-friendly message based on error category with diagnostics
+          const diagnostics = discoveryData?.diagnostics;
+
           switch (category) {
             case 'DATA_ERROR':
+              const diagnosticInfo = diagnostics
+                ? ` Provider: ${diagnostics.primaryProvider}, Location: ${diagnostics.locationUsed || location}.` +
+                  (diagnostics.usedFallback ? ` Fallback to ${diagnostics.fallbackProvider} was attempted but also returned 0 companies.` : '')
+                : '';
+
               toast.error(
-                "No suitable companies found for this course and location. Try adjusting the location or number of teams.",
-                { duration: 6000 }
+                `No suitable companies found for this course and location.${diagnosticInfo} ` +
+                `Try adjusting the location to a nearby metro area or contact support if this persists.`,
+                { duration: 8000 }
               );
               break;
             case 'CONFIG_ERROR':
@@ -230,8 +238,12 @@ const Configure = () => {
             case 'EXTERNAL_API_ERROR':
               const source = details.source || 'partner API';
               toast.error(
-                `Our ${source} is temporarily unavailable. Please try again in a few minutes.`,
-                { duration: 6000 }
+                `Our ${source} is temporarily unavailable. ` +
+                (diagnostics?.usedFallback
+                  ? `We attempted fallback to ${diagnostics.fallbackProvider} but it also failed. `
+                  : '') +
+                `Please try again in a few minutes or contact support.`,
+                { duration: 8000 }
               );
               break;
             case 'DB_ERROR':
@@ -253,8 +265,21 @@ const Configure = () => {
 
         // Success path
         generationRunId = discoveryData?.generation_run_id;
+        const diagnostics = discoveryData?.diagnostics;
+
         console.log('✓ Company discovery complete. Generation run ID:', generationRunId);
-        toast.success(`Found ${discoveryData?.count || 0} partner companies!`, { duration: 2000 });
+        console.log('📊 Discovery diagnostics:', diagnostics);
+
+        // Show detailed success message with provider info
+        if (diagnostics?.usedFallback) {
+          toast.success(
+            `Found ${discoveryData?.count || 0} companies via ${diagnostics.fallbackProvider} (${diagnostics.primaryProvider} returned 0). ` +
+            `Primary issue: ${diagnostics.primaryProviderError || 'Unknown'}`,
+            { duration: 6000 }
+          );
+        } else {
+          toast.success(`Found ${discoveryData?.count || 0} partner companies via ${diagnostics?.primaryProvider || 'discovery provider'}!`, { duration: 2000 });
+        }
       }
 
       // Step 2: Generate projects using enriched company data
