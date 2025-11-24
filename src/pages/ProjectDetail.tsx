@@ -241,7 +241,7 @@ const ProjectDetail = () => {
             <TabsTrigger value="feedback">Review & Feedback</TabsTrigger>
             <TabsTrigger value="verification">Verification</TabsTrigger>
             <TabsTrigger value="scoring">Scoring</TabsTrigger>
-            <TabsTrigger value="forms">All Forms</TabsTrigger>
+            <TabsTrigger value="forms">Project Details</TabsTrigger>
             <TabsTrigger value="algorithm">Algorithm</TabsTrigger>
           </TabsList>
 
