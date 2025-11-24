@@ -74,11 +74,18 @@ interface EmployerSubmission {
   created_at: string;
 }
 
+interface PendingFaculty {
+  user_id: string;
+  email: string;
+  created_at: string;
+}
+
 const AdminHub = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<ProjectWithSignal[]>([]);
   const [submissions, setSubmissions] = useState<EmployerSubmission[]>([]);
+  const [pendingFaculty, setPendingFaculty] = useState<PendingFaculty[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [sortBy, setSortBy] = useState<'score' | 'date'>('score');
@@ -87,6 +94,7 @@ const AdminHub = () => {
   const [aiShellProjects, setAiShellProjects] = useState<AIShellProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [syncing, setSyncing] = useState(false);
+  const [approvingUserId, setApprovingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     requireAuth();
@@ -127,7 +135,7 @@ const AdminHub = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      await Promise.all([loadProjects(), loadSubmissions()]);
+      await Promise.all([loadProjects(), loadSubmissions(), loadPendingFaculty()]);
     } catch (error: any) {
       console.error('Load data error:', error);
       toast.error('Failed to load admin data');
@@ -192,6 +200,33 @@ const AdminHub = () => {
       setSubmissions(data || []);
     } catch (error: any) {
       console.error('Load submissions error:', error);
+      throw error;
+    }
+  };
+
+  const loadPendingFaculty = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select(`
+          user_id,
+          assigned_at,
+          profiles!inner(email, created_at)
+        `)
+        .eq('role', 'pending_faculty')
+        .order('assigned_at', { ascending: false });
+
+      if (error) throw error;
+      
+      const formattedData = (data || []).map(item => ({
+        user_id: item.user_id,
+        email: (item.profiles as any).email,
+        created_at: (item.profiles as any).created_at
+      }));
+      
+      setPendingFaculty(formattedData);
+    } catch (error: any) {
+      console.error('Load pending faculty error:', error);
       throw error;
     }
   };
@@ -270,6 +305,26 @@ const AdminHub = () => {
     }
   };
 
+  const handleApproveFaculty = async (userId: string, email: string) => {
+    setApprovingUserId(userId);
+    try {
+      const { error } = await supabase.rpc('admin_assign_role', {
+        _user_id: userId,
+        _role: 'faculty'
+      });
+
+      if (error) throw error;
+
+      toast.success(`Approved ${email} as faculty`);
+      await loadPendingFaculty();
+    } catch (error: any) {
+      console.error('Approve faculty error:', error);
+      toast.error(error.message || 'Failed to approve faculty');
+    } finally {
+      setApprovingUserId(null);
+    }
+  };
+
   if (authLoading || loading || !isAdmin) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -310,6 +365,9 @@ const AdminHub = () => {
             </TabsTrigger>
             <TabsTrigger value="submissions">
               Employer Leads ({submissions.length})
+            </TabsTrigger>
+            <TabsTrigger value="faculty">
+              Pending Faculty ({pendingFaculty.length})
             </TabsTrigger>
             <TabsTrigger value="analytics">
               <BarChart3 className="h-4 w-4 mr-2" />
@@ -492,6 +550,65 @@ const AdminHub = () => {
               <Card className="p-8 text-center">
                 <p className="text-muted-foreground">No employer submissions yet</p>
               </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="faculty" className="space-y-6">
+            <p className="text-sm text-muted-foreground">
+              Review and approve faculty signups
+            </p>
+            
+            {pendingFaculty.length === 0 ? (
+              <Card>
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  No pending faculty approvals
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2">
+                {pendingFaculty.map((faculty) => (
+                  <Card key={faculty.user_id} className="shadow-[var(--shadow-card)]">
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="text-xl">{faculty.email}</CardTitle>
+                          <CardDescription className="mt-2">
+                            Signed up {new Date(faculty.created_at).toLocaleDateString()}
+                          </CardDescription>
+                        </div>
+                        <Badge variant="outline" className="text-amber-600 border-amber-600">
+                          Pending
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="text-sm">
+                          <span className="text-muted-foreground block mb-1">User ID</span>
+                          <p className="font-mono text-xs">{faculty.user_id}</p>
+                        </div>
+
+                        <div className="pt-3 border-t flex gap-2">
+                          <Button 
+                            onClick={() => handleApproveFaculty(faculty.user_id, faculty.email)}
+                            disabled={approvingUserId === faculty.user_id}
+                            className="flex-1"
+                          >
+                            {approvingUserId === faculty.user_id ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Approving...
+                              </>
+                            ) : (
+                              'Approve as Faculty'
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             )}
           </TabsContent>
 
