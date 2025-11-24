@@ -126,9 +126,9 @@ export class ApolloProvider implements DiscoveryProvider {
     // Step 3: Search for organizations
     // NOTE: Simplified from multi-pass search. For job-based discovery, use Adzuna provider.
     const pageOffset = this.calculatePageOffset(courseSeed);
-    // CRISIS RECOVERY: Reverted to original * 3 multiplier (was changed to * 10)
-    // Larger requests may have been causing issues with Apollo API
-    const organizations = await this.searchOrganizations(filters, context.targetCount * 3, pageOffset);
+    // RELAXED: Increased multiplier from 3 to 5 to get more candidates for filtering
+    // More candidates → Better chance of finding quality matches after semantic filtering
+    const organizations = await this.searchOrganizations(filters, context.targetCount * 5, pageOffset);
 
     // Step 4: Enrich organizations with contacts and market intelligence
     // Pass excluded industries and course domain for context-aware post-filtering

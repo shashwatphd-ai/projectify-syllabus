@@ -633,16 +633,16 @@ function calculateIndustryPenalty(
 
 /**
  * Get recommended threshold based on company count
- * SURGICAL FIX: Lowered thresholds to prevent filtering out all companies
+ * RELAXED: Further lowered thresholds to increase result quantity while maintaining reasonable quality
  */
 export function getRecommendedThreshold(companyCount: number): number {
-  // GRACEFUL DEGRADATION: Lower thresholds when we have few companies
-  // Prevents filtering out ALL companies when O*NET data is sparse
-  if (companyCount > 20) return 0.65;  // Good sample → maintain higher quality
-  if (companyCount > 10) return 0.60;  // Moderate sample → balance quality/quantity
-  if (companyCount > 5) return 0.55;   // Small sample → prioritize coverage
-  // Very few companies → accept lower matches to ensure we have SOME results
-  return 0.50;  // Was 0.75 → Now 0.50 (surgical fix for 0 companies issue)
+  // RELAXED FILTERING: Lower thresholds to get more results
+  // Goal: Balance quality with quantity to provide more options
+  if (companyCount > 20) return 0.50;  // Good sample → relaxed from 0.65 to 0.50
+  if (companyCount > 10) return 0.45;  // Moderate sample → relaxed from 0.60 to 0.45
+  if (companyCount > 5) return 0.40;   // Small sample → relaxed from 0.55 to 0.40
+  // Very few companies → accept even lower matches to ensure we have results
+  return 0.35;  // Relaxed from 0.50 to 0.35 for maximum coverage
 }
 
 /**
