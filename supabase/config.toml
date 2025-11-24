@@ -6,3 +6,7 @@ verify_jwt = false
 
 [functions.apollo-webhook-listener]
 verify_jwt = false
+
+# Authenticated endpoints - verify_jwt = true (default)
+[functions.send-faculty-approval-email]
+verify_jwt = true

@@ -1,0 +1,126 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface ApprovalEmailRequest {
+  email: string;
+  name?: string;
+}
+
+const handler = async (req: Request): Promise<Response> => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { email, name }: ApprovalEmailRequest = await req.json();
+
+    console.log("Sending faculty approval email to:", email);
+
+    // Use Resend API directly via fetch
+    const emailResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "EduThree <onboarding@resend.dev>",
+        to: [email],
+        subject: "Welcome to EduThree - Faculty Access Approved! 🎉",
+        html: `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 8px 8px 0 0; text-align: center; }
+                .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+                .button { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+                .features { background: white; padding: 20px; border-radius: 6px; margin: 20px 0; }
+                .feature-item { margin: 15px 0; padding-left: 25px; position: relative; }
+                .feature-item:before { content: "✓"; position: absolute; left: 0; color: #667eea; font-weight: bold; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="header">
+                  <h1>🎓 Faculty Access Approved!</h1>
+                </div>
+                <div class="content">
+                  <p>Hi${name ? ` ${name}` : ''},</p>
+                  
+                  <p>Great news! Your faculty account has been approved by the EduThree admin team.</p>
+                  
+                  <p><strong>You now have access to all instructor features:</strong></p>
+                  
+                  <div class="features">
+                    <div class="feature-item">Upload course syllabi and generate project opportunities</div>
+                    <div class="feature-item">Review AI-generated industry projects tailored to your curriculum</div>
+                    <div class="feature-item">Connect students with real companies and opportunities</div>
+                    <div class="feature-item">Access the Instructor Dashboard with course analytics</div>
+                    <div class="feature-item">Manage projects and track student engagement</div>
+                  </div>
+                  
+                  <center>
+                    <a href="https://projectify-syllabus.lovable.app/upload" class="button">
+                      Get Started - Upload Your First Syllabus
+                    </a>
+                  </center>
+                  
+                  <p style="margin-top: 30px;">
+                    <strong>Next Steps:</strong><br>
+                    1. Log in to your account<br>
+                    2. Navigate to the "Upload Syllabus" page<br>
+                    3. Upload your course syllabus (PDF format)<br>
+                    4. Our AI will analyze your curriculum and generate relevant industry projects
+                  </p>
+                  
+                  <p style="color: #666; font-size: 14px; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
+                    Questions? Need help getting started? Reply to this email and our team will be happy to assist you.
+                  </p>
+                  
+                  <p style="color: #666; font-size: 14px;">
+                    Best regards,<br>
+                    <strong>The EduThree Team</strong>
+                  </p>
+                </div>
+              </div>
+            </body>
+          </html>
+        `,
+      }),
+    });
+
+    if (!emailResponse.ok) {
+      const errorData = await emailResponse.text();
+      console.error("Resend API error:", errorData);
+      throw new Error(`Resend API error: ${emailResponse.status} - ${errorData}`);
+    }
+
+    const responseData = await emailResponse.json();
+    console.log("Faculty approval email sent successfully:", responseData);
+
+    return new Response(JSON.stringify({ success: true, data: responseData }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
+  } catch (error: any) {
+    console.error("Error sending faculty approval email:", error);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      }
+    );
+  }
+};
+
+serve(handler);
