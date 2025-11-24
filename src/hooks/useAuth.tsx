@@ -1,39 +1,18 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const auth = useAuthContext();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
   const requireAuth = () => {
-    if (!loading && !user) {
+    if (!auth.loading && !auth.user) {
       navigate("/auth");
     }
   };
 
-  return { user, session, loading, requireAuth };
+  return {
+    ...auth,
+    requireAuth,
+  };
 };

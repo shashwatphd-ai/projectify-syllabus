@@ -3,10 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useNewJobMatchCount } from "@/hooks/useNewJobMatchCount";
-import { supabase } from "@/integrations/supabase/client";
-import { authService } from "@/lib/supabase";
 import { Building2, GraduationCap, LogOut, MenuIcon, Shield } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -17,72 +15,17 @@ import {
 } from "./ui/dropdown-menu";
 export const Header = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isEmployer, setIsEmployer] = useState(false);
-  const [isFaculty, setIsFaculty] = useState(false);
+  const { user, isAdmin, isEmployer, isFaculty, signOut } = useAuth();
   const { data: newMatchCount } = useNewJobMatchCount();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  useEffect(() => {
-    if (user) {
-      checkAdminStatus();
-      checkEmployerStatus();
-      checkFacultyStatus();
-    }
-  }, [user]);
-
-  const checkAdminStatus = async () => {
-    try {
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user!.id)
-        .eq('role', 'admin')
-        .maybeSingle();
-
-      setIsAdmin(!!data);
-    } catch (error) {
-      console.error('Admin check error:', error);
-    }
-  };
-
-  const checkEmployerStatus = async () => {
-    try {
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user!.id)
-        .eq('role', 'employer')
-        .maybeSingle();
-
-      setIsEmployer(!!data);
-    } catch (error) {
-      console.error('Employer check error:', error);
-    }
-  };
-
-  const checkFacultyStatus = async () => {
-    try {
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user!.id)
-        .in('role', ['faculty', 'admin'])
-        .maybeSingle();
-
-      setIsFaculty(!!data);
-    } catch (error) {
-      console.error('Faculty check error:', error);
-    }
-  };
 
   const handleSignOut = async () => {
-    const { error } = await authService.signOut();
-    if (error) {
-      toast.error("Failed to sign out");
-    } else {
+    try {
+      await signOut();
       toast.success("Signed out successfully");
       navigate("/");
+    } catch (error) {
+      toast.error("Failed to sign out");
     }
   };
 
