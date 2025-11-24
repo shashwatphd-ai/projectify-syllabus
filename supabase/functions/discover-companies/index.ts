@@ -544,10 +544,10 @@ serve(async (req) => {
 
       console.log(`   Returning all ${filteredCompanies.length} companies without filtering`);
     } else {
-      // Apply semantic filtering with adaptive threshold retry
-      let threshold = getRecommendedThreshold(companiesBeforeFilter);
-      const MIN_THRESHOLD = 0.15; // Don't go below 15%
-      const THRESHOLD_STEP = 0.10; // Lower by 10% each retry
+      // Apply semantic filtering with minimal threshold (0.01) to let all companies through
+      let threshold = 0.01; // Extremely low threshold to pass nearly all companies
+      const MIN_THRESHOLD = 0.01; // Already at minimum
+      const THRESHOLD_STEP = 0.10; // Won't be used since we start at minimum
       const targetCount = Math.ceil(count * 0.5); // Need at least 50% of requested projects
       let semanticResult;
       let retryAttempt = 0;
