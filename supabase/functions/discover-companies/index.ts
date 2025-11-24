@@ -604,23 +604,20 @@ serve(async (req) => {
           };
         }).sort((a, b) => b.similarityScore - a.similarityScore);
 
-        // 🔥 ADAPTIVE FALLBACK THRESHOLD: Based on how many companies Apollo returned
-        // CRITICAL: Ensures we NEVER return 0 companies if Apollo found at least 1 company
-        // - Apollo returned 1-2 companies → Accept ANY score > 0% (desperate for results)
-        // - Apollo returned 3-5 companies → Accept score > 3% (relaxed)
-        // - Apollo returned 6+ companies → Accept score > 5% (standard)
+        // 🔥 ADAPTIVE FALLBACK THRESHOLD: Relaxed to get more results
+        // RELAXED: Lowered all thresholds to allow more companies through
         const apolloCompanyCount = discoveryResult.companies.length;
         let MINIMUM_FALLBACK_SCORE: number;
 
         if (apolloCompanyCount <= 2) {
-          MINIMUM_FALLBACK_SCORE = 0.01; // 1% - accept almost anything (desperation mode)
-          console.log(`   📉 DESPERATION MODE: Apollo only returned ${apolloCompanyCount} companies - accepting ANY match > 1%`);
+          MINIMUM_FALLBACK_SCORE = 0.005; // 0.5% - relaxed from 1%
+          console.log(`   📉 DESPERATION MODE: Apollo only returned ${apolloCompanyCount} companies - accepting ANY match > 0.5%`);
         } else if (apolloCompanyCount <= 5) {
-          MINIMUM_FALLBACK_SCORE = 0.03; // 3% - relaxed threshold
-          console.log(`   📉 RELAXED MODE: Apollo returned ${apolloCompanyCount} companies - accepting matches > 3%`);
+          MINIMUM_FALLBACK_SCORE = 0.02; // 2% - relaxed from 3%
+          console.log(`   📉 RELAXED MODE: Apollo returned ${apolloCompanyCount} companies - accepting matches > 2%`);
         } else {
-          MINIMUM_FALLBACK_SCORE = 0.05; // 5% - standard threshold
-          console.log(`   📊 STANDARD MODE: Apollo returned ${apolloCompanyCount} companies - accepting matches > 5%`);
+          MINIMUM_FALLBACK_SCORE = 0.03; // 3% - relaxed from 5%
+          console.log(`   📊 STANDARD MODE: Apollo returned ${apolloCompanyCount} companies - accepting matches > 3%`);
         }
 
         const viableCompanies = allMatchesSorted.filter(m => m.similarityScore > MINIMUM_FALLBACK_SCORE);
