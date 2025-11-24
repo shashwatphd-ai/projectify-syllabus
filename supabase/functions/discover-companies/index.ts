@@ -696,14 +696,81 @@ serve(async (req) => {
     }
 
     // ====================================
-    // Step 5.5: Check if we have any companies after filtering
+    // Step 5.5: HYBRID FALLBACK - Try Adzuna if semantic filtering removed all companies
     // ====================================
-    if (filteredCompanies.length === 0) {
+    if (filteredCompanies.length === 0 && !usedFallback && providerConfig.provider === 'apollo') {
       console.log(`\n❌ No companies passed semantic filtering`);
       console.log(`   Discovered: ${discoveryResult.companies.length}`);
       console.log(`   After filtering: 0`);
       console.log(`   This usually means: companies were staffing/recruiting firms or irrelevant industries`);
+      console.log(`\n⚠️  SEMANTIC FILTER FALLBACK: Attempting Adzuna...`);
 
+      primaryProviderError = `Apollo returned ${discoveryResult.companies.length} companies but all were filtered out (irrelevant industries)`;
+
+      try {
+        // Try Adzuna fallback
+        const adzunaProvider = await ProviderFactory.getProvider({ provider: 'adzuna' });
+        console.log(`   Fallback provider: ${adzunaProvider.name} v${adzunaProvider.version}`);
+
+        const adzunaResult = await adzunaProvider.discover(courseContext);
+        usedFallback = true;
+
+        console.log(`   ✅ Adzuna fallback returned ${adzunaResult.companies.length} companies`);
+
+        // Re-run semantic filtering on Adzuna companies
+        if (adzunaResult.companies.length > 0) {
+          const adzunaThreshold = getRecommendedThreshold(adzunaResult.companies.length);
+          console.log(`   🧠 Applying semantic filtering to Adzuna companies (threshold: ${(adzunaThreshold * 100).toFixed(0)}%)`);
+
+          const adzunaSemanticResult = await rankCompaniesBySimilarity(
+            skillExtractionResult.skills,
+            primaryOccupations,
+            adzunaResult.companies,
+            adzunaThreshold,
+            socMappings
+          );
+
+          console.log(`   📊 Adzuna semantic filtering: ${adzunaResult.companies.length} → ${adzunaSemanticResult.matches.length} companies`);
+
+          if (adzunaSemanticResult.matches.length > 0) {
+            // Map Adzuna matches to filteredCompanies format
+            filteredCompanies = adzunaSemanticResult.matches.map(match => {
+              const company = adzunaResult.companies.find(c => c.name === match.companyName)!;
+              return {
+                ...company,
+                similarityScore: match.similarityScore,
+                matchConfidence: match.confidence,
+                matchingSkills: match.matchingSkills,
+                matchingDWAs: match.matchingDWAs,
+                matchExplanation: match.explanation
+              };
+            });
+
+            // Update generation_run with Adzuna success
+            await supabase
+              .from('generation_runs')
+              .update({
+                companies_before_filtering: adzunaResult.companies.length,
+                companies_after_filtering: filteredCompanies.length,
+                semantic_filter_threshold: adzunaThreshold,
+                scoring_notes: `Adzuna fallback successful: ${filteredCompanies.length} companies after semantic filtering`
+              })
+              .eq('id', generationRunId);
+
+            console.log(`   ✅ Proceeding with ${filteredCompanies.length} companies from Adzuna`);
+          } else {
+            console.log(`   ❌ Adzuna companies also filtered out by semantic matching`);
+          }
+        }
+      } catch (adzunaError) {
+        console.error(`   ❌ Adzuna fallback failed:`, adzunaError);
+      }
+    }
+
+    // Final check: If still no companies after all fallbacks
+    if (filteredCompanies.length === 0) {
+      console.log(`\n❌ FINAL: No companies available after all fallback attempts`);
+      
       // Return early with informative error
       const totalProcessingTime = (Date.now() - startTime) / 1000;
       await supabase
@@ -712,17 +779,28 @@ serve(async (req) => {
           status: 'failed',
           completed_at: new Date().toISOString(),
           processing_time_seconds: totalProcessingTime,
-          scoring_notes: 'No viable companies found after semantic filtering (likely all were staffing/recruiting firms)'
+          scoring_notes: usedFallback 
+            ? `All providers exhausted. Apollo filtered out (irrelevant). Adzuna fallback also failed.`
+            : 'No viable companies found after semantic filtering (likely all were staffing/recruiting firms)'
         })
         .eq('id', generationRunId);
 
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'No suitable companies found. All discovered companies were filtered out (likely staffing/recruiting firms or irrelevant industries). Try adjusting search parameters.',
+          error: usedFallback
+            ? 'No suitable companies found from any provider. Apollo returned irrelevant industries, and Adzuna fallback was attempted but also failed. Try a different location or broader search.'
+            : 'No suitable companies found. All discovered companies were filtered out (likely staffing/recruiting firms or irrelevant industries). Try adjusting search parameters.',
           companies: [],
           count: 0,
-          generation_run_id: generationRunId
+          generation_run_id: generationRunId,
+          diagnostics: {
+            primaryProvider: providerConfig.provider,
+            usedFallback,
+            primaryProviderError,
+            companiesDiscovered: discoveryResult.companies.length,
+            companiesAfterFiltering: 0
+          }
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
