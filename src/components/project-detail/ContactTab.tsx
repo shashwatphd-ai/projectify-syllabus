@@ -262,6 +262,8 @@ export const ContactTab = ({ forms, companyProfile, contactInfo, projectId, proj
                 )}
               </div>
               
+              {/* Blur wrapper for contact details */}
+              <div className="blur-md pointer-events-none select-none">
               {displayData.contact_name && displayData.contact_name !== 'TBD' && displayData.contact_name !== 'General Manager' ? (
                 <>
                   {/* Contact Profile */}
@@ -414,6 +416,8 @@ export const ContactTab = ({ forms, companyProfile, contactInfo, projectId, proj
                   </div>
                 </div>
               )}
+              
+              </div> {/* Close blur wrapper */}
             </div>
           </div>
         </CardContent>
