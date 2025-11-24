@@ -30,7 +30,7 @@ const handler = async (req: Request): Promise<Response> => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "EduThree <onboarding@resend.dev>",
+        from: "EduThree <noreply@yourdomain.com>", // Replace with your verified domain
         to: [email],
         subject: "Welcome to EduThree - Faculty Access Approved! 🎉",
         html: `
