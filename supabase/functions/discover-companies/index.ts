@@ -544,11 +544,17 @@ serve(async (req) => {
 
       console.log(`   Returning all ${filteredCompanies.length} companies without filtering`);
     } else {
-      // Apply semantic filtering normally
-      const threshold = getRecommendedThreshold(companiesBeforeFilter);
+      // Apply semantic filtering with adaptive threshold retry
+      let threshold = getRecommendedThreshold(companiesBeforeFilter);
+      const MIN_THRESHOLD = 0.15; // Don't go below 15%
+      const THRESHOLD_STEP = 0.10; // Lower by 10% each retry
+      const targetCount = Math.ceil(count * 0.5); // Need at least 50% of requested projects
+      let semanticResult;
+      let retryAttempt = 0;
 
-      console.log(`\n🧠 [Phase 3] Applying semantic similarity filtering...`);
-      console.log(`   Threshold: ${(threshold * 100).toFixed(0)}% (adaptive based on ${companiesBeforeFilter} companies)`);
+      console.log(`\n🧠 [Phase 3] Applying semantic similarity filtering with adaptive retry...`);
+      console.log(`   Target: At least ${targetCount} companies (50% of ${count} requested projects)`);
+      console.log(`   Initial threshold: ${(threshold * 100).toFixed(0)}%`);
 
       // DIAGNOSTIC: Log what companies Apollo returned BEFORE filtering
       console.log(`\n📊 [DIAGNOSTIC] Companies from Apollo (BEFORE semantic filtering):`);
@@ -562,13 +568,35 @@ serve(async (req) => {
       console.log(`\n📦 [DIAGNOSTIC] Skills being used for matching (${skillExtractionResult.skills.length} total):`);
       console.log(`   ${skillExtractionResult.skills.slice(0, 10).map(s => s.skill).join(', ')}...`);
 
-      const semanticResult = await rankCompaniesBySimilarity(
-        skillExtractionResult.skills,
-        primaryOccupations, // Use O*NET direct results
-        discoveryResult.companies,
-        threshold,
-        socMappings // Pass SOC mappings for context-aware filtering
-      );
+      // Adaptive threshold retry loop
+      while (true) {
+        retryAttempt++;
+        console.log(`\n🎯 Attempt ${retryAttempt}: Threshold ${(threshold * 100).toFixed(0)}%`);
+
+        semanticResult = await rankCompaniesBySimilarity(
+          skillExtractionResult.skills,
+          primaryOccupations, // Use O*NET direct results
+          discoveryResult.companies,
+          threshold,
+          socMappings // Pass SOC mappings for context-aware filtering
+        );
+
+        console.log(`   Result: ${semanticResult.matches.length} companies passed`);
+
+        // Check if we have enough companies or hit minimum threshold
+        if (semanticResult.matches.length >= targetCount) {
+          console.log(`   ✅ Target met: ${semanticResult.matches.length} >= ${targetCount} companies`);
+          break;
+        } else if (threshold - THRESHOLD_STEP < MIN_THRESHOLD) {
+          console.log(`   ⚠️  Cannot lower threshold below ${(MIN_THRESHOLD * 100).toFixed(0)}%`);
+          console.log(`   Proceeding with ${semanticResult.matches.length} companies (${((semanticResult.matches.length / count) * 100).toFixed(0)}% of target)`);
+          break;
+        } else {
+          threshold -= THRESHOLD_STEP;
+          console.log(`   📉 Lowering threshold to ${(threshold * 100).toFixed(0)}% and retrying...`);
+        }
+      }
+
       console.log(formatSemanticFilteringForDisplay(semanticResult));
 
       // Update generation_run with semantic filtering stats
@@ -580,11 +608,14 @@ serve(async (req) => {
           companies_before_filtering: companiesBeforeFilter,
           companies_after_filtering: semanticResult.matches.length,
           average_similarity_score: semanticResult.averageSimilarity,
-          semantic_processing_time_ms: semanticResult.processingTimeMs
+          semantic_processing_time_ms: semanticResult.processingTimeMs,
+          scoring_notes: retryAttempt > 1 
+            ? `Adaptive threshold: Started at ${(getRecommendedThreshold(companiesBeforeFilter) * 100).toFixed(0)}%, lowered to ${(threshold * 100).toFixed(0)}% over ${retryAttempt} attempts to reach target`
+            : null
         })
         .eq('id', generationRunId);
 
-      console.log(`✅ Semantic filtering: ${companiesBeforeFilter} → ${semanticResult.matches.length} companies`);
+      console.log(`✅ Semantic filtering: ${companiesBeforeFilter} → ${semanticResult.matches.length} companies (${retryAttempt} attempts)`);
 
       // INTELLIGENT FALLBACK: If filtering rejected ALL companies but we have enriched companies
       // Preserve top N with a confidence flag indicating lower quality match
