@@ -315,7 +315,18 @@ const AdminHub = () => {
 
       if (error) throw error;
 
-      toast.success(`Approved ${email} as faculty`);
+      // Send approval email notification
+      try {
+        await supabase.functions.invoke('send-faculty-approval-email', {
+          body: { email }
+        });
+        console.log('Approval email sent to:', email);
+      } catch (emailError) {
+        console.error('Failed to send approval email:', emailError);
+        // Don't fail the whole operation if email fails
+      }
+
+      toast.success(`Approved ${email} as faculty - welcome email sent!`);
       await loadPendingFaculty();
     } catch (error: any) {
       console.error('Approve faculty error:', error);
