@@ -98,6 +98,33 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Set up realtime subscription for role changes
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('user-roles-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_roles',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('Role change detected:', payload);
+          // Refetch roles when any change occurs
+          fetchUserRoles(user.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
   // Computed role flags
   const isAdmin = roles.includes("admin");
   const isFaculty = roles.includes("faculty") || roles.includes("admin");
