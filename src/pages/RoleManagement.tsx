@@ -40,16 +40,11 @@ export default function RoleManagement() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!loading && !isAdmin) {
-      window.location.href = "/";
-      return;
-    }
-
     if (isAdmin) {
       fetchUsersWithRoles();
       setupRealtimeSubscription();
     }
-  }, [isAdmin, loading]);
+  }, [isAdmin]);
 
   const setupRealtimeSubscription = () => {
     const channel = supabase
@@ -150,10 +145,6 @@ export default function RoleManagement() {
         </div>
       </div>
     );
-  }
-
-  if (!isAdmin) {
-    return null;
   }
 
   return (
