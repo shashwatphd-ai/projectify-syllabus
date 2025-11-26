@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface AuthContextType {
   user: User | null;
@@ -97,6 +98,51 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Set up realtime subscription for role changes
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('user-roles-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_roles',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('Role change detected:', payload);
+          
+          // Show toast notification based on the event type
+          if (payload.eventType === 'INSERT') {
+            const role = (payload.new as any).role;
+            toast.success(`New role assigned: ${role}`, {
+              description: 'Your permissions have been updated.',
+            });
+          } else if (payload.eventType === 'DELETE') {
+            const role = (payload.old as any).role;
+            toast.info(`Role removed: ${role}`, {
+              description: 'Your permissions have been updated.',
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            toast.info('Your role has been updated', {
+              description: 'Your permissions have been updated.',
+            });
+          }
+          
+          // Refetch roles when any change occurs
+          fetchUserRoles(user.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   // Computed role flags
   const isAdmin = roles.includes("admin");

@@ -31,25 +31,6 @@ const AdminMetrics = () => {
     total_generating: 0,
   });
 
-  // Handle auth and admin access
-  useEffect(() => {
-    if (!authLoading) {
-      if (!user) {
-        navigate("/auth");
-        return;
-      }
-
-      if (!isAdmin) {
-        toast({
-          title: "Access Denied",
-          description: "You must be an admin to access this page.",
-          variant: "destructive",
-        });
-        navigate("/");
-      }
-    }
-  }, [user, authLoading, isAdmin, navigate, toast]);
-
   useEffect(() => {
     const fetchMetrics = async () => {
       if (!isAdmin) return;
