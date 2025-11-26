@@ -49,7 +49,7 @@ interface StudentApplication {
 
 export default function EmployerDashboard() {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, isEmployer, loading: authLoading } = useAuth();
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
   const [projects, setProjects] = useState<ProjectWithCourse[]>([]);
   const [applications, setApplications] = useState<StudentApplication[]>([]);
@@ -57,17 +57,21 @@ export default function EmployerDashboard() {
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [applicationsLoading, setApplicationsLoading] = useState(false);
 
+  // Redirect if not authenticated or not an employer
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth");
+    } else if (!authLoading && user && !isEmployer) {
+      toast.error("Access denied. Employer role required.");
+      navigate("/");
     }
-  }, [user, authLoading, navigate]);
+  }, [authLoading, user, isEmployer, navigate]);
 
   useEffect(() => {
-    if (user) {
+    if (user && isEmployer) {
       fetchCompanyProfile();
     }
-  }, [user]);
+  }, [user, isEmployer]);
 
   useEffect(() => {
     if (companyProfile) {
