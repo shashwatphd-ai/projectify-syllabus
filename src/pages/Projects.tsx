@@ -26,7 +26,7 @@ const getQualityBadge = (similarity: number) => {
 };
 
 const Projects = () => {
-  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { user, isStudent, isFaculty, isAdmin, isEmployer, loading: authLoading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -34,71 +34,34 @@ const Projects = () => {
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingCourseId, setDownloadingCourseId] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<'student' | 'faculty' | 'admin' | 'employer' | null>(null);
   const [appliedProjects, setAppliedProjects] = useState<Set<string>>(new Set());
   const [applyingProjectId, setApplyingProjectId] = useState<string | null>(null);
   const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
   const [selectedProjectForFeedback, setSelectedProjectForFeedback] = useState<any>(null);
 
+  // Redirect if not authenticated
   useEffect(() => {
-    requireAuth();
-  }, [authLoading]);
-
-  useEffect(() => {
-    if (user) {
-      checkUserRole();
+    if (!authLoading && !user) {
+      navigate("/auth");
     }
-  }, [user]);
+  }, [authLoading, user, navigate]);
 
   useEffect(() => {
-    if (user && userRole) {
+    if (user && !authLoading) {
       loadProjects();
-      if (userRole === 'student') {
+      if (isStudent) {
         loadStudentApplications();
       }
     }
-  }, [user, userRole, courseId]);
-
-  const checkUserRole = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user!.id);
-      
-      if (error) {
-        console.error('Error checking user role:', error);
-        setUserRole('student');
-        return;
-      }
-      
-      if (data && data.length > 0) {
-        // Extract all roles and prioritize: admin > faculty > employer > student
-        const roles = data.map(r => r.role);
-        
-        if (roles.includes('admin')) {
-          setUserRole('admin');
-        } else if (roles.includes('faculty') || roles.includes('pending_faculty')) {
-          setUserRole('faculty');
-        } else if (roles.includes('employer')) {
-          setUserRole('employer');
-        } else {
-          setUserRole('student');
-        }
-      } else {
-        setUserRole('student');
-      }
-    } catch (error) {
-      console.error('Error checking user role:', error);
-      setUserRole('student');
-    }
-  };
+  }, [user, authLoading, isStudent, isFaculty, isAdmin, isEmployer, courseId]);
 
   const loadProjects = async () => {
+    if (!user) return;
+
     try {
       setLoading(true);
 
-      if (userRole === 'student') {
+      if (isStudent) {
         // Students see only curated_live projects
         const { data, error } = await supabase
           .from('projects')
@@ -109,12 +72,12 @@ const Projects = () => {
         if (error) throw error;
         setProjects(data || []);
 
-      } else if (userRole === 'faculty') {
+      } else if (isFaculty && !isAdmin) {
         // Faculty see all projects from courses they own (all statuses)
         let query = supabase
           .from('projects')
           .select('*, course_profiles!inner(owner_id, title)')
-          .eq('course_profiles.owner_id', user!.id);
+          .eq('course_profiles.owner_id', user.id);
 
         if (courseId) {
           query = query.eq('course_id', courseId);
@@ -125,7 +88,7 @@ const Projects = () => {
         if (error) throw error;
         setProjects(data || []);
 
-      } else if (userRole === 'admin') {
+      } else if (isAdmin) {
         // Admins see all projects (all statuses)
         let query = supabase
           .from('projects')
@@ -140,12 +103,12 @@ const Projects = () => {
         if (error) throw error;
         setProjects(data || []);
 
-      } else if (userRole === 'employer') {
+      } else if (isEmployer) {
         // Employers see only their company's live projects
         const { data: companyData } = await supabase
           .from('company_profiles')
           .select('id')
-          .eq('owner_user_id', user!.id)
+          .eq('owner_user_id', user.id)
           .maybeSingle();
 
         if (companyData) {
@@ -171,11 +134,13 @@ const Projects = () => {
   };
 
   const loadStudentApplications = async () => {
+    if (!user) return;
+
     try {
       const { data, error } = await supabase
         .from('project_applications')
         .select('project_id')
-        .eq('student_id', user!.id);
+        .eq('student_id', user.id);
       
       if (error) throw error;
       
@@ -249,29 +214,35 @@ const Projects = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <>
+        <Header />
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </>
     );
   }
 
   if (projects.length === 0) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>No Projects Found</CardTitle>
-            <CardDescription>
-              Please generate projects first by uploading a syllabus.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => navigate("/upload")} className="w-full">
-              Upload Syllabus
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <>
+        <Header />
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <Card className="max-w-md">
+            <CardHeader>
+              <CardTitle>No Projects Found</CardTitle>
+              <CardDescription>
+                Please generate projects first by uploading a syllabus.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => navigate("/upload")} className="w-full">
+                Upload Syllabus
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </>
     );
   }
 
@@ -368,7 +339,7 @@ const Projects = () => {
                   </div>
 
                   <div className="pt-3 border-t space-y-2">
-                    {userRole === 'student' ? (
+                    {isStudent ? (
                       <Button 
                         variant={appliedProjects.has(project.id) ? "outline" : "default"}
                         className="w-full"
@@ -389,7 +360,7 @@ const Projects = () => {
                           'Apply Now'
                         )}
                       </Button>
-                    ) : (userRole === 'faculty' || userRole === 'admin') ? (
+                    ) : (isFaculty || isAdmin) ? (
                       <>
                         <div className="flex gap-2">
                           <Button 
