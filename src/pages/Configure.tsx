@@ -1,16 +1,16 @@
-import { useEffect, useState, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { toast } from "sonner";
-import { Loader2, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Header } from "@/components/Header";
-import { validateLocationFormat, normalizeLocationForApollo } from "@/utils/locationValidation";
+import { normalizeLocationForApollo, validateLocationFormat } from "@/utils/locationValidation";
+import { Loader2, Settings } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 
 const Configure = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
@@ -155,8 +155,7 @@ const Configure = () => {
       let generationRunId = null;
 
       // P0-2 FIX: Validate location format before passing to Apollo
-      const locationForDiscovery = courseData?.search_location || courseData?.city_zip;
-
+      const locationForDiscovery = `${courseData?.location_city}, ${courseData?.location_state}` //.search_location || courseData?.city_zip;
       if (locationForDiscovery) {
         // Validate location format
         const validation = validateLocationFormat(locationForDiscovery);
