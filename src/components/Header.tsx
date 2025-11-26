@@ -2,82 +2,23 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LogOut, Shield, Building2, GraduationCap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { authService } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useNewJobMatchCount } from "@/hooks/useNewJobMatchCount";
-import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useState } from "react";
 import logo from "@/assets/logo-eduthree.jpg";
 
 export const Header = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isEmployer, setIsEmployer] = useState(false);
-  const [isFaculty, setIsFaculty] = useState(false);
+  const { user, isAdmin, isEmployer, isFaculty, signOut } = useAuth();
   const { data: newMatchCount } = useNewJobMatchCount();
 
-  useEffect(() => {
-    if (user) {
-      checkAdminStatus();
-      checkEmployerStatus();
-      checkFacultyStatus();
-    }
-  }, [user]);
-
-  const checkAdminStatus = async () => {
-    try {
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user!.id)
-        .eq('role', 'admin')
-        .maybeSingle();
-      
-      setIsAdmin(!!data);
-    } catch (error) {
-      console.error('Admin check error:', error);
-    }
-  };
-
-  const checkEmployerStatus = async () => {
-    try {
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user!.id)
-        .eq('role', 'employer')
-        .maybeSingle();
-      
-      setIsEmployer(!!data);
-    } catch (error) {
-      console.error('Employer check error:', error);
-    }
-  };
-
-  const checkFacultyStatus = async () => {
-    try {
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user!.id)
-        .in('role', ['faculty', 'admin'])
-        .maybeSingle();
-      
-      setIsFaculty(!!data);
-    } catch (error) {
-      console.error('Faculty check error:', error);
-    }
-  };
-
   const handleSignOut = async () => {
-    const { error } = await authService.signOut();
-    if (error) {
-      toast.error("Failed to sign out");
-    } else {
+    try {
+      await signOut();
       toast.success("Signed out successfully");
       navigate("/");
+    } catch (error) {
+      toast.error("Failed to sign out");
     }
   };
 
@@ -85,13 +26,13 @@ export const Header = () => {
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
-          <button 
+          <button
             onClick={() => navigate("/")}
             className="hover:opacity-80 transition-opacity"
           >
             <img src={logo} alt="EduThree" className="h-8 md:h-10" />
           </button>
-          
+
           <div className="flex items-center gap-4">
             <Button onClick={() => navigate("/demand-board")} variant="ghost" size="sm">
               TalentRadar
