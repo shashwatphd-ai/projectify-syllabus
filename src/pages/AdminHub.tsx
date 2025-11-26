@@ -95,18 +95,6 @@ const AdminHub = () => {
   const [syncing, setSyncing] = useState(false);
   const [approvingUserId, setApprovingUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    requireAuth();
-  }, [authLoading]);
-
-  // Handle admin access check and redirect
-  useEffect(() => {
-    if (!authLoading && user && !isAdmin) {
-      toast.error('Access denied. Admin privileges required.');
-      navigate('/projects');
-    }
-  }, [authLoading, user, isAdmin, navigate]);
-
   // Load data when admin status is confirmed
   useEffect(() => {
     if (isAdmin && user) {
@@ -337,7 +325,7 @@ const AdminHub = () => {
     }
   };
 
-  if (authLoading || loading || !isAdmin) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
