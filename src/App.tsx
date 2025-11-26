@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Upload from "./pages/Upload";
@@ -13,6 +15,7 @@ import ProjectDetail from "./pages/ProjectDetail";
 import DemandBoard from "./pages/DemandBoard";
 import AdminHub from "./pages/AdminHub";
 import AdminMetrics from "./pages/AdminMetrics";
+import RoleManagement from "./pages/RoleManagement";
 import MyOpportunities from "./pages/MyOpportunities";
 import MyCompetencies from "./pages/MyCompetencies";
 import EmployerDashboard from "./pages/EmployerDashboard";
@@ -27,25 +30,89 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/landing" element={<Landing />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/upload" element={<Upload />} />
-          <Route path="/review-syllabus" element={<ReviewSyllabus />} />
-          <Route path="/configure" element={<Configure />} />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/projects/:id" element={<ProjectDetail />} />
-          <Route path="/demand-board" element={<DemandBoard />} />
-          <Route path="/admin-hub" element={<AdminHub />} />
-          <Route path="/admin-hub/metrics" element={<AdminMetrics />} />
-          <Route path="/my-opportunities" element={<MyOpportunities />} />
-          <Route path="/my-competencies" element={<MyCompetencies />} />
-          <Route path="/employer/dashboard" element={<EmployerDashboard />} />
-          <Route path="/instructor/dashboard" element={<InstructorDashboard />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/landing" element={<Landing />} />
+            <Route path="/auth" element={<Auth />} />
+            
+            {/* Protected Routes - Require Authentication */}
+            <Route path="/upload" element={
+              <ProtectedRoute>
+                <Upload />
+              </ProtectedRoute>
+            } />
+            <Route path="/review-syllabus" element={
+              <ProtectedRoute>
+                <ReviewSyllabus />
+              </ProtectedRoute>
+            } />
+            <Route path="/configure" element={
+              <ProtectedRoute>
+                <Configure />
+              </ProtectedRoute>
+            } />
+            <Route path="/projects" element={
+              <ProtectedRoute>
+                <Projects />
+              </ProtectedRoute>
+            } />
+            <Route path="/projects/:id" element={
+              <ProtectedRoute>
+                <ProjectDetail />
+              </ProtectedRoute>
+            } />
+            
+            {/* Public Route */}
+            <Route path="/demand-board" element={<DemandBoard />} />
+            
+            {/* Admin Only Routes */}
+            <Route path="/admin-hub" element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminHub />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin-hub/metrics" element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminMetrics />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin-hub/roles" element={
+              <ProtectedRoute requiredRole="admin">
+                <RoleManagement />
+              </ProtectedRoute>
+            } />
+            
+            {/* Student Routes */}
+            <Route path="/my-opportunities" element={
+              <ProtectedRoute requiredRole="student">
+                <MyOpportunities />
+              </ProtectedRoute>
+            } />
+            <Route path="/my-competencies" element={
+              <ProtectedRoute requiredRole="student">
+                <MyCompetencies />
+              </ProtectedRoute>
+            } />
+            
+            {/* Employer Routes */}
+            <Route path="/employer/dashboard" element={
+              <ProtectedRoute requiredRole="employer">
+                <EmployerDashboard />
+              </ProtectedRoute>
+            } />
+            
+            {/* Faculty Routes */}
+            <Route path="/instructor/dashboard" element={
+              <ProtectedRoute requiredRole="faculty">
+                <InstructorDashboard />
+              </ProtectedRoute>
+            } />
+            
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

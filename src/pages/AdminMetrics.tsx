@@ -18,9 +18,8 @@ interface MetricsData {
 
 const AdminMetrics = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isAdmin } = useAuth();
   const { toast } = useToast();
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
   const [aggregating, setAggregating] = useState(false);
@@ -31,38 +30,6 @@ const AdminMetrics = () => {
     total_failed_generations: 0,
     total_generating: 0,
   });
-
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      if (!user) {
-        navigate("/auth");
-        return;
-      }
-
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-
-      if (!roleData) {
-        toast({
-          title: "Access Denied",
-          description: "You must be an admin to access this page.",
-          variant: "destructive",
-        });
-        navigate("/");
-        return;
-      }
-
-      setIsAdmin(true);
-    };
-
-    if (!authLoading) {
-      checkAdminStatus();
-    }
-  }, [user, authLoading, navigate, toast]);
 
   useEffect(() => {
     const fetchMetrics = async () => {

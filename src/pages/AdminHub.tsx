@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Briefcase, TrendingUp, Loader2, AlertTriangle, Flame, ArrowUpDown, Link as LinkIcon, BarChart3 } from "lucide-react";
+import { Briefcase, TrendingUp, Loader2, AlertTriangle, Flame, ArrowUpDown, Link as LinkIcon, BarChart3, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
@@ -81,13 +81,12 @@ interface PendingFaculty {
 }
 
 const AdminHub = () => {
-  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { user, loading: authLoading, requireAuth, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<ProjectWithSignal[]>([]);
   const [submissions, setSubmissions] = useState<EmployerSubmission[]>([]);
   const [pendingFaculty, setPendingFaculty] = useState<PendingFaculty[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [sortBy, setSortBy] = useState<'score' | 'date'>('score');
   const [matchModalOpen, setMatchModalOpen] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState<EmployerSubmission | null>(null);
@@ -96,41 +95,12 @@ const AdminHub = () => {
   const [syncing, setSyncing] = useState(false);
   const [approvingUserId, setApprovingUserId] = useState<string | null>(null);
 
+  // Load data when admin status is confirmed
   useEffect(() => {
-    requireAuth();
-  }, [authLoading]);
-
-  useEffect(() => {
-    if (user) {
-      checkAdminStatus();
-    }
-  }, [user]);
-
-  const checkAdminStatus = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user!.id)
-        .eq('role', 'admin')
-        .maybeSingle();
-
-      if (error) throw error;
-      
-      if (!data) {
-        toast.error('Access denied. Admin privileges required.');
-        navigate('/projects');
-        return;
-      }
-
-      setIsAdmin(true);
+    if (isAdmin && user) {
       loadData();
-    } catch (error: any) {
-      console.error('Admin check error:', error);
-      toast.error('Failed to verify admin access');
-      navigate('/projects');
     }
-  };
+  }, [isAdmin, user]);
 
   const loadData = async () => {
     try {
@@ -355,7 +325,7 @@ const AdminHub = () => {
     }
   };
 
-  if (authLoading || loading || !isAdmin) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -377,14 +347,24 @@ const AdminHub = () => {
                 Manage AI-generated projects and employer interest submissions
               </p>
             </div>
-            <Button
-              variant="outline"
-              onClick={() => navigate('/admin-hub/metrics')}
-              className="gap-2"
-            >
-              <BarChart3 className="h-4 w-4" />
-              View Metrics Dashboard
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => navigate('/admin-hub/roles')}
+                className="gap-2"
+              >
+                <Shield className="h-4 w-4" />
+                Role Management
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/admin-hub/metrics')}
+                className="gap-2"
+              >
+                <BarChart3 className="h-4 w-4" />
+                View Metrics
+              </Button>
+            </div>
           </div>
         </div>
 
