@@ -14,6 +14,7 @@ import ProjectDetail from "./pages/ProjectDetail";
 import DemandBoard from "./pages/DemandBoard";
 import AdminHub from "./pages/AdminHub";
 import AdminMetrics from "./pages/AdminMetrics";
+import RoleManagement from "./pages/RoleManagement";
 import MyOpportunities from "./pages/MyOpportunities";
 import MyCompetencies from "./pages/MyCompetencies";
 import EmployerDashboard from "./pages/EmployerDashboard";
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/demand-board" element={<DemandBoard />} />
             <Route path="/admin-hub" element={<AdminHub />} />
             <Route path="/admin-hub/metrics" element={<AdminMetrics />} />
+            <Route path="/admin-hub/roles" element={<RoleManagement />} />
             <Route path="/my-opportunities" element={<MyOpportunities />} />
             <Route path="/my-competencies" element={<MyCompetencies />} />
             <Route path="/employer/dashboard" element={<EmployerDashboard />} />

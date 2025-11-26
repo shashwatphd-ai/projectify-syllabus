@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Briefcase, TrendingUp, Loader2, AlertTriangle, Flame, ArrowUpDown, Link as LinkIcon, BarChart3 } from "lucide-react";
+import { Briefcase, TrendingUp, Loader2, AlertTriangle, Flame, ArrowUpDown, Link as LinkIcon, BarChart3, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
@@ -359,14 +359,24 @@ const AdminHub = () => {
                 Manage AI-generated projects and employer interest submissions
               </p>
             </div>
-            <Button
-              variant="outline"
-              onClick={() => navigate('/admin-hub/metrics')}
-              className="gap-2"
-            >
-              <BarChart3 className="h-4 w-4" />
-              View Metrics Dashboard
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => navigate('/admin-hub/roles')}
+                className="gap-2"
+              >
+                <Shield className="h-4 w-4" />
+                Role Management
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/admin-hub/metrics')}
+                className="gap-2"
+              >
+                <BarChart3 className="h-4 w-4" />
+                View Metrics
+              </Button>
+            </div>
           </div>
         </div>
 
