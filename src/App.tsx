@@ -20,6 +20,7 @@ import MyOpportunities from "./pages/MyOpportunities";
 import MyCompetencies from "./pages/MyCompetencies";
 import EmployerDashboard from "./pages/EmployerDashboard";
 import InstructorDashboard from "./pages/InstructorDashboard";
+import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -65,6 +66,13 @@ const App = () => (
             
             {/* Public Route */}
             <Route path="/demand-board" element={<DemandBoard />} />
+            
+            {/* Unified Dashboard Route */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
             
             {/* Admin Only Routes */}
             <Route path="/admin-hub" element={
