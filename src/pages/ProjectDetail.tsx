@@ -296,7 +296,11 @@ const ProjectDetail = () => {
           </TabsContent>
 
           <TabsContent value="lo-mapping" className="space-y-6">
-            <LearningOutcomeAlignment project={project} courseProfile={course} />
+            <LearningOutcomeAlignment 
+              project={project} 
+              courseProfile={course} 
+              loAlignmentDetail={metadata?.lo_alignment_detail}
+            />
           </TabsContent>
 
           <TabsContent value="feedback">

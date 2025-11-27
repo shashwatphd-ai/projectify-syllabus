@@ -2,40 +2,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 
 interface LearningOutcomeAlignmentProps {
   project: any;
   courseProfile: any;
+  loAlignmentDetail?: any;
 }
 
-export const LearningOutcomeAlignment = ({ project, courseProfile }: LearningOutcomeAlignmentProps) => {
-  const [metadata, setMetadata] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadMetadata();
-  }, [project.id]);
-
-  const loadMetadata = async () => {
-    const { data, error } = await supabase
-      .from('project_metadata')
-      .select('lo_alignment_detail')
-      .eq('project_id', project.id)
-      .single();
-
-    if (!error && data) {
-      setMetadata(data.lo_alignment_detail);
-    }
-    setLoading(false);
-  };
-
-  if (loading) {
-    return <div className="p-4">Loading alignment analysis...</div>;
-  }
-
-  if (!metadata) {
+export const LearningOutcomeAlignment = ({ project, courseProfile, loAlignmentDetail }: LearningOutcomeAlignmentProps) => {
+  if (!loAlignmentDetail) {
     return (
       <Card>
         <CardHeader>
@@ -86,7 +61,7 @@ export const LearningOutcomeAlignment = ({ project, courseProfile }: LearningOut
               </TableRow>
             </TableHeader>
             <TableBody>
-              {metadata.task_mappings?.map((task: any, idx: number) => {
+              {loAlignmentDetail.task_mappings?.map((task: any, idx: number) => {
                 const outcomeIds = [
                   task?.primary_outcome,
                   ...(task?.secondary_outcomes || [])
@@ -106,7 +81,7 @@ export const LearningOutcomeAlignment = ({ project, courseProfile }: LearningOut
                   </TableRow>
                 );
               })}
-              {metadata.deliverable_mappings?.map((del: any, idx: number) => {
+              {loAlignmentDetail.deliverable_mappings?.map((del: any, idx: number) => {
                 const outcomeId = del?.primary_outcome;
                 
                 return (
@@ -135,7 +110,7 @@ export const LearningOutcomeAlignment = ({ project, courseProfile }: LearningOut
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {metadata.outcome_mappings?.map((om: any, idx: number) => (
+            {loAlignmentDetail.outcome_mappings?.map((om: any, idx: number) => (
               <div key={idx} className="border-l-4 border-primary pl-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Badge>{om?.outcome_id}</Badge>
@@ -158,7 +133,7 @@ export const LearningOutcomeAlignment = ({ project, courseProfile }: LearningOut
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {metadata?.overall_coverage && Object.entries(metadata.overall_coverage).map(([lo, score]: [string, any]) => (
+            {loAlignmentDetail?.overall_coverage && Object.entries(loAlignmentDetail.overall_coverage).map(([lo, score]: [string, any]) => (
               <div key={lo}>
                 <div className="flex justify-between mb-2">
                   <span className="font-medium">{lo} Coverage</span>
@@ -176,11 +151,11 @@ export const LearningOutcomeAlignment = ({ project, courseProfile }: LearningOut
             </div>
           </div>
 
-          {metadata?.gaps && metadata.gaps.length > 0 && (
+          {loAlignmentDetail?.gaps && loAlignmentDetail.gaps.length > 0 && (
             <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
               <h4 className="font-semibold mb-2">Coverage Gaps & Recommendations</h4>
               <ul className="list-disc pl-5 space-y-1">
-                {metadata.gaps.map((gap: string, idx: number) => (
+                {loAlignmentDetail.gaps.map((gap: string, idx: number) => (
                   <li key={idx} className="text-sm">{gap}</li>
                 ))}
               </ul>
