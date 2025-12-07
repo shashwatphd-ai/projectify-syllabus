@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useNewJobMatchCount } from "@/hooks/useNewJobMatchCount";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import logo from "@/assets/logo-eduthree.jpg";
 
 export const Header = () => {
@@ -74,6 +75,7 @@ export const Header = () => {
                     Admin Hub
                   </Button>
                 )}
+                <NotificationBell />
                 <Button onClick={handleSignOut} variant="ghost" size="sm">
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign Out
