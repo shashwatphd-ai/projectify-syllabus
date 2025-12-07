@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Briefcase, TrendingUp, Loader2, AlertTriangle, Download, CheckCircle, Star } from "lucide-react";
+import { Briefcase, TrendingUp, Loader2, AlertTriangle, Download, CheckCircle, Star, ChevronRight, Home } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
@@ -17,6 +17,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProjectFeedbackDialog } from "@/components/ProjectFeedbackDialog";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 const getQualityBorder = (similarity: number) => {
   if (similarity >= 0.80) return 'border-l-4 border-l-green-500';
@@ -288,13 +296,49 @@ const Projects = () => {
     );
   }
 
+  const selectedCourseName = courses.find(c => c.id === selectedCourseId)?.title;
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <div className="container mx-auto px-4 py-8">
+        {/* Breadcrumb Navigation */}
+        <Breadcrumb className="mb-6">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/dashboard" className="flex items-center gap-1">
+                <Home className="h-4 w-4" />
+                Dashboard
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator>
+              <ChevronRight className="h-4 w-4" />
+            </BreadcrumbSeparator>
+            {selectedCourseId && selectedCourseName ? (
+              <>
+                <BreadcrumbItem>
+                  <BreadcrumbLink href="/projects">All Projects</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator>
+                  <ChevronRight className="h-4 w-4" />
+                </BreadcrumbSeparator>
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{selectedCourseName}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </>
+            ) : (
+              <BreadcrumbItem>
+                <BreadcrumbPage>All Projects</BreadcrumbPage>
+              </BreadcrumbItem>
+            )}
+          </BreadcrumbList>
+        </Breadcrumb>
+
         <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Generated Projects</h1>
+            <h1 className="text-3xl font-bold mb-2">
+              {selectedCourseName ? `${selectedCourseName} Projects` : "Generated Projects"}
+            </h1>
             <p className="text-muted-foreground">
               {projects.length} project{projects.length !== 1 ? "s" : ""} generated based on your course outcomes
             </p>
