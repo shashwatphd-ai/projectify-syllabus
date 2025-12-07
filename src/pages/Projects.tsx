@@ -30,7 +30,7 @@ const Projects = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const courseId = searchParams.get('courseId') || location.state?.courseId;
+  const courseId = searchParams.get('course') || searchParams.get('courseId') || location.state?.courseId;
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingCourseId, setDownloadingCourseId] = useState<string | null>(null);
