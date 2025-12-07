@@ -4,10 +4,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Building2, Target, DollarSign, Calendar, Users, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-interface ProjectHeaderProps {
-  project: any;
-}
-
 const getMatchQuality = (similarity: number) => {
   if (similarity >= 0.85) return { grade: 'A+', label: 'EXCELLENT MATCH', color: 'hsl(var(--quality-excellent))' };
   if (similarity >= 0.80) return { grade: 'A', label: 'GREAT MATCH', color: 'hsl(var(--quality-excellent))' };
@@ -16,14 +12,28 @@ const getMatchQuality = (similarity: number) => {
   return { grade: 'C', label: 'WEAK MATCH', color: 'hsl(var(--quality-poor))' };
 };
 
-export const ProjectHeader = ({ project }: ProjectHeaderProps) => {
+interface ProjectHeaderProps {
+  project: any;
+  courseIdFilter?: string;
+}
+
+export const ProjectHeader = ({ project, courseIdFilter }: ProjectHeaderProps) => {
   const navigate = useNavigate();
+  
+  const handleBackClick = () => {
+    const courseId = courseIdFilter || project.course_id;
+    if (courseId) {
+      navigate(`/projects?course=${courseId}`, { state: { courseId } });
+    } else {
+      navigate('/projects');
+    }
+  };
   
   return (
     <div className="mb-8">
       <Button
         variant="ghost"
-        onClick={() => navigate('/projects', { state: { courseId: project.course_id } })}
+        onClick={handleBackClick}
         className="mb-4"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />

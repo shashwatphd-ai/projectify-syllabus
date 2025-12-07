@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,10 @@ const ProjectDetail = () => {
   const { id } = useParams();
   const { user, loading: authLoading, requireAuth } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get course filter from navigation state
+  const courseIdFromState = location.state?.courseId;
   
   // ============================================================================
   // UNIFIED STATE: Single source of truth from get-project-detail endpoint
@@ -226,7 +230,7 @@ const ProjectDetail = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <ProjectHeader project={project} />
+        <ProjectHeader project={project} courseIdFilter={courseIdFromState} />
 
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="flex flex-wrap h-auto gap-2 p-2">
