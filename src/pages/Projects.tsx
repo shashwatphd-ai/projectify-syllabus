@@ -9,6 +9,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
 import { downloadCoursePdf } from "@/lib/downloadPdf";
 import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ProjectFeedbackDialog } from "@/components/ProjectFeedbackDialog";
 
 const getQualityBorder = (similarity: number) => {
@@ -30,7 +37,9 @@ const Projects = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const courseId = searchParams.get('course') || searchParams.get('courseId') || location.state?.courseId;
+  const initialCourseId = searchParams.get('course') || searchParams.get('courseId') || location.state?.courseId;
+  const [selectedCourseId, setSelectedCourseId] = useState<string | undefined>(initialCourseId);
+  const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingCourseId, setDownloadingCourseId] = useState<string | null>(null);
@@ -46,6 +55,13 @@ const Projects = () => {
     }
   }, [authLoading, user, navigate]);
 
+  // Load courses for faculty/admin filter dropdown
+  useEffect(() => {
+    if (user && !authLoading && (isFaculty || isAdmin)) {
+      loadCourses();
+    }
+  }, [user, authLoading, isFaculty, isAdmin]);
+
   useEffect(() => {
     if (user && !authLoading) {
       loadProjects();
@@ -53,7 +69,33 @@ const Projects = () => {
         loadStudentApplications();
       }
     }
-  }, [user, authLoading, isStudent, isFaculty, isAdmin, isEmployer, courseId]);
+  }, [user, authLoading, isStudent, isFaculty, isAdmin, isEmployer, selectedCourseId]);
+
+  const loadCourses = async () => {
+    if (!user) return;
+    try {
+      let query = supabase.from('course_profiles').select('id, title');
+      if (isFaculty && !isAdmin) {
+        query = query.eq('owner_id', user.id);
+      }
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+      setCourses(data || []);
+    } catch (error) {
+      console.error('Error loading courses:', error);
+    }
+  };
+
+  const handleCourseChange = (value: string) => {
+    const newCourseId = value === 'all' ? undefined : value;
+    setSelectedCourseId(newCourseId);
+    // Update URL without full navigation
+    if (newCourseId) {
+      navigate(`/projects?course=${newCourseId}`, { replace: true });
+    } else {
+      navigate('/projects', { replace: true });
+    }
+  };
 
   const loadProjects = async () => {
     if (!user) return;
@@ -79,8 +121,8 @@ const Projects = () => {
           .select('*, course_profiles!inner(owner_id, title)')
           .eq('course_profiles.owner_id', user.id);
 
-        if (courseId) {
-          query = query.eq('course_id', courseId);
+        if (selectedCourseId) {
+          query = query.eq('course_id', selectedCourseId);
         }
 
         const { data, error } = await query.order('created_at', { ascending: false });
@@ -94,8 +136,8 @@ const Projects = () => {
           .from('projects')
           .select('*, course_profiles(owner_id, title)');
 
-        if (courseId) {
-          query = query.eq('course_id', courseId);
+        if (selectedCourseId) {
+          query = query.eq('course_id', selectedCourseId);
         }
 
         const { data, error } = await query.order('created_at', { ascending: false });
@@ -250,23 +292,40 @@ const Projects = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold mb-2">Generated Projects</h1>
             <p className="text-muted-foreground">
               {projects.length} project{projects.length !== 1 ? "s" : ""} generated based on your course outcomes
             </p>
           </div>
-          {courseId && (
-            <Button
-              variant="outline"
-              onClick={(e) => handleDownloadSyllabus(courseId, e)}
-              disabled={downloadingCourseId === courseId}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {downloadingCourseId === courseId ? "Downloading..." : "Download Syllabus"}
-            </Button>
-          )}
+          <div className="flex items-center gap-3">
+            {(isFaculty || isAdmin) && courses.length > 0 && (
+              <Select value={selectedCourseId || 'all'} onValueChange={handleCourseChange}>
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue placeholder="Filter by course" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Courses</SelectItem>
+                  {courses.map((course) => (
+                    <SelectItem key={course.id} value={course.id}>
+                      {course.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {selectedCourseId && (
+              <Button
+                variant="outline"
+                onClick={(e) => handleDownloadSyllabus(selectedCourseId, e)}
+                disabled={downloadingCourseId === selectedCourseId}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {downloadingCourseId === selectedCourseId ? "Downloading..." : "Download Syllabus"}
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
@@ -274,7 +333,7 @@ const Projects = () => {
             <Card
               key={project.id}
               className={`shadow-[var(--shadow-card)] hover:shadow-lg transition-shadow cursor-pointer ${project.similarity_score ? getQualityBorder(project.similarity_score) : ''}`}
-              onClick={() => navigate(`/projects/${project.id}`, { state: { courseId } })}
+              onClick={() => navigate(`/projects/${project.id}`, { state: { courseId: selectedCourseId } })}
             >
               <CardHeader>
                 <div className="flex items-start justify-between gap-3">
@@ -366,7 +425,7 @@ const Projects = () => {
                           <Button 
                             variant="outline" 
                             className="flex-1"
-                            onClick={() => navigate(`/projects/${project.id}`, { state: { courseId } })}
+                            onClick={() => navigate(`/projects/${project.id}`, { state: { courseId: selectedCourseId } })}
                           >
                             View Details
                           </Button>
@@ -397,7 +456,7 @@ const Projects = () => {
                       <Button 
                         variant="outline" 
                         className="w-full"
-                        onClick={() => navigate(`/projects/${project.id}`, { state: { courseId } })}
+                        onClick={() => navigate(`/projects/${project.id}`, { state: { courseId: selectedCourseId } })}
                       >
                         View Details
                       </Button>
