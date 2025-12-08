@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { Header } from "@/components/Header";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { trackDashboardEvent } from "@/lib/analytics";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -9,18 +10,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card } from "@/components/ui/card";
-import { Loader2, Search, Filter } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
-  useDemandSignals,
+  DemandSignalFilters,
   useDemandCategories,
   useDemandRegions,
-  DemandSignalFilters,
+  useDemandSignals,
 } from "@/hooks/useDemandSignals";
+import { trackDashboardEvent } from "@/lib/analytics";
+import { Filter, Loader2, Search } from "lucide-react";
+import { useEffect, useState } from "react";
 import { DemandSignalCard } from "./DemandSignalCard";
 import { EmployerCTAModal } from "./EmployerCTAModal";
-import { Header } from "@/components/Header";
 
 export const DemandBoardLayout = () => {
   const [filters, setFilters] = useState<DemandSignalFilters>({});
