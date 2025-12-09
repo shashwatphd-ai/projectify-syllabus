@@ -802,8 +802,7 @@ serve(async (req) => {
           completed_at: new Date().toISOString(),
           // Phase 1: Store extracted skills
           extracted_skills: skillExtractionResult.skills,
-          skill_extraction_method: skillExtractionResult.extractionMethod,
-          skills_extracted_at: new Date().toISOString()
+          skill_extraction_model: skillExtractionResult.extractionMethod // Fixed: Use correct column name
         })
         .eq('id', generationRunId);
 
