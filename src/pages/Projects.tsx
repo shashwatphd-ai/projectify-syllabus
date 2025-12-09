@@ -116,10 +116,11 @@ const Projects = () => {
         const { data, error } = await supabase
           .from('projects')
           .select('*, course_profiles(owner_id, title)')
-          .eq('status', 'curated_live')
-          .order('created_at', { ascending: false });
+        // .eq('status', 'curated_live')
+        // .order('created_at', { ascending: false });
 
         if (error) throw error;
+        console.log(data)
         setProjects(data || []);
 
       } else if (isFaculty && !isAdmin) {
@@ -191,9 +192,9 @@ const Projects = () => {
         .from('project_applications')
         .select('project_id')
         .eq('student_id', user.id);
-      
+
       if (error) throw error;
-      
+
       const appliedIds = new Set(data?.map(app => app.project_id) || []);
       setAppliedProjects(appliedIds);
     } catch (error) {
@@ -203,14 +204,14 @@ const Projects = () => {
 
   const handleApplyToProject = async (projectId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click navigation
-    
+
     if (!user) {
       toast.error('You must be logged in to apply');
       return;
     }
 
     setApplyingProjectId(projectId);
-    
+
     try {
       const { error } = await supabase
         .from('project_applications')
@@ -384,8 +385,8 @@ const Projects = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-3">
                       {project.company_logo_url ? (
-                        <img 
-                          src={project.company_logo_url} 
+                        <img
+                          src={project.company_logo_url}
                           alt={`${project.company_name} logo`}
                           className="h-10 w-10 object-contain rounded flex-shrink-0"
                         />
@@ -443,7 +444,7 @@ const Projects = () => {
 
                   <div className="pt-3 border-t space-y-2">
                     {isStudent ? (
-                      <Button 
+                      <Button
                         variant={appliedProjects.has(project.id) ? "outline" : "default"}
                         className="w-full"
                         onClick={(e) => handleApplyToProject(project.id, e)}
@@ -466,14 +467,14 @@ const Projects = () => {
                     ) : (isFaculty || isAdmin) ? (
                       <>
                         <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             className="flex-1"
                             onClick={() => navigate(`/projects/${project.id}`, { state: { courseId: selectedCourseId } })}
                           >
                             View Details
                           </Button>
-                          <Button 
+                          <Button
                             variant={project.faculty_rating ? "secondary" : "default"}
                             size="icon"
                             onClick={(e) => handleRateProject(project, e)}
@@ -487,9 +488,9 @@ const Projects = () => {
                             <span>Your rating:</span>
                             <div className="flex">
                               {[1, 2, 3, 4, 5].map((star) => (
-                                <Star 
-                                  key={star} 
-                                  className={`h-3 w-3 ${star <= project.faculty_rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} 
+                                <Star
+                                  key={star}
+                                  className={`h-3 w-3 ${star <= project.faculty_rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`}
                                 />
                               ))}
                             </div>
@@ -497,8 +498,8 @@ const Projects = () => {
                         )}
                       </>
                     ) : (
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="w-full"
                         onClick={() => navigate(`/projects/${project.id}`, { state: { courseId: selectedCourseId } })}
                       >

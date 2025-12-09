@@ -1,8 +1,56 @@
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Users, GraduationCap, Clock, Briefcase } from "lucide-react";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { DemandSignal } from "@/hooks/useDemandSignals";
+import { cn } from "@/lib/utils";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import { Briefcase, Clock, GraduationCap, MapPin, Users } from "lucide-react";
+import * as React from "react";
+import { useState } from "react";
+
+interface TooltipProps {
+  content: React.ReactNode;
+  children: React.ReactNode;
+  side?: "top" | "bottom" | "left" | "right";
+  align?: "start" | "center" | "end";
+  sideOffset?: number;
+}
+
+export function Tooltip({
+  content,
+  children,
+  side = "top",
+  align = "center",
+  sideOffset = 6,
+}: TooltipProps) {
+  console.log('tooltip');
+  return (
+    <TooltipPrimitive.Provider delayDuration={150}>
+      <TooltipPrimitive.Root>
+        <TooltipPrimitive.Trigger asChild>
+          {children}
+        </TooltipPrimitive.Trigger>
+        <TooltipPrimitive.Content
+          side={side}
+          align={align}
+          sideOffset={sideOffset}
+          className={cn(
+            "z-50 overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md",
+            "animate-in fade-in-0 zoom-in-95",
+            "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
+            "data-[side=bottom]:slide-in-from-top-2",
+            "data-[side=left]:slide-in-from-right-2",
+            "data-[side=right]:slide-in-from-left-2",
+            "data-[side=top]:slide-in-from-bottom-2"
+          )}
+        >
+          {content}
+        </TooltipPrimitive.Content>
+      </TooltipPrimitive.Root>
+    </TooltipPrimitive.Provider>
+  );
+}
+
 
 interface DemandSignalCardProps {
   signal: DemandSignal;
@@ -10,17 +58,23 @@ interface DemandSignalCardProps {
 }
 
 export const DemandSignalCard = ({ signal, onExpressInterest }: DemandSignalCardProps) => {
+  const [showCourseCountHint, setShowCourseCountHint] = useState(false);
   return (
     <Card className="flex flex-col h-full hover:shadow-elevated transition-all duration-300 border-border/50">
       <CardHeader className="pb-3 sm:pb-4">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start justify-between gap-2 relative">
           <div className="flex items-center gap-2">
             <Briefcase className="w-5 h-5 sm:w-6 sm:h-6 shrink-0 text-primary" />
-            <CardTitle className="text-lg sm:text-xl font-bold line-clamp-2 leading-tight">{signal.project_category}</CardTitle>
+            <CardTitle className="text-lg sm:text-md font-bold line-clamp-2 leading-tight">{signal.project_category.toUpperCase()}</CardTitle>
           </div>
-          <Badge variant="secondary" className="shrink-0 text-xs">
-            {signal.course_count}
-          </Badge>
+
+          <Tooltip
+            content="Number of Courses"
+          >
+            <Badge variant="secondary" onMouseOver={() => setShowCourseCountHint(true)} onMouseLeave={() => setShowCourseCountHint(false)} className="shrink-0 text-xs">
+              {signal.course_count}
+            </Badge>
+          </Tooltip>
         </div>
       </CardHeader>
 
@@ -83,9 +137,9 @@ export const DemandSignalCard = ({ signal, onExpressInterest }: DemandSignalCard
       </CardContent>
 
       <CardFooter className="pt-3 sm:pt-4">
-        <Button 
+        <Button
           variant="default"
-          className="w-full h-9 sm:h-10 text-sm sm:text-base" 
+          className="w-full h-9 sm:h-10 text-sm sm:text-base"
           onClick={() => onExpressInterest(signal.id)}
         >
           Express Interest

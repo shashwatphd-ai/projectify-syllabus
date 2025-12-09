@@ -1,10 +1,4 @@
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { trackDashboardEvent } from "@/lib/analytics";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -23,8 +17,14 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { trackDashboardEvent } from "@/lib/analytics";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 const submissionSchema = z.object({
   companyName: z.string().trim().min(1, "Company name is required").max(255),
@@ -129,7 +129,7 @@ export const EmployerCTAModal = ({
         <DialogHeader>
           <DialogTitle>Express Interest in Partnership</DialogTitle>
           <DialogDescription>
-            {signalCategory && `Project Category: ${signalCategory}`}
+            {signalCategory && `Project Category: ${signalCategory.charAt(0).toUpperCase() + signalCategory.slice(1)}`}
             <br />
             Fill out the form below to connect with students for real-world projects.
           </DialogDescription>
