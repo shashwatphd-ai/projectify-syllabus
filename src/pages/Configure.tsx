@@ -95,10 +95,10 @@ const Configure = () => {
           return;
         }
 
-        const completed = projects?.filter(p => 
+        const completed = projects?.filter(p =>
           p.status === 'ai_shell' || p.status === 'curated_live' || p.status === 'completed'
         ).length || 0;
-        
+
         const total = projects?.length || 0;
 
         setProjectsCompleted(completed);
@@ -111,11 +111,11 @@ const Configure = () => {
             pollingInterval.current = null;
           }
           setPolling(false);
-          
-          const successCount = projects?.filter(p => 
+
+          const successCount = projects?.filter(p =>
             p.status === 'ai_shell' || p.status === 'curated_live'
           ).length || 0;
-          
+
           toast.success(`${successCount} of ${total} projects generated successfully!`);
           navigate(`/projects?courseId=${courseId}`);
         }
@@ -141,7 +141,7 @@ const Configure = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!courseId) {
       toast.error("Course data not found. Please upload a syllabus first.");
       navigate("/upload");
@@ -155,7 +155,16 @@ const Configure = () => {
       let generationRunId = null;
 
       // P0-2 FIX: Validate location format before passing to Apollo
-      const locationForDiscovery = `${courseData?.location_city}, ${courseData?.location_state}` //.search_location || courseData?.city_zip;
+      if (!courseData) {
+        toast.error("Course data not found. Please upload a syllabus first.");
+        navigate("/upload");
+        return;
+      }
+      const city: string = courseData?.location_city.charAt(0)?.toUpperCase() + courseData?.location_city.slice(1)?.toLowerCase();
+      const state: string = courseData?.location_state.charAt(0)?.toUpperCase() + courseData?.location_state.slice(1)?.toLowerCase();
+
+      const locationForDiscovery = (city.length > 0 && state.length > 0) ? `${city}, ${state}` : courseData?.search_location || courseData?.city_zip;
+
       if (locationForDiscovery) {
         // Validate location format
         const validation = validateLocationFormat(locationForDiscovery);
@@ -183,7 +192,7 @@ const Configure = () => {
 
         console.log('✅ Location validated for Apollo:', normalizedLocation);
         toast.info("Discovering partner companies...", { duration: 3000 });
-        
+
         const { data: discoveryData, error: discoveryError } = await supabase.functions.invoke('discover-companies', {
           body: {
             courseId: courseId,
@@ -219,7 +228,7 @@ const Configure = () => {
             case 'DATA_ERROR':
               const diagnosticInfo = diagnostics
                 ? ` Provider: ${diagnostics.primaryProvider}, Location: ${diagnostics.locationUsed || location}.` +
-                  (diagnostics.usedFallback ? ` Fallback to ${diagnostics.fallbackProvider} was attempted but also returned 0 companies.` : '')
+                (diagnostics.usedFallback ? ` Fallback to ${diagnostics.fallbackProvider} was attempted but also returned 0 companies.` : '')
                 : '';
 
               toast.error(
@@ -306,7 +315,7 @@ const Configure = () => {
       setProjectsCompleted(0);
       setPolling(true);
       setLoading(false);
-      
+
       toast.info("Project generation started. This may take a few minutes...", { duration: 3000 });
     } catch (error: any) {
       console.error('Generation error:', error);
@@ -354,7 +363,7 @@ const Configure = () => {
 
   if (polling) {
     const progress = totalProjects > 0 ? (projectsCompleted / totalProjects) * 100 : 0;
-    
+
     return (
       <div className="min-h-screen bg-background">
         <Header />
