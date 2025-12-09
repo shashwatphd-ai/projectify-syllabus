@@ -120,7 +120,6 @@ const Projects = () => {
         // .order('created_at', { ascending: false });
 
         if (error) throw error;
-        console.log(data)
         setProjects(data || []);
 
       } else if (isFaculty && !isAdmin) {
