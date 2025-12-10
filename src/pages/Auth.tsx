@@ -6,14 +6,17 @@ import { Label } from "@/components/ui/label";
 import { authService } from "@/lib/supabase";
 import { GraduationCap, Loader2 } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 const Auth = () => {
+  const [searchParams] = useSearchParams();
+  const mode = searchParams.get("mode");
+  
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(true);
+  const [isSignUp, setIsSignUp] = useState(mode !== "signin");
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState("student");
   const navigate = useNavigate();
