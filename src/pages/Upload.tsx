@@ -37,7 +37,7 @@ const Upload = () => {
     // Give a small delay to prevent race conditions during navigation
     if (!authLoading && !user) {
       const timer = setTimeout(() => {
-        navigate("/auth");
+        navigate("/auth?mode=signin");
       }, 100);
       return () => clearTimeout(timer);
     }

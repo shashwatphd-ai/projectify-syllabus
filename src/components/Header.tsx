@@ -135,7 +135,7 @@ export const Header = () => {
               </div>
             )}
             {!user && (
-              <Button onClick={() => navigate("/auth")} variant="default" size="sm">
+              <Button onClick={() => navigate("/auth?mode=signin")} variant="default" size="sm">
                 Sign In
               </Button>
             )}
