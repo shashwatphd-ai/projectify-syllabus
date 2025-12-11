@@ -217,8 +217,14 @@ serve(async (req) => {
           fallback_value: project.pricing_usd
         };
 
-    // Value Analysis Status
-    const valueAnalysisData = metadata?.value_analysis
+    // Value Analysis Status - FIX: Properly detect empty objects
+    // Empty {} is truthy in JS, so we must check for actual content
+    const hasValidValueAnalysis = metadata?.value_analysis && 
+      typeof metadata.value_analysis === 'object' &&
+      Object.keys(metadata.value_analysis).length > 0 &&
+      (metadata.value_analysis.student_value || metadata.value_analysis.generated_at || metadata.value_analysis.problem_validation);
+    
+    const valueAnalysisData = hasValidValueAnalysis
       ? {
           status: 'complete' as const,
           data: metadata.value_analysis
