@@ -60,7 +60,7 @@ export default function EmployerDashboard() {
   // Redirect if not authenticated or not an employer
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate("/auth");
+      navigate("/auth?mode=signin");
     } else if (!authLoading && user && !isEmployer) {
       toast.error("Access denied. Employer role required.");
       navigate("/");

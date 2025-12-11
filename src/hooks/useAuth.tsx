@@ -7,7 +7,7 @@ export const useAuth = () => {
 
   const requireAuth = () => {
     if (!auth.loading && !auth.user) {
-      navigate("/auth");
+      navigate("/auth?mode=signin");
     }
   };
 

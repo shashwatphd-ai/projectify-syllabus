@@ -29,7 +29,7 @@ export default function InstructorDashboard() {
   useEffect(() => {
     if (!loading) {
       if (!user) {
-        navigate("/auth");
+        navigate("/auth?mode=signin");
         return;
       }
 

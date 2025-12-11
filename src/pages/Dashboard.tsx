@@ -13,7 +13,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!loading && !user) {
-      navigate("/auth");
+      navigate("/auth?mode=signin");
     }
   }, [user, loading, navigate]);
 
