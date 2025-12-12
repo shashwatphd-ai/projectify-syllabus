@@ -32,6 +32,18 @@ const Upload = () => {
   const detectionAttemptedRef = useRef(false);
   const navigate = useNavigate();
 
+  const processFile = (selectedFile: File) => {
+    if (selectedFile.type !== "application/pdf") {
+      toast.error("Please upload a PDF file");
+      return;
+    }
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      toast.error("File size must be under 10MB");
+      return;
+    }
+    setFile(selectedFile);
+  };
+
   useEffect(() => {
     // Only redirect if auth is fully loaded and user is definitely not logged in
     // Give a small delay to prevent race conditions during navigation
@@ -46,14 +58,14 @@ const Upload = () => {
   // Auto-detect location on mount if user email is available
   useEffect(() => {
     const shouldDetect = user?.email && !cityZip && !detectionAttemptedRef.current;
-    
-    console.log('Location detection check:', { 
-      hasEmail: !!user?.email, 
-      currentLocation: cityZip, 
+
+    console.log('Location detection check:', {
+      hasEmail: !!user?.email,
+      currentLocation: cityZip,
       alreadyAttempted: detectionAttemptedRef.current,
       willDetect: shouldDetect
     });
-    
+
     if (shouldDetect) {
       console.log('🔍 Auto-detecting location for:', user.email);
       detectionAttemptedRef.current = true;
@@ -64,7 +76,7 @@ const Upload = () => {
   const detectLocationFromEmail = async (email: string) => {
     console.log('🌍 Starting backend location detection for:', email);
     setLocationLoading(true);
-    
+
     try {
       const { data, error } = await supabase.functions.invoke('detect-location', {
         body: { email }
@@ -127,21 +139,27 @@ const Upload = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      if (selectedFile.type !== "application/pdf") {
-        toast.error("Please upload a PDF file");
-        return;
-      }
-      if (selectedFile.size > 10 * 1024 * 1024) {
-        toast.error("File size must be under 10MB");
-        return;
-      }
-      setFile(selectedFile);
+      processFile(selectedFile);
     }
+  };
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const droppedFile = e.dataTransfer.files?.[0];
+    if (droppedFile) {
+      processFile(droppedFile);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!file || !user) {
       toast.error("Please select a syllabus file");
       return;
@@ -161,9 +179,9 @@ const Upload = () => {
 
     try {
       console.log('Starting file upload...');
-      
+
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session?.access_token) {
         throw new Error('Not authenticated. Please log in again.');
       }
@@ -198,17 +216,17 @@ const Upload = () => {
       console.log('Parse successful:', data);
 
       toast.success("Syllabus parsed successfully!");
-      
+
       // Navigate to review page with parsed data
       const params = new URLSearchParams({
         courseId: data.course.id,
         parsed: encodeURIComponent(JSON.stringify(data.parsed))
       });
-      
+
       if (data.rawText) {
         params.append('rawText', encodeURIComponent(data.rawText));
       }
-      
+
       navigate(`/review-syllabus?${params.toString()}`);
     } catch (error: any) {
       console.error('Parse error:', error);
@@ -249,13 +267,13 @@ const Upload = () => {
               {/* Phase 4: Manual Location Override */}
               <div className="space-y-4">
                 <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="manual-location" 
+                  <Checkbox
+                    id="manual-location"
                     checked={manualEntry}
                     onCheckedChange={(checked) => setManualEntry(checked as boolean)}
                   />
-                  <Label 
-                    htmlFor="manual-location" 
+                  <Label
+                    htmlFor="manual-location"
                     className="text-sm font-normal cursor-pointer"
                   >
                     My location was not detected correctly
@@ -330,7 +348,10 @@ const Upload = () => {
 
               <div className="space-y-2">
                 <Label>Syllabus PDF</Label>
-                <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
                   <input
                     type="file"
                     accept=".pdf"
