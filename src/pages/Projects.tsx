@@ -59,7 +59,7 @@ const Projects = () => {
   // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate("/auth");
+      navigate("/auth?mode=signin");
     }
   }, [authLoading, user, navigate]);
 

@@ -91,8 +91,14 @@ export const ValueAnalysisTab = ({
   const analysisStatus = valueAnalysis?.status;
   const analysisData = valueAnalysis?.data;
 
-  // Status: 'not_generated' → Show Generate Button
-  if (analysisStatus === 'not_generated' || !valueAnalysis) {
+  // Defensive check: Detect structurally empty analysis even if status says 'complete'
+  // This handles edge cases where backend marks {} as complete or data is missing expected fields
+  const isAnalysisStructurallyEmpty = !analysisData || 
+    (typeof analysisData === 'object' && Object.keys(analysisData).length === 0) ||
+    (!analysisData?.student_value && !analysisData?.problem_validation && !analysisData?.generated_at);
+
+  // Status: 'not_generated' OR structurally empty → Show Generate Button
+  if (analysisStatus === 'not_generated' || !valueAnalysis || isAnalysisStructurallyEmpty) {
     return (
       <div className="space-y-4">
         <Card className="border-amber-500/50 bg-amber-500/5">

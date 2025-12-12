@@ -26,10 +26,18 @@ const Landing = () => {
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
               <Button
                 size="lg"
-                onClick={() => navigate("/auth")}
+                onClick={() => navigate("/auth?mode=signup")}
                 className="text-lg px-10"
               >
                 SIGN UP
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => navigate("/auth?mode=signin")}
+                className="text-lg px-10"
+              >
+                SIGN IN
               </Button>
             </div>
             <div className="flex flex-wrap gap-6 justify-center pt-6 text-sm md:text-base text-muted-foreground uppercase tracking-wider">

@@ -1343,6 +1343,10 @@ export type Database = {
           success: boolean
         }[]
       }
+      employer_owns_project_company: {
+        Args: { p_project_id: string; p_user_id: string }
+        Returns: boolean
+      }
       find_orphaned_projects: {
         Args: never
         Returns: {
@@ -1356,6 +1360,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      student_has_project_with_company: {
+        Args: { p_company_id: string; p_user_id: string }
         Returns: boolean
       }
     }

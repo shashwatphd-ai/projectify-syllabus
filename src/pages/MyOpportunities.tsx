@@ -32,7 +32,7 @@ export default function MyOpportunities() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
-        navigate("/auth");
+        navigate("/auth?mode=signin");
       } else {
         setUser(user);
       }
@@ -40,7 +40,7 @@ export default function MyOpportunities() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
-        navigate("/auth");
+        navigate("/auth?mode=signin");
       } else {
         setUser(session.user);
       }

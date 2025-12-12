@@ -15,7 +15,7 @@ export const ProtectedRoute = ({
   children,
   requiredRole,
   requireAuth = true,
-  fallbackPath = "/auth",
+  fallbackPath = "/auth?mode=signin",
 }: ProtectedRouteProps) => {
   const { user, loading, isAdmin, isFaculty, isEmployer, isStudent } = useAuth();
   const navigate = useNavigate();
