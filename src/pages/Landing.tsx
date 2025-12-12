@@ -18,7 +18,7 @@ const Landing = () => {
               Learning. Applied.
             </p>
             <div className="flex justify-center">
-              <img src={logo} alt="EduThree" className="h-20 md:h-32 max-w-full" />
+              <img src={logo} alt="EduThree" className="h-20 md:h-32 max-w-full rounded-lg" />
             </div>
             <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto pt-4">
               Stay tuned for the revolution in applied learning!
@@ -26,18 +26,10 @@ const Landing = () => {
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
               <Button
                 size="lg"
-                onClick={() => navigate("/auth?mode=signup")}
-                className="text-lg px-10"
-              >
-                SIGN UP
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
                 onClick={() => navigate("/auth?mode=signin")}
                 className="text-lg px-10"
               >
-                SIGN IN
+                Get Started
               </Button>
             </div>
             <div className="flex flex-wrap gap-6 justify-center pt-6 text-sm md:text-base text-muted-foreground uppercase tracking-wider">
@@ -58,7 +50,7 @@ const Landing = () => {
               From syllabus to project brief in minutes
             </p>
           </div>
-          
+
           <div className="max-w-4xl mx-auto space-y-6">
             {[
               { step: 1, title: "Sign in with .edu email", desc: "Faculty and students authenticate with verified academic credentials" },
