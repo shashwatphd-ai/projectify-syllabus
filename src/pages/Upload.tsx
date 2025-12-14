@@ -15,6 +15,9 @@ import { validateLocationFormat, needsManualLocationEntry } from "@/utils/locati
 const Upload = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
   const [file, setFile] = useState<File | null>(null);
+  const [storagePath, setStoragePath] = useState<string | null>(() => 
+    sessionStorage.getItem('uploadedSyllabusPath')
+  );
   const [cityZip, setCityZip] = useState("");
   const [searchLocation, setSearchLocation] = useState("");
   const [locationData, setLocationData] = useState({
@@ -24,6 +27,7 @@ const Upload = () => {
     country: 'US'
   });
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [manualEntry, setManualEntry] = useState(false);
   const [manualCity, setManualCity] = useState("");
@@ -136,10 +140,36 @@ const Upload = () => {
     }
   };
 
+  const uploadFileToStorage = async (selectedFile: File) => {
+    if (!user) return;
+    
+    setUploading(true);
+    try {
+      const fileName = `${user.id}/${Date.now()}_${selectedFile.name}`;
+      const { data, error } = await supabase.storage
+        .from('syllabi')
+        .upload(fileName, selectedFile, { upsert: true });
+      
+      if (error) throw error;
+      
+      // Store path in sessionStorage to survive Android reload
+      sessionStorage.setItem('uploadedSyllabusPath', data.path);
+      setStoragePath(data.path);
+      setFile(selectedFile);
+      toast.success('File uploaded successfully');
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload file: ' + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       processFile(selectedFile);
+      uploadFileToStorage(selectedFile);
     }
   };
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -160,7 +190,7 @@ const Upload = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!file || !user) {
+    if ((!file && !storagePath) || !user) {
       toast.error("Please select a syllabus file");
       return;
     }
@@ -186,23 +216,33 @@ const Upload = () => {
         throw new Error('Not authenticated. Please log in again.');
       }
 
-      console.log('Session valid, uploading file...');
+      console.log('Session valid, processing file...');
 
-      const formData = new FormData();
-      formData.append('file', file);
-      // Pass complete location data to parse-syllabus
-      formData.append('cityZip', JSON.stringify({
-        location: finalLocation,           // Display format
-        searchLocation: searchLocation || finalLocation,    // Apollo format
+      const locationPayload = {
+        location: finalLocation,
+        searchLocation: searchLocation || finalLocation,
         city: manualEntry ? manualCity : locationData.city,
         state: manualEntry ? manualState : locationData.state,
         zip: manualEntry ? manualZip : locationData.zip,
         country: locationData.country || 'US'
-      }));
+      };
 
-      // Use Supabase client method instead of raw fetch to avoid env variable issues
+      let invokeBody: FormData | object;
+      
+      // Use storagePath if file was already uploaded (survives Android reload)
+      if (storagePath) {
+        invokeBody = { storagePath, cityZip: locationPayload };
+      } else if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('cityZip', JSON.stringify(locationPayload));
+        invokeBody = formData;
+      } else {
+        throw new Error('No file available');
+      }
+
       const { data, error: invokeError } = await supabase.functions.invoke('parse-syllabus', {
-        body: formData,
+        body: invokeBody,
       });
 
       if (invokeError) {
@@ -215,6 +255,9 @@ const Upload = () => {
       }
       console.log('Parse successful:', data);
 
+      // Clear sessionStorage after successful parse
+      sessionStorage.removeItem('uploadedSyllabusPath');
+      
       toast.success("Syllabus parsed successfully!");
 
       // Navigate to review page with parsed data
@@ -363,13 +406,20 @@ const Upload = () => {
                     htmlFor="file-upload"
                     className="cursor-pointer flex flex-col items-center gap-2"
                   >
-                    {file ? (
+                    {uploading ? (
+                      <>
+                        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                        <p className="font-medium">Uploading file...</p>
+                      </>
+                    ) : file || storagePath ? (
                       <>
                         <FileText className="h-12 w-12 text-primary" />
-                        <p className="font-medium">{file.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {(file.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
+                        <p className="font-medium">{file?.name || 'File uploaded'}</p>
+                        {file && (
+                          <p className="text-sm text-muted-foreground">
+                            {(file.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        )}
                       </>
                     ) : (
                       <>
@@ -384,7 +434,7 @@ const Upload = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full" disabled={loading || uploading || (!file && !storagePath)}>
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
