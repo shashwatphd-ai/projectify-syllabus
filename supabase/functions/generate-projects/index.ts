@@ -744,7 +744,7 @@ serve(async (req) => {
           },
           stakeholder_insights: roiCalculation.stakeholderInsights,
           lo_alignment_detail: loAlignmentDetail,
-          pricing_breakdown: roiCalculation.pricingBreakdown,
+          pricing_breakdown: pricingResult.breakdown,
           algorithm_version: 'v2.0',
           ai_model_version: 'gemini-2.0-flash-exp'
         };
