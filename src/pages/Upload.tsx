@@ -348,21 +348,25 @@ const Upload = () => {
 
               <div className="space-y-2">
                 <Label>Syllabus PDF</Label>
+                {/* File input outside of clickable area to prevent mobile form submission issues */}
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  id="file-upload"
+                />
                 <div
                   onDrop={handleDrop}
                   onDragOver={handleDragOver}
-                  className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    id="file-upload"
-                  />
-                  <label
-                    htmlFor="file-upload"
-                    className="cursor-pointer flex flex-col items-center gap-2"
-                  >
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    document.getElementById('file-upload')?.click();
+                  }}
+                  className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                >
+                  <div className="flex flex-col items-center gap-2 pointer-events-none">
                     {file ? (
                       <>
                         <FileText className="h-12 w-12 text-primary" />
@@ -374,13 +378,13 @@ const Upload = () => {
                     ) : (
                       <>
                         <UploadIcon className="h-12 w-12 text-muted-foreground" />
-                        <p className="font-medium">Click to upload or drag and drop</p>
+                        <p className="font-medium">Tap to upload or drag and drop</p>
                         <p className="text-sm text-muted-foreground">
                           PDF files only, max 10MB
                         </p>
                       </>
                     )}
-                  </label>
+                  </div>
                 </div>
               </div>
 
