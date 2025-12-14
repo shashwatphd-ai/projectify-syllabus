@@ -17,12 +17,15 @@ export const ProtectedRoute = ({
   requireAuth = true,
   fallbackPath = "/auth?mode=signin",
 }: ProtectedRouteProps) => {
-  const { user, loading, isAdmin, isFaculty, isEmployer, isStudent } = useAuth();
+  const { user, loading, isAdmin, isFaculty, isEmployer, isStudent, roles } = useAuth();
   const navigate = useNavigate();
 
+  // Wait for roles to load when a role is required
+  const isStillLoading = loading || (requiredRole && user && roles.length === 0);
+
   useEffect(() => {
-    // Wait for auth to load
-    if (loading) return;
+    // Wait for auth and roles to load
+    if (isStillLoading) return;
 
     // Check authentication requirement
     if (requireAuth && !user) {
@@ -58,8 +61,8 @@ export const ProtectedRoute = ({
     }
   }, [user, loading, requiredRole, requireAuth, isAdmin, isFaculty, isEmployer, isStudent, navigate, fallbackPath]);
 
-  // Show loader while checking auth
-  if (loading) {
+  // Show loader while checking auth or loading roles
+  if (isStillLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

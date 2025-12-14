@@ -71,8 +71,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        // Fetch roles when user logs in
-        // Use setTimeout to avoid potential race conditions with Supabase auth
+        // Set rolesLoading IMMEDIATELY to prevent race condition
+        setRolesLoading(true);
+        // Then fetch roles (deferred to avoid Supabase auth deadlock)
         setTimeout(() => {
           fetchUserRoles(session.user.id);
         }, 0);
