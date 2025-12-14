@@ -17,15 +17,6 @@ interface ParsedCourse {
   schedule: string[];
 }
 
-interface LocationData {
-  location: string;
-  searchLocation: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-}
-
 async function extractTextWithAI(pdfText: string): Promise<ParsedCourse> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   
@@ -210,111 +201,37 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    // Create a service role client for storage operations
+    const formData = await req.formData();
+    const file = formData.get('file') as File;
+    const cityZip = formData.get('cityZip') as string;
+
+    if (!file) {
+      throw new Error('No file provided');
+    }
+
+    // Upload to storage using service role (required for storage operations)
+    const filePath = `${user.id}/${Date.now()}_${file.name}`;
+    
+    // Create a service role client ONLY for storage operations
+    // Storage APIs require service role key for file uploads
     const serviceRoleClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
-
-    let pdfBuffer: Uint8Array;
-    let filePath: string;
-    let locationData: LocationData;
-
-    // Check content type to determine request format
-    const contentType = req.headers.get('content-type') || '';
     
-    if (contentType.includes('application/json')) {
-      // NEW: JSON mode with storagePath (mobile-friendly)
-      const body = await req.json();
-      const { storagePath, cityZipData } = body;
+    const { error: uploadError } = await serviceRoleClient.storage
+      .from('syllabi')
+      .upload(filePath, file);
 
-      if (!storagePath) {
-        throw new Error('No storagePath provided');
-      }
-
-      console.log('📂 Reading file from storage:', storagePath);
-
-      // Verify the file belongs to the user (path starts with user.id)
-      if (!storagePath.startsWith(user.id + '/')) {
-        throw new Error('Unauthorized: File does not belong to user');
-      }
-
-      // Download file from storage
-      const { data: fileData, error: downloadError } = await serviceRoleClient.storage
-        .from('syllabi')
-        .download(storagePath);
-
-      if (downloadError || !fileData) {
-        console.error('Download error:', downloadError);
-        throw new Error('Failed to download file from storage');
-      }
-
-      pdfBuffer = new Uint8Array(await fileData.arrayBuffer());
-      filePath = storagePath;
-
-      // Parse location data
-      locationData = {
-        location: cityZipData?.location || '',
-        searchLocation: cityZipData?.searchLocation || cityZipData?.location || '',
-        city: cityZipData?.city || '',
-        state: cityZipData?.state || '',
-        zip: cityZipData?.zip || '',
-        country: cityZipData?.country || 'US'
-      };
-
-      console.log('📍 Location data from JSON:', locationData);
-
-    } else {
-      // LEGACY: FormData mode (desktop/backward compatibility)
-      const formData = await req.formData();
-      const file = formData.get('file') as File;
-      const cityZip = formData.get('cityZip') as string;
-
-      if (!file) {
-        throw new Error('No file provided');
-      }
-
-      // Upload to storage
-      filePath = `${user.id}/${Date.now()}_${file.name}`;
-      
-      const { error: uploadError } = await serviceRoleClient.storage
-        .from('syllabi')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      pdfBuffer = new Uint8Array(await file.arrayBuffer());
-
-      // Parse location data from cityZip string
-      try {
-        const parsed = JSON.parse(cityZip);
-        locationData = {
-          location: parsed.location || cityZip,
-          searchLocation: parsed.searchLocation || cityZip,
-          city: parsed.city || '',
-          state: parsed.state || '',
-          zip: parsed.zip || '',
-          country: parsed.country || 'US'
-        };
-      } catch {
-        // Not JSON, use as-is (backward compatibility)
-        locationData = {
-          location: cityZip,
-          searchLocation: cityZip,
-          city: '',
-          state: '',
-          zip: '',
-          country: 'US'
-        };
-      }
-
-      console.log('📍 Location data from FormData:', locationData);
-    }
+    if (uploadError) throw uploadError;
 
     // Parse the PDF file
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = new Uint8Array(arrayBuffer);
+    
     let pdfText = '';
     try {
-      const doc = await getDocument(pdfBuffer).promise;
+      const doc = await getDocument(buffer).promise;
       const numPages = doc.numPages;
       
       // Extract text from all pages
@@ -324,7 +241,6 @@ serve(async (req) => {
         const pageText = content.items.map((item: any) => item.str).join(' ');
         pdfText += pageText + '\n';
       }
-      console.log(`📄 Extracted ${pdfText.length} characters from ${numPages} pages`);
     } catch (pdfError) {
       console.error('PDF parsing error:', pdfError);
       pdfText = 'Course syllabus';
@@ -333,20 +249,53 @@ serve(async (req) => {
     // Parse the extracted text using AI
     const parsed = await extractTextWithAI(pdfText);
 
+    // Parse location data - extract all components for precise targeting
+    let displayLocation = cityZip;
+    let searchLocation = cityZip;
+    let locationCity = '';
+    let locationState = '';
+    let locationZip = '';
+    let locationCountry = 'US';
+    let locationFormatted = cityZip;
+    
+    try {
+      // Parse complete location data from Upload.tsx
+      const locationData = JSON.parse(cityZip);
+      displayLocation = locationData.location || cityZip;
+      searchLocation = locationData.searchLocation || cityZip;
+      locationCity = locationData.city || '';
+      locationState = locationData.state || '';
+      locationZip = locationData.zip || '';
+      locationCountry = locationData.country || 'US';
+      locationFormatted = displayLocation;
+      console.log('📍 Complete location data parsed:', { 
+        display: displayLocation, 
+        search: searchLocation, 
+        city: locationCity, 
+        state: locationState, 
+        zip: locationZip, 
+        country: locationCountry 
+      });
+    } catch {
+      // Not JSON, use as-is (backward compatibility)
+      console.log(`📍 Using legacy location format: "${cityZip}"`);
+    }
+
     // Insert course profile with complete location data
+    // RLS policy "Users can insert own courses" allows this when owner_id = auth.uid()
     const { data: course, error: insertError } = await supabaseClient
       .from('course_profiles')
       .insert({
         owner_id: user.id,
         title: parsed.title,
         level: parsed.level,
-        city_zip: locationData.location,
-        search_location: locationData.searchLocation,
-        location_city: locationData.city,
-        location_state: locationData.state,
-        location_zip: locationData.zip,
-        location_country: locationData.country,
-        location_formatted: locationData.location,
+        city_zip: displayLocation,           // Display format (backward compat)
+        search_location: searchLocation,     // Apollo-friendly format
+        location_city: locationCity,         // Individual city component
+        location_state: locationState,       // Individual state component
+        location_zip: locationZip,           // Individual zip component
+        location_country: locationCountry,   // Country code (e.g., "US")
+        location_formatted: locationFormatted, // Formatted display string
         weeks: parsed.weeks,
         hrs_per_week: parsed.hrs_per_week,
         outcomes: parsed.outcomes,
@@ -362,17 +311,20 @@ serve(async (req) => {
       throw insertError;
     }
 
-    console.log(`✅ Course created: ${course.id} - ${parsed.title}`);
+    // Note: Company discovery happens automatically during project generation
+    // via the discover-companies function, no need to trigger it here
+    console.log(`Course location detected: ${cityZip} - company discovery will happen during project generation`);
 
     return new Response(JSON.stringify({ 
       course, 
       parsed,
-      rawText: pdfText.substring(0, 10000)
+      rawText: pdfText.substring(0, 10000) // Include first 10k chars for review
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('Error in parse-syllabus:', error);
+    // Return generic error message to prevent information leakage
     return new Response(
       JSON.stringify({ 
         error: 'Failed to parse syllabus. Please ensure the file is a valid PDF and try again.' 
