@@ -201,37 +201,70 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const formData = await req.formData();
-    const file = formData.get('file') as File;
-    const cityZip = formData.get('cityZip') as string;
-
-    if (!file) {
-      throw new Error('No file provided');
-    }
-
-    // Upload to storage using service role (required for storage operations)
-    const filePath = `${user.id}/${Date.now()}_${file.name}`;
-    
-    // Create a service role client ONLY for storage operations
-    // Storage APIs require service role key for file uploads
+    // Create a service role client for storage operations
     const serviceRoleClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
-    
-    const { error: uploadError } = await serviceRoleClient.storage
-      .from('syllabi')
-      .upload(filePath, file);
 
-    if (uploadError) throw uploadError;
+    let filePath: string;
+    let pdfBuffer: Uint8Array;
+    let cityZip: string;
+
+    // Check if request is JSON (storagePath mode) or FormData
+    const contentType = req.headers.get('content-type') || '';
+    
+    if (contentType.includes('application/json')) {
+      // File already uploaded to storage (Android reload scenario)
+      const body = await req.json();
+      filePath = body.storagePath;
+      cityZip = typeof body.cityZip === 'string' ? body.cityZip : JSON.stringify(body.cityZip);
+      
+      if (!filePath) {
+        throw new Error('No storagePath provided');
+      }
+
+      console.log('📂 Using pre-uploaded file from storage:', filePath);
+      
+      // Download file from storage
+      const { data: fileData, error: downloadError } = await serviceRoleClient.storage
+        .from('syllabi')
+        .download(filePath);
+      
+      if (downloadError || !fileData) {
+        console.error('Download error:', downloadError);
+        throw new Error('Failed to download file from storage');
+      }
+      
+      const arrayBuffer = await fileData.arrayBuffer();
+      pdfBuffer = new Uint8Array(arrayBuffer);
+    } else {
+      // Traditional FormData upload
+      const formData = await req.formData();
+      const file = formData.get('file') as File;
+      cityZip = formData.get('cityZip') as string;
+
+      if (!file) {
+        throw new Error('No file provided');
+      }
+
+      // Upload to storage
+      filePath = `${user.id}/${Date.now()}_${file.name}`;
+      
+      const { error: uploadError } = await serviceRoleClient.storage
+        .from('syllabi')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const arrayBuffer = await file.arrayBuffer();
+      pdfBuffer = new Uint8Array(arrayBuffer);
+    }
 
     // Parse the PDF file
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = new Uint8Array(arrayBuffer);
-    
     let pdfText = '';
     try {
-      const doc = await getDocument(buffer).promise;
+      const doc = await getDocument(pdfBuffer).promise;
       const numPages = doc.numPages;
       
       // Extract text from all pages
