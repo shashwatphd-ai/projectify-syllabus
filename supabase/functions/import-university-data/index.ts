@@ -44,12 +44,18 @@ interface UniversityRow {
   'Secondary Intent Score'?: string;
 }
 
-function extractDomain(websiteUrl: string | undefined): string | null {
+// Safely convert any value to string (handles numbers from Excel)
+function safeString(value: unknown): string | null {
+  if (value === undefined || value === null || value === '') return null;
+  return String(value).trim() || null;
+}
+
+function extractDomain(websiteUrl: unknown): string | null {
   if (!websiteUrl) return null;
   
   try {
     // Remove protocol and www
-    let domain = websiteUrl
+    let domain = String(websiteUrl)
       .replace(/^https?:\/\//, '')
       .replace(/^www\./, '')
       .split('/')[0]
@@ -65,15 +71,27 @@ function extractDomain(websiteUrl: string | undefined): string | null {
   }
 }
 
-function parseNumber(value: string | undefined): number | null {
-  if (!value) return null;
-  const num = parseInt(value.replace(/[^0-9-]/g, ''), 10);
+function parseNumber(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  
+  // If already a number, return it directly
+  if (typeof value === 'number') {
+    return isNaN(value) ? null : Math.floor(value);
+  }
+  
+  // If string, parse it
+  const num = parseInt(String(value).replace(/[^0-9-]/g, ''), 10);
   return isNaN(num) ? null : num;
 }
 
-function parseBigInt(value: string | undefined): number | null {
-  if (!value) return null;
-  const num = parseInt(value.replace(/[^0-9-]/g, ''), 10);
+function parseBigInt(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  
+  if (typeof value === 'number') {
+    return isNaN(value) ? null : Math.floor(value);
+  }
+  
+  const num = parseInt(String(value).replace(/[^0-9-]/g, ''), 10);
   return isNaN(num) ? null : num;
 }
 
@@ -81,45 +99,48 @@ function transformRow(row: UniversityRow) {
   const domain = extractDomain(row['Website']);
   if (!domain) return null;
   
-  const name = row['Company Name']?.trim();
+  const name = safeString(row['Company Name']);
   if (!name) return null;
+  
+  const city = safeString(row['Company City']);
+  const state = safeString(row['Company State']);
   
   return {
     domain,
     name,
-    country: row['Company Country']?.trim() || 'United States',
-    city: row['Company City']?.trim() || null,
-    state: row['Company State']?.trim() || null,
-    zip: row['Company Postal Code']?.trim() || null,
-    formatted_location: row['Company Address']?.trim() || `${row['Company City'] || ''}, ${row['Company State'] || ''}`.trim(),
-    company_name_for_emails: row['Company Name for Emails']?.trim() || null,
-    account_stage: row['Account Stage']?.trim() || null,
+    country: safeString(row['Company Country']) || 'United States',
+    city,
+    state,
+    zip: safeString(row['Company Postal Code']),
+    formatted_location: safeString(row['Company Address']) || `${city || ''}, ${state || ''}`.trim() || 'Unknown',
+    company_name_for_emails: safeString(row['Company Name for Emails']),
+    account_stage: safeString(row['Account Stage']),
     employee_count: parseNumber(row['# Employees']),
-    industry: row['Industry']?.trim() || null,
-    company_linkedin_url: row['Company Linkedin Url']?.replace(/\\/g, '') || null,
-    facebook_url: row['Facebook Url']?.replace(/\\/g, '') || null,
-    twitter_url: row['Twitter Url']?.replace(/\\/g, '') || null,
-    company_street: row['Company Street']?.trim() || null,
-    keywords: row['Keywords']?.trim() || null,
-    company_phone: row['Company Phone']?.trim() || null,
-    technologies: row['Technologies']?.trim() || null,
-    total_funding: row['Total Funding']?.trim() || null,
-    latest_funding: row['Latest Funding']?.trim() || null,
-    latest_funding_amount: row['Latest Funding Amount']?.trim() || null,
-    last_raised_at: row['Last Raised At']?.trim() || null,
+    industry: safeString(row['Industry']),
+    company_linkedin_url: safeString(row['Company Linkedin Url'])?.replace(/\\/g, ''),
+    facebook_url: safeString(row['Facebook Url'])?.replace(/\\/g, ''),
+    twitter_url: safeString(row['Twitter Url'])?.replace(/\\/g, ''),
+    company_street: safeString(row['Company Street']),
+    keywords: safeString(row['Keywords']),
+    company_phone: safeString(row['Company Phone']),
+    technologies: safeString(row['Technologies']),
+    total_funding: safeString(row['Total Funding']),
+    latest_funding: safeString(row['Latest Funding']),
+    latest_funding_amount: safeString(row['Latest Funding Amount']),
+    last_raised_at: safeString(row['Last Raised At']),
     annual_revenue: parseBigInt(row['Annual Revenue']),
     number_of_retail_locations: parseNumber(row['Number of Retail Locations']),
-    apollo_account_id: row['Apollo Account Id']?.trim() || null,
-    sic_codes: row['SIC Codes']?.trim() || null,
-    naics_codes: row['NAICS Codes']?.trim() || null,
-    short_description: row['Short Description']?.trim() || null,
+    apollo_account_id: safeString(row['Apollo Account Id']),
+    sic_codes: safeString(row['SIC Codes']),
+    naics_codes: safeString(row['NAICS Codes']),
+    short_description: safeString(row['Short Description']),
     founded_year: parseNumber(row['Founded Year']),
-    logo_url: row['Logo Url']?.replace(/\\/g, '') || null,
-    subsidiary_of: row['Subsidiary of']?.trim() || null,
-    primary_intent_topic: row['Primary Intent Topic']?.trim() || null,
-    primary_intent_score: row['Primary Intent Score']?.trim() || null,
-    secondary_intent_topic: row['Secondary Intent Topic']?.trim() || null,
-    secondary_intent_score: row['Secondary Intent Score']?.trim() || null,
+    logo_url: safeString(row['Logo Url'])?.replace(/\\/g, ''),
+    subsidiary_of: safeString(row['Subsidiary of']),
+    primary_intent_topic: safeString(row['Primary Intent Topic']),
+    primary_intent_score: safeString(row['Primary Intent Score']),
+    secondary_intent_topic: safeString(row['Secondary Intent Topic']),
+    secondary_intent_score: safeString(row['Secondary Intent Score']),
   };
 }
 
