@@ -218,7 +218,7 @@ const Upload = () => {
     }
   };
 
-  // Immediately upload file to storage when selected
+  // Immediately upload file to storage via edge function
   const handleFileSelect = async (selectedFile: File) => {
     if (selectedFile.type !== "application/pdf") {
       toast.error("Please upload a PDF file");
@@ -237,26 +237,32 @@ const Upload = () => {
     setUploading(true);
     
     try {
-      const timestamp = Date.now();
-      const sanitizedName = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const storagePath = `${user.id}/${timestamp}_${sanitizedName}`;
+      console.log('📤 Uploading file via edge function...');
       
-      console.log('📤 Uploading file to storage:', storagePath);
+      // Create FormData for the edge function
+      const formData = new FormData();
+      formData.append('file', selectedFile);
       
-      const { error: uploadError } = await supabase.storage
-        .from('syllabi')
-        .upload(storagePath, selectedFile);
+      // Call edge function to upload (uses service role for storage)
+      const { data, error: uploadError } = await supabase.functions.invoke('upload-syllabus-file', {
+        body: formData,
+      });
 
       if (uploadError) {
-        console.error('Upload error:', uploadError);
-        throw uploadError;
+        console.error('Upload function error:', uploadError);
+        throw new Error(uploadError.message || 'Failed to upload file');
+      }
+
+      if (!data?.success) {
+        console.error('Upload failed:', data?.error);
+        throw new Error(data?.error || 'Failed to upload file');
       }
 
       const fileInfo: PendingFile = {
-        storagePath,
-        fileName: selectedFile.name,
-        fileSize: selectedFile.size,
-        uploadedAt: new Date().toISOString()
+        storagePath: data.storagePath,
+        fileName: data.fileName,
+        fileSize: data.fileSize,
+        uploadedAt: data.uploadedAt
       };
 
       setPendingFile(fileInfo);
