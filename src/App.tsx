@@ -17,6 +17,7 @@ import ProjectDetail from "./pages/ProjectDetail";
 import DemandBoard from "./pages/DemandBoard";
 import AdminHub from "./pages/AdminHub";
 import AdminMetrics from "./pages/AdminMetrics";
+import AdminImportUniversities from "./pages/AdminImportUniversities";
 import RoleManagement from "./pages/RoleManagement";
 import MyOpportunities from "./pages/MyOpportunities";
 import MyCompetencies from "./pages/MyCompetencies";
@@ -92,6 +93,11 @@ const App = () => (
             <Route path="/admin-hub/roles" element={
               <ProtectedRoute requiredRole="admin">
                 <RoleManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin-hub/import-universities" element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminImportUniversities />
               </ProtectedRoute>
             } />
             

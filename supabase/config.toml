@@ -7,10 +7,14 @@ verify_jwt = false
 [functions.apollo-webhook-listener]
 verify_jwt = false
 
-# Authenticated endpoints - verify_jwt = true (default)
-[functions.send-faculty-approval-email]
-verify_jwt = true
-
 # Admin password reset - one-time use
 [functions.admin-reset-password]
 verify_jwt = false
+
+# University data import - requires authentication
+[functions.import-university-data]
+verify_jwt = true
+
+# Authenticated endpoints - verify_jwt = true (default)
+[functions.send-faculty-approval-email]
+verify_jwt = true

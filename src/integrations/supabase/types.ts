@@ -1184,33 +1184,120 @@ export type Database = {
       }
       university_domains: {
         Row: {
+          account_stage: string | null
+          annual_revenue: number | null
+          apollo_account_id: string | null
           city: string | null
+          company_linkedin_url: string | null
+          company_name_for_emails: string | null
+          company_phone: string | null
+          company_street: string | null
           country: string
           created_at: string | null
           domain: string
+          employee_count: number | null
+          facebook_url: string | null
           formatted_location: string
+          founded_year: number | null
+          industry: string | null
+          keywords: string | null
+          last_raised_at: string | null
+          latest_funding: string | null
+          latest_funding_amount: string | null
+          logo_url: string | null
+          naics_codes: string | null
           name: string
+          number_of_retail_locations: number | null
+          primary_intent_score: string | null
+          primary_intent_topic: string | null
+          secondary_intent_score: string | null
+          secondary_intent_topic: string | null
+          short_description: string | null
+          sic_codes: string | null
           state: string | null
+          subsidiary_of: string | null
+          technologies: string | null
+          total_funding: string | null
+          twitter_url: string | null
+          updated_at: string | null
           zip: string | null
         }
         Insert: {
+          account_stage?: string | null
+          annual_revenue?: number | null
+          apollo_account_id?: string | null
           city?: string | null
-          country: string
+          company_linkedin_url?: string | null
+          company_name_for_emails?: string | null
+          company_phone?: string | null
+          company_street?: string | null
+          country?: string
           created_at?: string | null
           domain: string
+          employee_count?: number | null
+          facebook_url?: string | null
           formatted_location: string
+          founded_year?: number | null
+          industry?: string | null
+          keywords?: string | null
+          last_raised_at?: string | null
+          latest_funding?: string | null
+          latest_funding_amount?: string | null
+          logo_url?: string | null
+          naics_codes?: string | null
           name: string
+          number_of_retail_locations?: number | null
+          primary_intent_score?: string | null
+          primary_intent_topic?: string | null
+          secondary_intent_score?: string | null
+          secondary_intent_topic?: string | null
+          short_description?: string | null
+          sic_codes?: string | null
           state?: string | null
+          subsidiary_of?: string | null
+          technologies?: string | null
+          total_funding?: string | null
+          twitter_url?: string | null
+          updated_at?: string | null
           zip?: string | null
         }
         Update: {
+          account_stage?: string | null
+          annual_revenue?: number | null
+          apollo_account_id?: string | null
           city?: string | null
+          company_linkedin_url?: string | null
+          company_name_for_emails?: string | null
+          company_phone?: string | null
+          company_street?: string | null
           country?: string
           created_at?: string | null
           domain?: string
+          employee_count?: number | null
+          facebook_url?: string | null
           formatted_location?: string
+          founded_year?: number | null
+          industry?: string | null
+          keywords?: string | null
+          last_raised_at?: string | null
+          latest_funding?: string | null
+          latest_funding_amount?: string | null
+          logo_url?: string | null
+          naics_codes?: string | null
           name?: string
+          number_of_retail_locations?: number | null
+          primary_intent_score?: string | null
+          primary_intent_topic?: string | null
+          secondary_intent_score?: string | null
+          secondary_intent_topic?: string | null
+          short_description?: string | null
+          sic_codes?: string | null
           state?: string | null
+          subsidiary_of?: string | null
+          technologies?: string | null
+          total_funding?: string | null
+          twitter_url?: string | null
+          updated_at?: string | null
           zip?: string | null
         }
         Relationships: []
