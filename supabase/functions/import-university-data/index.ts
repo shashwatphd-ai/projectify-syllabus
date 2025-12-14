@@ -174,15 +174,24 @@ serve(async (req) => {
 
     console.log(`✅ Transformed ${transformedRows.length} valid rows`);
 
+    // Deduplicate by domain (keep last occurrence to avoid ON CONFLICT errors)
+    const uniqueByDomain = new Map<string, typeof transformedRows[0]>();
+    for (const row of transformedRows) {
+      uniqueByDomain.set(row.domain, row);
+    }
+    const deduplicatedRows = Array.from(uniqueByDomain.values());
+    
+    console.log(`🔄 Deduplicated: ${transformedRows.length} → ${deduplicatedRows.length} unique domains`);
+
     // Batch upsert in chunks of 500
     const BATCH_SIZE = 500;
     let successCount = 0;
     let errorCount = 0;
     const errors: string[] = [];
 
-    for (let i = 0; i < transformedRows.length; i += BATCH_SIZE) {
-      const batch = transformedRows.slice(i, i + BATCH_SIZE);
-      console.log(`📦 Upserting batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(transformedRows.length / BATCH_SIZE)}`);
+    for (let i = 0; i < deduplicatedRows.length; i += BATCH_SIZE) {
+      const batch = deduplicatedRows.slice(i, i + BATCH_SIZE);
+      console.log(`📦 Upserting batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(deduplicatedRows.length / BATCH_SIZE)}`);
 
       const { error } = await supabaseClient
         .from('university_domains')
@@ -207,9 +216,10 @@ serve(async (req) => {
         success: true,
         totalReceived: rows.length,
         totalTransformed: transformedRows.length,
+        totalDeduplicated: deduplicatedRows.length,
         successCount,
         errorCount,
-        errors: errors.slice(0, 10) // Only return first 10 errors
+        errors: errors.slice(0, 10)
       }),
       { 
         status: 200, 
