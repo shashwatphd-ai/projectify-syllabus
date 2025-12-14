@@ -157,9 +157,7 @@ const Upload = () => {
     e.stopPropagation();
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleSubmit = async () => {
     if (!file || !user) {
       toast.error("Please select a syllabus file");
       return;
@@ -263,7 +261,12 @@ const Upload = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+              }}
+              className="space-y-6"
+            >
               {/* Phase 4: Manual Location Override */}
               <div className="space-y-4">
                 <div className="flex items-center space-x-2">
@@ -388,7 +391,12 @@ const Upload = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button
+                type="button"
+                className="w-full"
+                disabled={loading}
+                onClick={handleSubmit}
+              >
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
