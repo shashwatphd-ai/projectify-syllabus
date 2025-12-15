@@ -597,6 +597,7 @@ serve(async (req) => {
         // === USE REAL APOLLO DESCRIPTION (CRITICAL - NO FABRICATION) ===
         description: company.description || company.seo_description || company.recent_news || 
           `${company.name} is a ${company.sector || 'business'} organization.`,
+        seo_description: company.seo_description,
         
         // Multi-industry context for AI
         industries: company.industries || [],
