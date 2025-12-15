@@ -197,6 +197,15 @@ const Configure = () => {
         const industriesArray = industries.split(',').map(i => i.trim()).filter(Boolean);
         const companiesArray = companies.split(',').map(c => c.trim()).filter(Boolean);
 
+        // DIAGNOSTIC: Log what we're sending to discover-companies
+        console.log('📤 CONFIGURE PAGE SENDING TO DISCOVER-COMPANIES:', {
+          courseId,
+          location: normalizedLocation,
+          count: parseInt(numTeams),
+          targetCompanies: companiesArray,
+          targetIndustries: industriesArray
+        });
+
         const { data: discoveryData, error: discoveryError } = await supabase.functions.invoke('discover-companies', {
           body: {
             courseId: courseId,

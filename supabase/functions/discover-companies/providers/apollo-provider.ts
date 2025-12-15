@@ -113,7 +113,19 @@ export class ApolloProvider implements DiscoveryProvider {
       throw new Error('Apollo provider not configured. Missing: ' + this.getRequiredSecrets().join(', '));
     }
 
-    console.log(`🚀 Apollo Provider: Discovering companies for ${context.location}`);
+    // ========================================
+    // DIAGNOSTIC: Log all context received from discover-companies
+    // ========================================
+    console.log(`\n🔍 APOLLO PROVIDER RECEIVED CONTEXT:`);
+    console.log(`   courseTitle: "${context.courseTitle || 'Unknown'}"`);
+    console.log(`   location: "${context.location}"`);
+    console.log(`   searchLocation: "${context.searchLocation || '(not set)'}"`);
+    console.log(`   targetCount: ${context.targetCount}`);
+    console.log(`   targetCompanies: ${JSON.stringify(context.targetCompanies || [])}`);
+    console.log(`   targetIndustries: ${JSON.stringify(context.targetIndustries || [])}`);
+    console.log(`   onetOccupations count: ${context.onetOccupations?.length || 0}`);
+
+    console.log(`\n🚀 Apollo Provider: Discovering companies for ${context.location}`);
     console.log(`   Course: "${context.courseTitle || 'Unknown'}"`);
 
     // Check for user-specified companies
