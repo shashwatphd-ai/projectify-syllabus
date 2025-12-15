@@ -1,21 +1,23 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Upload as UploadIcon, FileText, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
 import { validateLocationFormat, needsManualLocationEntry } from "@/utils/locationValidation";
+import { AutomaticLocationInput } from "@/components/AutomaticLocationInput";
+import { ManualLocationInput } from "@/components/ManualLocationInput";
+import { SyllabusUploadInput } from "@/components/SyllabusUploadInput";
 
 const Upload = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
   const [file, setFile] = useState<File | null>(null);
-  const [storagePath, setStoragePath] = useState<string | null>(() => 
+  const [storagePath, setStoragePath] = useState<string | null>(() =>
     sessionStorage.getItem('uploadedSyllabusPath')
   );
   const [storedFileName, setStoredFileName] = useState<string | null>(() =>
@@ -60,7 +62,7 @@ const Upload = () => {
     const savedPath = sessionStorage.getItem('uploadedSyllabusPath');
     const savedName = sessionStorage.getItem('uploadedSyllabusName');
     const savedSize = sessionStorage.getItem('uploadedSyllabusSize');
-    
+
     if (savedPath && !storagePath) {
       setStoragePath(savedPath);
     }
@@ -166,16 +168,16 @@ const Upload = () => {
 
   const uploadFileToStorage = async (selectedFile: File) => {
     if (!user) return;
-    
+
     setUploading(true);
     try {
       const fileName = `${user.id}/${Date.now()}_${selectedFile.name}`;
       const { data, error } = await supabase.storage
         .from('syllabi')
         .upload(fileName, selectedFile, { upsert: true });
-      
+
       if (error) throw error;
-      
+
       // Store path, name, and size in sessionStorage to survive Android reload
       sessionStorage.setItem('uploadedSyllabusPath', data.path);
       sessionStorage.setItem('uploadedSyllabusName', selectedFile.name);
@@ -199,20 +201,7 @@ const Upload = () => {
       processFile(selectedFile);
       uploadFileToStorage(selectedFile);
     }
-  };
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const droppedFile = e.dataTransfer.files?.[0];
-    if (droppedFile) {
-      processFile(droppedFile);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+    console.log('File selected:', selectedFile);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -256,7 +245,7 @@ const Upload = () => {
       };
 
       let invokeBody: FormData | object;
-      
+
       // Use storagePath if file was already uploaded (survives Android reload)
       if (storagePath) {
         invokeBody = { storagePath, cityZip: locationPayload };
@@ -287,7 +276,7 @@ const Upload = () => {
       sessionStorage.removeItem('uploadedSyllabusPath');
       sessionStorage.removeItem('uploadedSyllabusName');
       sessionStorage.removeItem('uploadedSyllabusSize');
-      
+
       toast.success("Syllabus parsed successfully!");
 
       // Navigate to review page with parsed data
@@ -354,113 +343,36 @@ const Upload = () => {
                 </div>
 
                 {!manualEntry ? (
-                  // Auto-detected location
-                  <div className="space-y-2">
-                    <Label htmlFor="cityZip">Location (Auto-detected)</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="cityZip"
-                        placeholder="Will be detected from your email..."
-                        value={cityZip}
-                        onChange={(e) => setCityZip(e.target.value)}
-                        disabled={locationLoading}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          if (user?.email) {
-                            detectionAttemptedRef.current = true;
-                            detectLocationFromEmail(user.email);
-                          }
-                        }}
-                        disabled={locationLoading || !user?.email}
-                      >
-                        {locationLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          "Re-detect"
-                        )}
-                      </Button>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {locationLoading ? 'Detecting location from your university email...' : 'Supports universities worldwide'}
-                    </p>
-                  </div>
+                  <AutomaticLocationInput
+                    cityZip={cityZip}
+                    setCityZip={setCityZip}
+                    locationLoading={locationLoading}
+                    user={user}
+                    detectionAttemptedRef={detectionAttemptedRef}
+                    detectLocationFromEmail={detectLocationFromEmail}
+                  />
                 ) : (
-                  // Manual entry
-                  <div className="space-y-3">
-                    <Label>Enter Your Location Manually</Label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="col-span-2">
-                        <Input
-                          placeholder="City (required)"
-                          value={manualCity}
-                          onChange={(e) => setManualCity(e.target.value)}
-                          required={manualEntry}
-                        />
-                      </div>
-                      <Input
-                        placeholder="State/Province"
-                        value={manualState}
-                        onChange={(e) => setManualState(e.target.value)}
-                      />
-                      <Input
-                        placeholder="ZIP/Postal Code (required)"
-                        value={manualZip}
-                        onChange={(e) => setManualZip(e.target.value)}
-                        required={manualEntry}
-                      />
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Enter your institution's location in any format
-                    </p>
-                  </div>
+                  <ManualLocationInput
+                    manualCity={manualCity}
+                    setManualCity={setManualCity}
+                    manualState={manualState}
+                    setManualState={setManualState}
+                    manualZip={manualZip}
+                    setManualZip={setManualZip}
+                    required={manualEntry}
+                  />
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label>Syllabus PDF</Label>
-                <div
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                  className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    id="file-upload"
-                  />
-                  <label
-                    htmlFor="file-upload"
-                    className="cursor-pointer flex flex-col items-center gap-2"
-                  >
-                    {uploading ? (
-                      <>
-                        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                        <p className="font-medium">Uploading file...</p>
-                      </>
-                    ) : file || storagePath ? (
-                      <>
-                        <FileText className="h-12 w-12 text-primary" />
-                        <p className="font-medium">{file?.name || storedFileName || 'File uploaded'}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {((file?.size || storedFileSize || 0) / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <UploadIcon className="h-12 w-12 text-muted-foreground" />
-                        <p className="font-medium">Click to upload or drag and drop</p>
-                        <p className="text-sm text-muted-foreground">
-                          PDF files only, max 10MB
-                        </p>
-                      </>
-                    )}
-                  </label>
-                </div>
-              </div>
+              <SyllabusUploadInput
+                processFile={processFile}
+                handleFileChange={handleFileChange}
+                uploading={uploading}
+                file={file}
+                storedFileName={storedFileName}
+                storedFileSize={storedFileSize}
+                storagePath={storagePath}
+              />
 
               <Button type="submit" className="w-full" disabled={loading || uploading || (!file && !storagePath)}>
                 {loading ? (
