@@ -18,6 +18,13 @@ const Upload = () => {
   const [storagePath, setStoragePath] = useState<string | null>(() => 
     sessionStorage.getItem('uploadedSyllabusPath')
   );
+  const [storedFileName, setStoredFileName] = useState<string | null>(() =>
+    sessionStorage.getItem('uploadedSyllabusName')
+  );
+  const [storedFileSize, setStoredFileSize] = useState<number | null>(() => {
+    const size = sessionStorage.getItem('uploadedSyllabusSize');
+    return size ? parseInt(size, 10) : null;
+  });
   const [cityZip, setCityZip] = useState("");
   const [searchLocation, setSearchLocation] = useState("");
   const [locationData, setLocationData] = useState({
@@ -152,9 +159,13 @@ const Upload = () => {
       
       if (error) throw error;
       
-      // Store path in sessionStorage to survive Android reload
+      // Store path, name, and size in sessionStorage to survive Android reload
       sessionStorage.setItem('uploadedSyllabusPath', data.path);
+      sessionStorage.setItem('uploadedSyllabusName', selectedFile.name);
+      sessionStorage.setItem('uploadedSyllabusSize', selectedFile.size.toString());
       setStoragePath(data.path);
+      setStoredFileName(selectedFile.name);
+      setStoredFileSize(selectedFile.size);
       setFile(selectedFile);
       toast.success('File uploaded successfully');
     } catch (error: any) {
@@ -257,6 +268,8 @@ const Upload = () => {
 
       // Clear sessionStorage after successful parse
       sessionStorage.removeItem('uploadedSyllabusPath');
+      sessionStorage.removeItem('uploadedSyllabusName');
+      sessionStorage.removeItem('uploadedSyllabusSize');
       
       toast.success("Syllabus parsed successfully!");
 
@@ -414,12 +427,10 @@ const Upload = () => {
                     ) : file || storagePath ? (
                       <>
                         <FileText className="h-12 w-12 text-primary" />
-                        <p className="font-medium">{file?.name || 'File uploaded'}</p>
-                        {file && (
-                          <p className="text-sm text-muted-foreground">
-                            {(file.size / 1024 / 1024).toFixed(2)} MB
-                          </p>
-                        )}
+                        <p className="font-medium">{file?.name || storedFileName || 'File uploaded'}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {((file?.size || storedFileSize || 0) / 1024 / 1024).toFixed(2)} MB
+                        </p>
                       </>
                     ) : (
                       <>
