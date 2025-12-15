@@ -55,6 +55,23 @@ const Upload = () => {
     setFile(selectedFile);
   };
 
+  // Sync sessionStorage to state on mount (handles Android reload)
+  useEffect(() => {
+    const savedPath = sessionStorage.getItem('uploadedSyllabusPath');
+    const savedName = sessionStorage.getItem('uploadedSyllabusName');
+    const savedSize = sessionStorage.getItem('uploadedSyllabusSize');
+    
+    if (savedPath && !storagePath) {
+      setStoragePath(savedPath);
+    }
+    if (savedName && !storedFileName) {
+      setStoredFileName(savedName);
+    }
+    if (savedSize && !storedFileSize) {
+      setStoredFileSize(parseInt(savedSize, 10));
+    }
+  }, []);
+
   useEffect(() => {
     // Only redirect if auth is fully loaded and user is definitely not logged in
     // Give a small delay to prevent race conditions during navigation
