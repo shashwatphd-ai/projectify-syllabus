@@ -38,6 +38,9 @@ interface CompanyInfo {
   // Intelligence Fields
   match_score?: number;
   match_reason?: string;
+  // === NEW: Company Context for Accurate Project Generation ===
+  industries?: string[];               // Multi-industry classification from Apollo
+  keywords?: string[];                 // Company capability keywords from Apollo
 }
 
 interface ProjectProposal {
@@ -174,9 +177,14 @@ ${artifacts.map(a => `- ${a}`).join('\n')}
 🏢 COMPANY PARTNER PROFILE (Context for applying course concepts):
 Name: ${company.name}
 Sector: ${company.sector}
+${(company.industries && company.industries.length > 0) ? `Industries: ${company.industries.join(', ')}` : ''}
 Size: ${company.size}
 Website: ${company.website || 'Not available'}
-Description: ${company.description}
+
+📄 COMPANY DESCRIPTION (USE THIS EXACTLY - DO NOT FABRICATE OR MODIFY):
+${company.description}
+
+${(company.keywords && company.keywords.length > 0) ? `🏷️ Company Capabilities: ${company.keywords.slice(0, 10).join(', ')}` : ''}
 ${intelligenceSection}
 
 COMPANY'S BUSINESS/TECHNICAL NEEDS (Select ONE that can be addressed using this course's concepts):
