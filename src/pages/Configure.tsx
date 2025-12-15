@@ -193,11 +193,17 @@ const Configure = () => {
         console.log('✅ Location validated for Apollo:', normalizedLocation);
         toast.info("Discovering partner companies...", { duration: 3000 });
 
+        // Parse user customization inputs
+        const industriesArray = industries.split(',').map(i => i.trim()).filter(Boolean);
+        const companiesArray = companies.split(',').map(c => c.trim()).filter(Boolean);
+
         const { data: discoveryData, error: discoveryError } = await supabase.functions.invoke('discover-companies', {
           body: {
             courseId: courseId,
             location: normalizedLocation, // P0-2 FIX: Use validated Apollo-friendly format
-            count: parseInt(numTeams)
+            count: parseInt(numTeams),
+            targetCompanies: companiesArray.length > 0 ? companiesArray : undefined,
+            targetIndustries: industriesArray.length > 0 ? industriesArray : undefined
           }
         });
 
@@ -278,6 +284,24 @@ const Configure = () => {
         console.log('✓ Company discovery complete. Generation run ID:', generationRunId);
         console.log('📊 Discovery diagnostics:', diagnostics);
 
+        // Show feedback about user-specified companies
+        const userRequestedCompanies = discoveryData?.userRequestedCompanies;
+        if (userRequestedCompanies) {
+          if (userRequestedCompanies.notFound && userRequestedCompanies.notFound.length > 0) {
+            toast.warning(
+              `Could not find companies: ${userRequestedCompanies.notFound.join(', ')}. ` +
+              `Showing similar companies instead.`,
+              { duration: 5000 }
+            );
+          }
+          if (userRequestedCompanies.found && userRequestedCompanies.found.length > 0) {
+            toast.success(
+              `Found requested companies: ${userRequestedCompanies.found.join(', ')}`,
+              { duration: 3000 }
+            );
+          }
+        }
+
         // Show detailed success message with provider info
         if (diagnostics?.usedFallback) {
           toast.success(
@@ -292,14 +316,15 @@ const Configure = () => {
 
       // Step 2: Generate projects using enriched company data
       toast.info("Generating projects with enriched data...", { duration: 3000 });
-      const industriesArray = industries.split(',').map(i => i.trim()).filter(Boolean);
-      const companiesArray = companies.split(',').map(c => c.trim()).filter(Boolean);
+      // Re-parse these for the generate-projects call (already parsed earlier for discovery)
+      const industriesArrayForGeneration = industries.split(',').map(i => i.trim()).filter(Boolean);
+      const companiesArrayForGeneration = companies.split(',').map(c => c.trim()).filter(Boolean);
 
       const { data, error } = await supabase.functions.invoke('generate-projects', {
         body: {
           courseId,
-          industries: industriesArray,
-          companies: companiesArray,
+          industries: industriesArrayForGeneration,
+          companies: companiesArrayForGeneration,
           numTeams: parseInt(numTeams),
           generation_run_id: generationRunId // CRITICAL: Pass enriched data generation run ID
         }

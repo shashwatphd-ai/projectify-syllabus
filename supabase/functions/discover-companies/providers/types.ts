@@ -20,6 +20,10 @@ export interface CourseContext {
   onetOccupations?: StandardOccupation[];      // Occupations from multi-provider coordination
   courseTitle?: string;                        // Course title for context
   socMappings?: any[];                          // SOC mapping results for industry-based search
+
+  // User customization (from Configure page)
+  targetCompanies?: string[];                   // Specific companies user wants to find
+  targetIndustries?: string[];                  // Specific industries user wants to filter by
 }
 
 export interface DiscoveredCompany {
@@ -105,6 +109,12 @@ export interface DiscoveryResult {
     processingTimeSeconds: number;
     apiCreditsUsed: number;
     providerUsed: string;
+  };
+  // Feedback about user-specified companies (optional)
+  userRequestedCompanies?: {
+    requested: string[];
+    found: string[];
+    notFound: string[];
   };
 }
 

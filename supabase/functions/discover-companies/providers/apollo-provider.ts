@@ -116,21 +116,90 @@ export class ApolloProvider implements DiscoveryProvider {
     console.log(`🚀 Apollo Provider: Discovering companies for ${context.location}`);
     console.log(`   Course: "${context.courseTitle || 'Unknown'}"`);
 
-    // Step 1: Calculate course-specific seed for diversity
+    // Check for user-specified companies
+    const hasTargetCompanies = context.targetCompanies && context.targetCompanies.length > 0;
+    const hasTargetIndustries = context.targetIndustries && context.targetIndustries.length > 0;
+    
+    if (hasTargetCompanies) {
+      console.log(`   🎯 USER CUSTOMIZATION: Searching for specific companies: ${context.targetCompanies!.join(', ')}`);
+    }
+    if (hasTargetIndustries) {
+      console.log(`   🏭 USER CUSTOMIZATION: Filtering by industries: ${context.targetIndustries!.join(', ')}`);
+    }
+
+    let organizations: ApolloOrganization[] = [];
+    let targetCompanyResults: { found: string[]; notFound: string[] } = { found: [], notFound: [] };
+
+    // Step 1: If user specified companies, search for them first
+    if (hasTargetCompanies) {
+      const { companies: foundCompanies, found, notFound } = await this.searchByCompanyNames(
+        context.targetCompanies!,
+        context.searchLocation || context.location
+      );
+      organizations = foundCompanies;
+      targetCompanyResults = { found, notFound };
+      
+      console.log(`   📊 Company Name Search Results:`);
+      console.log(`      Found: ${found.length > 0 ? found.join(', ') : '(none)'}`);
+      console.log(`      Not Found: ${notFound.length > 0 ? notFound.join(', ') : '(none)'}`);
+    }
+
+    // Step 2: Calculate how many more companies we need
+    const remainingCount = Math.max(0, context.targetCount - organizations.length);
+    
+    // Step 3: If we need more companies, do regular discovery
+    if (remainingCount > 0 || organizations.length === 0) {
+      console.log(`   🔍 Searching for ${remainingCount > 0 ? remainingCount + ' additional' : ''} companies via SOC-based discovery...`);
+      
+      // Step 3a: Calculate course-specific seed for diversity
+      const courseSeed = this.generateCourseSeed(context);
+      console.log(`   🎲 Course Seed: ${courseSeed} (ensures unique companies per course)`);
+
+      // Step 3b: Generate Apollo search filters using AI
+      const { filters, excludedIndustries, courseDomain } = await this.generateFilters(context, courseSeed);
+      
+      // Step 3c: If user specified industries, override or merge with generated industries
+      if (hasTargetIndustries) {
+        console.log(`   🏭 Merging user industries with generated filters...`);
+        const existingKeywords = filters.q_organization_keyword_tags || [];
+        // User industries take priority - add them at the front
+        filters.q_organization_keyword_tags = [
+          ...context.targetIndustries!.map(i => i.toLowerCase()),
+          ...existingKeywords.filter(k => !context.targetIndustries!.some(ti => ti.toLowerCase() === k.toLowerCase()))
+        ].slice(0, 15); // Limit to 15 keywords
+        console.log(`   📋 Final industry keywords: ${filters.q_organization_keyword_tags.join(', ')}`);
+      }
+
+      // Step 3d: Search for organizations
+      const pageOffset = this.calculatePageOffset(courseSeed);
+      // Request more if we already have some from company name search
+      const searchCount = organizations.length > 0 
+        ? remainingCount * 5  // Just get what we need + buffer
+        : context.targetCount * 5;  // Normal multiplier
+      
+      const additionalOrgs = await this.searchOrganizations(filters, searchCount, pageOffset);
+      
+      // Step 3e: Merge with any user-specified companies we found
+      // Avoid duplicates by checking website/name
+      const existingNames = new Set(organizations.map(o => o.name.toLowerCase()));
+      const existingWebsites = new Set(organizations.map(o => o.website_url?.toLowerCase()).filter(Boolean));
+      
+      for (const org of additionalOrgs) {
+        const nameMatch = existingNames.has(org.name.toLowerCase());
+        const websiteMatch = org.website_url && existingWebsites.has(org.website_url.toLowerCase());
+        if (!nameMatch && !websiteMatch) {
+          organizations.push(org);
+        }
+      }
+      
+      console.log(`   📊 Total organizations after merge: ${organizations.length}`);
+    }
+
+    // Step 4: Generate filters for enrichment (needed for excluded industries)
     const courseSeed = this.generateCourseSeed(context);
-    console.log(`   🎲 Course Seed: ${courseSeed} (ensures unique companies per course)`);
+    const { excludedIndustries, courseDomain } = await this.generateFilters(context, courseSeed);
 
-    // Step 2: Generate Apollo search filters using AI
-    const { filters, excludedIndustries, courseDomain } = await this.generateFilters(context, courseSeed);
-
-    // Step 3: Search for organizations
-    // NOTE: Simplified from multi-pass search. For job-based discovery, use Adzuna provider.
-    const pageOffset = this.calculatePageOffset(courseSeed);
-    // RELAXED: Increased multiplier from 3 to 5 to get more candidates for filtering
-    // More candidates → Better chance of finding quality matches after semantic filtering
-    const organizations = await this.searchOrganizations(filters, context.targetCount * 5, pageOffset);
-
-    // Step 4: Enrich organizations with contacts and market intelligence
+    // Step 5: Enrich organizations with contacts and market intelligence
     // Pass excluded industries and course domain for context-aware post-filtering
     // Pass searchLocation for proximity-based sorting
     const companies = await this.enrichOrganizations(
@@ -139,7 +208,8 @@ export class ApolloProvider implements DiscoveryProvider {
       excludedIndustries,
       courseDomain,
       context.socMappings || [],
-      context.searchLocation || context.location
+      context.searchLocation || context.location,
+      targetCompanyResults.found // Pass found company names to mark them as user-requested
     );
 
     const processingTime = (Date.now() - startTime) / 1000;
@@ -152,8 +222,135 @@ export class ApolloProvider implements DiscoveryProvider {
         processingTimeSeconds: processingTime,
         apiCreditsUsed: companies.length * 2, // Org search + People search
         providerUsed: 'apollo'
-      }
+      },
+      // Include feedback about user-specified companies
+      userRequestedCompanies: hasTargetCompanies ? {
+        requested: context.targetCompanies!,
+        found: targetCompanyResults.found,
+        notFound: targetCompanyResults.notFound
+      } : undefined
     };
+  }
+  
+  /**
+   * Search Apollo API for specific companies by name
+   */
+  private async searchByCompanyNames(
+    companyNames: string[],
+    location: string
+  ): Promise<{ companies: ApolloOrganization[]; found: string[]; notFound: string[] }> {
+    const foundCompanies: ApolloOrganization[] = [];
+    const found: string[] = [];
+    const notFound: string[] = [];
+    
+    console.log(`\n  🔍 Searching for ${companyNames.length} specific companies by name...`);
+    
+    for (const companyName of companyNames) {
+      console.log(`     Searching for: "${companyName}"...`);
+      
+      try {
+        // Apollo's q_organization_name parameter searches by company name
+        const response = await fetch(
+          'https://api.apollo.io/v1/mixed_companies/search',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache',
+              'X-Api-Key': this.apolloApiKey!
+            },
+            body: JSON.stringify({
+              q_organization_name: companyName,
+              organization_locations: [location],
+              page: 1,
+              per_page: 5 // Get a few in case of multiple matches
+            })
+          }
+        );
+        
+        if (!response.ok) {
+          console.warn(`     ⚠️  Apollo API error for "${companyName}": ${response.status}`);
+          notFound.push(companyName);
+          continue;
+        }
+        
+        const data = await response.json();
+        const orgs = (data.organizations || []) as ApolloOrganization[];
+        
+        if (orgs.length > 0) {
+          // Find best match - exact or partial name match
+          const exactMatch = orgs.find(o => 
+            o.name.toLowerCase() === companyName.toLowerCase()
+          );
+          const partialMatch = orgs.find(o => 
+            o.name.toLowerCase().includes(companyName.toLowerCase()) ||
+            companyName.toLowerCase().includes(o.name.toLowerCase())
+          );
+          
+          const bestMatch = exactMatch || partialMatch || orgs[0];
+          
+          if (bestMatch) {
+            console.log(`     ✅ Found: "${bestMatch.name}" (${bestMatch.city || 'Unknown'}, ${bestMatch.state || 'Unknown'})`);
+            foundCompanies.push(bestMatch);
+            found.push(companyName);
+          } else {
+            console.log(`     ❌ No match for: "${companyName}"`);
+            notFound.push(companyName);
+          }
+        } else {
+          // Try broader search without location constraint
+          console.log(`     🔄 No results in ${location}, trying without location filter...`);
+          
+          const broadResponse = await fetch(
+            'https://api.apollo.io/v1/mixed_companies/search',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache',
+                'X-Api-Key': this.apolloApiKey!
+              },
+              body: JSON.stringify({
+                q_organization_name: companyName,
+                page: 1,
+                per_page: 5
+              })
+            }
+          );
+          
+          if (broadResponse.ok) {
+            const broadData = await broadResponse.json();
+            const broadOrgs = (broadData.organizations || []) as ApolloOrganization[];
+            
+            if (broadOrgs.length > 0) {
+              const bestMatch = broadOrgs.find(o => 
+                o.name.toLowerCase().includes(companyName.toLowerCase()) ||
+                companyName.toLowerCase().includes(o.name.toLowerCase())
+              ) || broadOrgs[0];
+              
+              console.log(`     ✅ Found (different location): "${bestMatch.name}" (${bestMatch.city || 'Unknown'}, ${bestMatch.state || 'Unknown'})`);
+              foundCompanies.push(bestMatch);
+              found.push(companyName);
+            } else {
+              console.log(`     ❌ Company not found in Apollo database: "${companyName}"`);
+              notFound.push(companyName);
+            }
+          } else {
+            notFound.push(companyName);
+          }
+        }
+      } catch (error) {
+        console.error(`     ❌ Error searching for "${companyName}":`, error);
+        notFound.push(companyName);
+      }
+    }
+    
+    console.log(`\n  📊 Company Name Search Summary:`);
+    console.log(`     Requested: ${companyNames.length}`);
+    console.log(`     Found: ${found.length} (${found.join(', ') || 'none'})`);
+    console.log(`     Not Found: ${notFound.length} (${notFound.join(', ') || 'none'})\n`);
+    
+    return { companies: foundCompanies, found, notFound };
   }
   
   /**
@@ -858,7 +1055,8 @@ Return JSON:
     excludedIndustries: string[] = [],
     courseDomain: string = 'unknown',
     socMappings: any[] = [],
-    searchLocation: string = ''
+    searchLocation: string = '',
+    userRequestedCompanyNames: string[] = [] // Companies explicitly requested by user
   ): Promise<DiscoveredCompany[]> {
     const enriched: DiscoveredCompany[] = [];
     let skippedCount = 0;
