@@ -13,6 +13,7 @@ interface CompanyInfo {
   size: string;
   needs: string[];
   description: string;
+  seo_description?: string;
   website?: string;
   inferred_needs?: string[];
   contact_email?: string | null;
@@ -429,7 +430,7 @@ Return ONLY valid JSON (no markdown code blocks):
     "phone": "${company.contact_phone || 'Generate US format: (XXX) XXX-XXXX with realistic area code'}"
   },
   
-  "company_description": "Write 50-75 words describing: (1) What this company does, (2) Their market position/size, (3) Why they make a good academic partner. Use real intelligence if available.",
+  "company_description": "${company.description ? company.description.substring(0, 600) : (company.seo_description ? company.seo_description.substring(0, 600) : `${company.name} is a ${company.sector || 'business'} company.`)}",
   
   "website": "${company.website || `https://www.${company.name.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '')}.com`}",
   

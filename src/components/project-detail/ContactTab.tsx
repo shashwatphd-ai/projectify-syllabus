@@ -31,7 +31,7 @@ export const ContactTab = ({ forms, companyProfile, contactInfo, projectId, proj
     sector: companyProfile?.sector || form2.sector,
     size: companyProfile?.size || form2.size,
     website: companyProfile?.website || form2.website,
-    description: companyProfile?.recent_news || form2.description,
+    description: companyProfile?.description || companyProfile?.seo_description || form2.description,
     full_address: companyProfile?.full_address,
     city: companyProfile?.city,
     zip: companyProfile?.zip,

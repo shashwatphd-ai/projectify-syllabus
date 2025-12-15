@@ -17,6 +17,7 @@ interface CompanyInfo {
   size: string;
   needs: string[];
   description: string;
+  seo_description?: string;
   website?: string;
   inferred_needs?: string[];
   contact_email?: string | null;
@@ -381,7 +382,7 @@ function createForms(company: CompanyInfo, proposal: ProjectProposal, course: an
       contact_title: company.contact_title || 'TBD',
       contact_phone: company.contact_phone || '',
       website: company.website || '',
-      description: proposal.company_description,
+      description: company.description || company.seo_description || proposal.company_description,
       size: company.size,
       sector: company.sector,
       preferred_communication: company.contact_email ? 'Email' : 'TBD'
