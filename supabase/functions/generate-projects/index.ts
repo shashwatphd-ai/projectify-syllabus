@@ -553,7 +553,24 @@ serve(async (req) => {
       
       if (company.job_postings && company.job_postings.length > 0) {
         derivedNeeds.push(`Hiring velocity: ${company.job_postings.length} active openings`);
+        
+        // Extract skills from job posting descriptions for richer needs
+        const jobSkills = new Set<string>();
+        company.job_postings.forEach((job: any) => {
+          if (job.skills_needed) {
+            job.skills_needed.forEach((skill: string) => jobSkills.add(skill));
+          }
+        });
+        if (jobSkills.size > 0) {
+          derivedNeeds.push(`Key hiring skills: ${Array.from(jobSkills).slice(0, 5).join(', ')}`);
+        }
       }
+      
+      // Use company keywords for capability-based needs
+      if (company.keywords && company.keywords.length > 0) {
+        derivedNeeds.push(`Core capabilities: ${company.keywords.slice(0, 5).join(', ')}`);
+      }
+      
       if (company.technologies_used && company.technologies_used.length > 0) {
         derivedNeeds.push(`Technology stack: ${company.technologies_used.slice(0, 3).join(', ')}`);
       }
@@ -563,13 +580,27 @@ serve(async (req) => {
       
       const allNeeds = inferredNeeds.length > 0 ? inferredNeeds : derivedNeeds;
       
+      // Log company data for verification
+      console.log(`  📋 COMPANY DATA FOR AI - ${company.name}:`);
+      console.log(`    ├── Description: ${company.description ? '✅ ' + company.description.substring(0, 60) + '...' : '❌ FABRICATED'}`);
+      console.log(`    ├── Industries: ${company.industries?.join(', ') || 'None'}`);
+      console.log(`    └── Keywords: ${company.keywords?.slice(0, 5).join(', ') || 'None'}`);
+      
       return {
         id: company.id,
         name: company.name,
         sector: company.sector || 'Unknown',
         size: company.size || company.organization_employee_count || 'Unknown',
         needs: allNeeds,
-        description: company.recent_news || `${company.name} is a ${company.sector || 'business'} organization.`,
+        
+        // === USE REAL APOLLO DESCRIPTION (CRITICAL - NO FABRICATION) ===
+        description: company.description || company.seo_description || company.recent_news || 
+          `${company.name} is a ${company.sector || 'business'} organization.`,
+        
+        // Multi-industry context for AI
+        industries: company.industries || [],
+        keywords: company.keywords || [],
+        
         website: company.website,
         
         // Apollo contact data

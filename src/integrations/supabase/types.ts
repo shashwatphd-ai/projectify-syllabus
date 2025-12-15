@@ -72,14 +72,19 @@ export type Database = {
           contact_twitter_url: string | null
           data_completeness_score: number | null
           data_enrichment_level: string | null
+          departmental_head_count: Json | null
+          description: string | null
           discovery_source: string | null
           full_address: string | null
+          funding_events: Json | null
           funding_stage: string | null
           generation_run_id: string | null
           id: string
+          industries: Json | null
           inferred_needs: Json | null
           job_postings: Json | null
           job_postings_last_fetched: string | null
+          keywords: Json | null
           last_enriched_at: string
           last_verified_at: string | null
           linkedin_profile: string | null
@@ -99,6 +104,7 @@ export type Database = {
           owner_user_id: string | null
           recent_news: string | null
           sector: string | null
+          seo_description: string | null
           similarity_score: number | null
           size: string | null
           source: string | null
@@ -130,14 +136,19 @@ export type Database = {
           contact_twitter_url?: string | null
           data_completeness_score?: number | null
           data_enrichment_level?: string | null
+          departmental_head_count?: Json | null
+          description?: string | null
           discovery_source?: string | null
           full_address?: string | null
+          funding_events?: Json | null
           funding_stage?: string | null
           generation_run_id?: string | null
           id?: string
+          industries?: Json | null
           inferred_needs?: Json | null
           job_postings?: Json | null
           job_postings_last_fetched?: string | null
+          keywords?: Json | null
           last_enriched_at?: string
           last_verified_at?: string | null
           linkedin_profile?: string | null
@@ -157,6 +168,7 @@ export type Database = {
           owner_user_id?: string | null
           recent_news?: string | null
           sector?: string | null
+          seo_description?: string | null
           similarity_score?: number | null
           size?: string | null
           source?: string | null
@@ -188,14 +200,19 @@ export type Database = {
           contact_twitter_url?: string | null
           data_completeness_score?: number | null
           data_enrichment_level?: string | null
+          departmental_head_count?: Json | null
+          description?: string | null
           discovery_source?: string | null
           full_address?: string | null
+          funding_events?: Json | null
           funding_stage?: string | null
           generation_run_id?: string | null
           id?: string
+          industries?: Json | null
           inferred_needs?: Json | null
           job_postings?: Json | null
           job_postings_last_fetched?: string | null
+          keywords?: Json | null
           last_enriched_at?: string
           last_verified_at?: string | null
           linkedin_profile?: string | null
@@ -215,6 +232,7 @@ export type Database = {
           owner_user_id?: string | null
           recent_news?: string | null
           sector?: string | null
+          seo_description?: string | null
           similarity_score?: number | null
           size?: string | null
           source?: string | null

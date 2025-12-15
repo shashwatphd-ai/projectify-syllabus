@@ -34,6 +34,31 @@ export interface DiscoveredCompany {
   sector: string;
   size: string;
   
+  // Company context (CRITICAL for accurate project generation)
+  description?: string;              // Real company description from Apollo short_description
+  seoDescription?: string;           // Fallback SEO description
+  industries?: string[];             // Multi-industry classification array
+  keywords?: string[];               // Company capability keywords for skill matching
+  
+  // Department intelligence for contact discovery
+  departmentalHeadCount?: {
+    engineering?: number;
+    sales?: number;
+    marketing?: number;
+    operations?: number;
+    finance?: number;
+    hr?: number;
+    [key: string]: number | undefined;
+  };
+  
+  // Funding history for market intelligence
+  fundingEvents?: Array<{
+    funded_at?: string;
+    amount?: number;
+    funding_type?: string;
+    investors?: string[];
+  }>;
+  
   // Location
   address: string;
   city: string;

@@ -880,6 +880,14 @@ serve(async (req) => {
         city: company.city,
         zip: company.zip,
         
+        // === COMPANY CONTEXT (CRITICAL for accurate project generation) ===
+        description: company.description,
+        seo_description: company.seoDescription,
+        industries: company.industries,
+        keywords: company.keywords,
+        departmental_head_count: company.departmentalHeadCount,
+        funding_events: company.fundingEvents,
+        
         // Contact fields
         contact_person: company.contactPerson,
         contact_email: company.contactEmail,

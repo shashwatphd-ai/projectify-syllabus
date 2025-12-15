@@ -50,6 +50,28 @@ interface ApolloOrganization {
   industry_tag_list?: string[];
   twitter_url?: string;
   facebook_url?: string;
+  
+  // === APOLLO ENRICHMENT API FIELDS (from organization-enrichment endpoint) ===
+  short_description?: string;           // Primary company description (CRITICAL for accurate projects)
+  seo_description?: string;             // Fallback marketing description
+  industries?: string[];                // Array of industry tags (multi-industry support)
+  secondary_industries?: string[];      // Additional industry classifications
+  technology_names?: string[];          // Simplified technology array (pre-normalized)
+  departmental_head_count?: {           // Headcount by department for contact intelligence
+    engineering?: number;
+    sales?: number;
+    marketing?: number;
+    operations?: number;
+    finance?: number;
+    hr?: number;
+    [key: string]: number | undefined;
+  };
+  funding_events?: Array<{              // Full funding history from Apollo
+    funded_at?: string;
+    amount?: number;
+    funding_type?: string;
+    investors?: string[];
+  }>;
 }
 
 /**
@@ -1544,18 +1566,36 @@ Return JSON:
     ].filter(part => part && part.trim());
     const cleanAddress = addressParts.join(', ');
 
+    // Log enrichment data for verification
+    console.log(`  📊 ENRICHMENT AUDIT for ${enrichedOrg.name}:`);
+    console.log(`    ├── Description: ${enrichedOrg.short_description ? '✅ ' + enrichedOrg.short_description.substring(0, 80) + '...' : '❌ MISSING'}`);
+    console.log(`    ├── Industries: ${enrichedOrg.industries?.join(', ') || enrichedOrg.industry || 'Unknown'}`);
+    console.log(`    ├── Keywords: ${enrichedOrg.keywords?.length || 0} found`);
+    console.log(`    └── Dept Headcount: ${Object.keys(enrichedOrg.departmental_head_count || {}).length} departments`);
+
     return {
       name: enrichedOrg.name,
       apollo_organization_id: enrichedOrg.id,
       website: enrichedOrg.website_url,
       sector: enrichedOrg.industry || 'Unknown',
       size: formatEmployeeCount(enrichedOrg.estimated_num_employees),
+      
+      // === COMPANY CONTEXT (CRITICAL for accurate project generation) ===
+      description: enrichedOrg.short_description || enrichedOrg.seo_description || '',
+      seoDescription: enrichedOrg.seo_description,
+      industries: enrichedOrg.industries || (enrichedOrg.industry ? [enrichedOrg.industry] : []),
+      keywords: enrichedOrg.keywords || [],
+      departmentalHeadCount: enrichedOrg.departmental_head_count,
+      fundingEvents: enrichedOrg.funding_events,
+      
+      // Location
       address: cleanAddress,
       city: enrichedOrg.city || '',
       state: enrichedOrg.state,
       zip: enrichedOrg.postal_code || '',
       country: enrichedOrg.country,
       
+      // Contact
       contactPerson: contact.name,
       contactEmail: contact.email,
       contactPhone: contact.phone_numbers?.[0]?.sanitized_number || org.primary_phone?.number,
@@ -1573,6 +1613,7 @@ Return JSON:
       contactEmploymentHistory: contact.employment_history,
       contactPhoneNumbers: contact.phone_numbers,
       
+      // Organization details
       organizationLinkedin: enrichedOrg.linkedin_url,
       organizationTwitter: enrichedOrg.twitter_url,
       organizationFacebook: enrichedOrg.facebook_url,
@@ -1582,12 +1623,14 @@ Return JSON:
       organizationRevenueRange: enrichedOrg.annual_revenue ? `$${enrichedOrg.annual_revenue}` : undefined,
       organizationIndustryKeywords: enrichedOrg.industry_tag_list,
       
+      // Market intelligence
       jobPostings,
-      technologiesUsed: technologies, // Now guaranteed to be string[]
+      technologiesUsed: enrichedOrg.technology_names || technologies, // Prefer pre-normalized
       buyingIntentSignals,
       fundingStage: enrichedOrg.latest_funding_stage,
       totalFundingUsd: enrichedOrg.total_funding,
       
+      // Metadata
       discoverySource: 'apollo_discovery',
       enrichmentLevel: completeness.level,
       dataCompletenessScore: completeness.score,
