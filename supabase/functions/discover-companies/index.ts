@@ -160,9 +160,20 @@ serve(async (req) => {
 
     const { courseId, location, industries = [], count = 4, targetCompanies = [], targetIndustries = [] } = await req.json();
     
-    // Log user customization inputs
+    // ========================================
+    // DIAGNOSTIC: Log all Configure page inputs
+    // ========================================
+    console.log(`\n📋 CONFIGURE PAGE INPUTS RECEIVED:`);
+    console.log(`   courseId: ${courseId}`);
+    console.log(`   location: "${location}"`);
+    console.log(`   count: ${count}`);
+    console.log(`   industries (old param): ${JSON.stringify(industries)}`);
+    console.log(`   targetCompanies: ${JSON.stringify(targetCompanies)}`);
+    console.log(`   targetIndustries: ${JSON.stringify(targetIndustries)}`);
+    
+    // Log user customization inputs prominently
     if (targetCompanies.length > 0) {
-      console.log(`🎯 USER REQUESTED SPECIFIC COMPANIES: ${targetCompanies.join(', ')}`);
+      console.log(`\n🎯 USER REQUESTED SPECIFIC COMPANIES: ${targetCompanies.join(', ')}`);
     }
     if (targetIndustries.length > 0) {
       console.log(`🏭 USER REQUESTED SPECIFIC INDUSTRIES: ${targetIndustries.join(', ')}`);
@@ -205,13 +216,15 @@ serve(async (req) => {
 
     // ====================================
     // Step 1: Create generation run record
+    // FIX: Store specific_companies and use targetIndustries
     // ====================================
     const { data: generationRun, error: runError } = await supabase
       .from('generation_runs')
       .insert({
         course_id: courseId,
         location: location,
-        industries: industries,
+        industries: targetIndustries.length > 0 ? targetIndustries : industries,  // FIX: Prioritize targetIndustries
+        specific_companies: targetCompanies.length > 0 ? targetCompanies : null,  // FIX: Store user-specified companies
         num_teams: count,
         status: 'in_progress',
         ai_models_used: { discovery: 'modular_provider_system' }
@@ -221,6 +234,10 @@ serve(async (req) => {
 
     if (runError) throw runError;
     generationRunId = generationRun.id;
+    
+    console.log(`\n✅ GENERATION RUN CREATED: ${generationRunId}`);
+    console.log(`   Stored specific_companies: ${JSON.stringify(targetCompanies.length > 0 ? targetCompanies : null)}`);
+    console.log(`   Stored industries: ${JSON.stringify(targetIndustries.length > 0 ? targetIndustries : industries)}`);
 
     // ====================================
     // Step 2: PHASE 1: Direct SOC Code Mapping (SURGICAL FIX)
