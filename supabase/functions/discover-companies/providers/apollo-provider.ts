@@ -1317,39 +1317,58 @@ Return JSON:
     const companySize = org.estimated_num_employees || 0;
     
     // Define search strategies - ORDER MATTERS (most specific first)
+    // Each strategy progressively relaxes constraints to find ANY suitable contact
     const searchStrategies = [
-      // Strategy 1: Department-specific decision makers
+      // Strategy 1: Department-specific decision makers (verified emails)
       {
-        name: 'Department Decision Makers',
+        name: 'Department Leaders (verified)',
         params: {
           person_departments: relevantDepartments,
           person_seniorities: ['head', 'director', 'vp'],
+          contact_email_status: ['verified', 'likely_to_engage'],
         }
       },
-      // Strategy 2: Department-specific managers (for smaller companies)
+      // Strategy 2: Department-specific managers (verified emails)
       {
-        name: 'Department Managers',
+        name: 'Department Managers (verified)',
         params: {
           person_departments: relevantDepartments,
           person_seniorities: ['manager', 'senior'],
+          contact_email_status: ['verified', 'likely_to_engage'],
         }
       },
-      // Strategy 3: Any executive (fallback for small companies)
+      // Strategy 3: Any executive (verified emails)
       {
-        name: 'Any Executive',
+        name: 'Executives (verified)',
+        params: {
+          person_seniorities: ['c_suite', 'owner', 'founder', 'partner'],
+          contact_email_status: ['verified', 'likely_to_engage'],
+        }
+      },
+      // Strategy 4: Department leaders with ANY email (including unverified)
+      {
+        name: 'Department Leaders (any email)',
+        params: {
+          person_departments: relevantDepartments,
+          person_seniorities: ['head', 'director', 'vp', 'manager'],
+        }
+      },
+      // Strategy 5: Any executive with ANY email
+      {
+        name: 'Executives (any email)',
         params: {
           person_seniorities: ['c_suite', 'owner', 'founder', 'partner'],
         }
       },
-      // Strategy 4: Operations/General Management (broad fallback)
+      // Strategy 6: Operations/General Management (broad fallback)
       {
         name: 'Operations Leadership',
         params: {
-          person_departments: ['operations', 'c_suite', 'master_enrollment'],
+          person_departments: ['operations', 'c_suite', 'human_resources', 'administrative'],
           person_seniorities: ['head', 'director', 'vp', 'manager'],
         }
       },
-      // Strategy 5: Any senior person with email (last resort)
+      // Strategy 7: Any senior person (last resort)
       {
         name: 'Any Senior Person',
         params: {
@@ -1380,9 +1399,9 @@ Return JSON:
             ...strategy.params,
             reveal_personal_emails: true,
             reveal_phone_number: true,
-            contact_email_status: ['verified', 'likely_to_engage'],
+            // Note: contact_email_status is now in strategy.params (optional per strategy)
             page: 1,
-            per_page: 3
+            per_page: 5  // Get more candidates to find one with email
           })
         });
         
