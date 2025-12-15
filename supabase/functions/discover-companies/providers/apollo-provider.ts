@@ -214,6 +214,7 @@ export class ApolloProvider implements DiscoveryProvider {
     // Step 5: Enrich organizations with contacts and market intelligence
     // Pass excluded industries and course domain for context-aware post-filtering
     // Pass searchLocation for proximity-based sorting
+    // Pass full context for smart contact search (department + seniority matching)
     const companies = await this.enrichOrganizations(
       organizations,
       context.targetCount,
@@ -221,7 +222,8 @@ export class ApolloProvider implements DiscoveryProvider {
       courseDomain,
       context.socMappings || [],
       context.searchLocation || context.location,
-      targetCompanyResults.found // Pass found company names to mark them as user-requested
+      targetCompanyResults.found, // Pass found company names to mark them as user-requested
+      context // Pass full context for context-aware contact finding
     );
 
     const processingTime = (Date.now() - startTime) / 1000;
@@ -1068,7 +1070,8 @@ Return JSON:
     courseDomain: string = 'unknown',
     socMappings: any[] = [],
     searchLocation: string = '',
-    userRequestedCompanyNames: string[] = [] // Companies explicitly requested by user
+    userRequestedCompanyNames: string[] = [],
+    context?: CourseContext // Pass full context for smart contact search
   ): Promise<DiscoveredCompany[]> {
     const enriched: DiscoveredCompany[] = [];
     let skippedCount = 0;
@@ -1123,7 +1126,7 @@ Return JSON:
       }
 
       try {
-        const company = await this.enrichSingleOrganization(org);
+        const company = await this.enrichSingleOrganization(org, context);
         if (company) {
           // For hybrid courses with excluded industries, do final check with job postings
           if (courseDomain === 'hybrid' && excludedIndustries.some(e =>
@@ -1252,8 +1255,167 @@ Return JSON:
     return enriched;
   }
   
+  /**
+   * CONTEXT-AWARE DEPARTMENT INFERENCE
+   * Maps course content to relevant Apollo person_departments
+   */
+  private inferRelevantDepartments(context?: CourseContext): string[] {
+    if (!context) return ['operations', 'c_suite'];
+    
+    const courseTitle = (context.courseTitle || '').toLowerCase();
+    const topics = (context.topics || []).map(t => t.toLowerCase());
+    const allText = [courseTitle, ...topics].join(' ');
+    
+    // Engineering/Technical courses
+    if (/engineer|mechanical|electrical|civil|chemical|manufacturing|fluid|thermo|materials|aerospace|structural/.test(allText)) {
+      return ['engineering', 'operations', 'product_management'];
+    }
+    
+    // Computer Science/IT courses
+    if (/computer|software|data|programming|ai|machine learning|cyber|network|devops|cloud/.test(allText)) {
+      return ['engineering', 'information_technology', 'product_management'];
+    }
+    
+    // Business/Management courses
+    if (/business|management|strategy|operations|supply chain|logistics|mba|finance/.test(allText)) {
+      return ['operations', 'finance', 'c_suite'];
+    }
+    
+    // Marketing/Communications courses
+    if (/marketing|advertising|brand|communications|media|public relations|digital/.test(allText)) {
+      return ['marketing', 'sales', 'c_suite'];
+    }
+    
+    // Finance/Accounting courses
+    if (/finance|accounting|investment|banking|economics|audit/.test(allText)) {
+      return ['finance', 'operations', 'c_suite'];
+    }
+    
+    // Healthcare/Life Sciences
+    if (/health|medical|pharma|bio|clinical|patient|nursing/.test(allText)) {
+      return ['operations', 'engineering', 'c_suite'];
+    }
+    
+    // Design/Creative courses
+    if (/design|ux|ui|graphic|creative|visual|product design/.test(allText)) {
+      return ['design', 'product_management', 'marketing'];
+    }
+    
+    // Default: Operations + C-Suite (general project contacts)
+    return ['operations', 'c_suite', 'sales'];
+  }
+
+  /**
+   * SMART CONTACT SEARCH WITH PROGRESSIVE FALLBACK
+   * Uses Apollo's person_departments + person_seniorities for robust matching
+   */
+  private async findBestContact(
+    org: ApolloOrganization,
+    context?: CourseContext
+  ): Promise<any | null> {
+    const relevantDepartments = this.inferRelevantDepartments(context);
+    const companySize = org.estimated_num_employees || 0;
+    
+    // Define search strategies - ORDER MATTERS (most specific first)
+    const searchStrategies = [
+      // Strategy 1: Department-specific decision makers
+      {
+        name: 'Department Decision Makers',
+        params: {
+          person_departments: relevantDepartments,
+          person_seniorities: ['head', 'director', 'vp'],
+        }
+      },
+      // Strategy 2: Department-specific managers (for smaller companies)
+      {
+        name: 'Department Managers',
+        params: {
+          person_departments: relevantDepartments,
+          person_seniorities: ['manager', 'senior'],
+        }
+      },
+      // Strategy 3: Any executive (fallback for small companies)
+      {
+        name: 'Any Executive',
+        params: {
+          person_seniorities: ['c_suite', 'owner', 'founder', 'partner'],
+        }
+      },
+      // Strategy 4: Operations/General Management (broad fallback)
+      {
+        name: 'Operations Leadership',
+        params: {
+          person_departments: ['operations', 'c_suite', 'master_enrollment'],
+          person_seniorities: ['head', 'director', 'vp', 'manager'],
+        }
+      },
+      // Strategy 5: Any senior person with email (last resort)
+      {
+        name: 'Any Senior Person',
+        params: {
+          person_seniorities: ['head', 'director', 'vp', 'manager', 'senior', 'owner', 'founder'],
+        }
+      }
+    ];
+    
+    // For small companies (<50), prioritize executives first
+    if (companySize > 0 && companySize < 50) {
+      const execStrategy = searchStrategies.splice(2, 1)[0];
+      searchStrategies.unshift(execStrategy);
+    }
+    
+    console.log(`\n   🔍 Finding contact for ${org.name} (${companySize || 'unknown'} employees)`);
+    console.log(`      Relevant departments: ${relevantDepartments.join(', ')}`);
+    
+    for (const strategy of searchStrategies) {
+      try {
+        const response = await fetch('https://api.apollo.io/v1/mixed_people/search', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Api-Key': this.apolloApiKey!
+          },
+          body: JSON.stringify({
+            organization_ids: [org.id],
+            ...strategy.params,
+            reveal_personal_emails: true,
+            reveal_phone_number: true,
+            contact_email_status: ['verified', 'likely_to_engage'],
+            page: 1,
+            per_page: 3
+          })
+        });
+        
+        if (!response.ok) {
+          console.log(`      ⚠️ "${strategy.name}": API error ${response.status}`);
+          continue;
+        }
+        
+        const data = await response.json();
+        const peopleWithEmail = (data.people || []).filter((p: any) => p.email && p.name);
+        
+        if (peopleWithEmail.length > 0) {
+          const contact = peopleWithEmail[0];
+          console.log(`      ✅ Found via "${strategy.name}": ${contact.name} (${contact.title || 'No title'})`);
+          return contact;
+        }
+        
+        console.log(`      ❌ "${strategy.name}": no match`);
+      } catch (error) {
+        console.log(`      ⚠️ "${strategy.name}": error - ${(error as Error).message}`);
+      }
+      
+      // Small delay between strategies to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    
+    console.log(`      ❌ No contact found after all ${searchStrategies.length} strategies`);
+    return null;
+  }
+
   private async enrichSingleOrganization(
-    org: ApolloOrganization
+    org: ApolloOrganization,
+    context?: CourseContext
   ): Promise<DiscoveredCompany | null> {
     // Step 1: Call Organization Enrichment API to get complete data including technologies
     let enrichedOrg = org;
@@ -1285,34 +1447,13 @@ Return JSON:
       console.error(`  ❌ Enrichment error for ${org.name}:`, error);
     }
 
-    // Step 2: Find decision-maker contact
-    const peopleResponse = await fetch(
-      'https://api.apollo.io/v1/mixed_people/search',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Api-Key': this.apolloApiKey!
-        },
-        body: JSON.stringify({
-          organization_ids: [org.id],
-          person_titles: ['Director of Partnerships', 'VP of Partnerships', 'COO', 'CEO', 'Owner'],
-          person_seniorities: ['c_suite', 'vp', 'director', 'owner'],
-          reveal_personal_emails: true,
-          reveal_phone_number: true,
-          page: 1,
-          per_page: 1
-        })
-      }
-    );
-
-    if (!peopleResponse.ok) return null;
-
-    const peopleData = await peopleResponse.json();
-    if (!peopleData.people?.length) return null;
-
-    const contact = peopleData.people[0];
-    if (!contact.email || !contact.name) return null;
+    // Step 2: Find decision-maker contact using CONTEXT-AWARE search
+    const contact = await this.findBestContact(org, context);
+    
+    if (!contact) {
+      console.log(`  ⚠️ Skipping ${org.name} - no suitable contact found after exhaustive search`);
+      return null;
+    }
 
     // Fetch job postings using correct Apollo endpoint
     let jobPostings: any[] = [];
