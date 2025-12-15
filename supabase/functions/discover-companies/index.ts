@@ -158,7 +158,15 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const { courseId, location, industries = [], count = 4 } = await req.json();
+    const { courseId, location, industries = [], count = 4, targetCompanies = [], targetIndustries = [] } = await req.json();
+    
+    // Log user customization inputs
+    if (targetCompanies.length > 0) {
+      console.log(`🎯 USER REQUESTED SPECIFIC COMPANIES: ${targetCompanies.join(', ')}`);
+    }
+    if (targetIndustries.length > 0) {
+      console.log(`🏭 USER REQUESTED SPECIFIC INDUSTRIES: ${targetIndustries.join(', ')}`);
+    }
 
     // Get course data including search_location for Apollo queries
     const { data: course, error: courseError } = await supabase
@@ -428,7 +436,10 @@ serve(async (req) => {
       extractedSkills: skillExtractionResult.skills,
       onetOccupations: primaryOccupations,
       courseTitle: course.title,
-      socMappings // Pass SOC mappings for industry-based search
+      socMappings, // Pass SOC mappings for industry-based search
+      // User customization from Configure page
+      targetCompanies: targetCompanies.length > 0 ? targetCompanies : undefined,
+      targetIndustries: targetIndustries.length > 0 ? targetIndustries : undefined
     };
 
     // HYBRID DISCOVERY: Try primary provider, auto-fallback to Adzuna if 0 results
@@ -983,7 +994,9 @@ serve(async (req) => {
           averageSimilarity: !skipFiltering && filteredCompanies.length > 0
             ? (filteredCompanies.reduce((sum, c) => sum + (c.similarityScore || 0), 0) / filteredCompanies.length).toFixed(2)
             : null
-        }
+        },
+        // Feedback about user-specified companies (from Apollo provider)
+        userRequestedCompanies: discoveryResult.userRequestedCompanies || null
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
