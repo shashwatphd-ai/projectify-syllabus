@@ -104,6 +104,7 @@ export interface DiscoveredCompany {
     posted_at?: string;
     last_seen_at?: string;
     skills_needed?: string[];
+    short_description?: string;  // Job description for needs inference
   }>;
   technologiesUsed?: string[];
   buyingIntentSignals?: Array<{
@@ -124,6 +125,12 @@ export interface DiscoveredCompany {
 
   // Geographic proximity
   distanceFromSearchMiles?: number; // Distance from search location in miles
+  
+  // Semantic matching data (from Phase 3 filtering)
+  similarityScore?: number;
+  matchConfidence?: string;
+  matchingSkills?: string[];
+  matchingDWAs?: string[];
 }
 
 export interface DiscoveryResult {
