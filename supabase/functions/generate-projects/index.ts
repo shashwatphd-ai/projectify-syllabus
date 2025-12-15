@@ -780,33 +780,68 @@ serve(async (req) => {
           ai_model_version: 'gemini-2.0-flash-exp'
         };
 
-        // Atomic transaction: all 3 inserts succeed or all rollback
-        const { data: atomicResult, error: atomicError } = await serviceRoleClient
-          .rpc('create_project_atomic', {
-            p_project_data: projectData,
-            p_forms_data: formsData,
-            p_metadata_data: metadataData
-          });
+        // Log payload size for diagnostics
+        const payloadSize = JSON.stringify({ projectData, formsData, metadataData }).length;
+        console.log(`  📦 Payload size: ${(payloadSize / 1024).toFixed(1)} KB`);
 
-        if (atomicError || !atomicResult || atomicResult.length === 0) {
+        // Atomic transaction with retry logic for transient network failures
+        const MAX_RETRIES = 3;
+        let atomicResult: any = null;
+        let atomicError: any = null;
+        let insertedProjectId: string | null = null;
+
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+          console.log(`  → Creating project atomically (attempt ${attempt}/${MAX_RETRIES})...`);
+          
+          const result = await serviceRoleClient
+            .rpc('create_project_atomic', {
+              p_project_data: projectData,
+              p_forms_data: formsData,
+              p_metadata_data: metadataData
+            });
+
+          atomicResult = result.data;
+          atomicError = result.error;
+
+          // Check for success
+          if (!atomicError && atomicResult && atomicResult.length > 0 && atomicResult[0].success) {
+            insertedProjectId = atomicResult[0].project_id;
+            break; // Success!
+          }
+
+          // Log the failure
           const errorMsg = atomicError?.message || atomicResult?.[0]?.error_message || 'Unknown error';
-          console.error(`  ❌ Atomic project creation failed:`, errorMsg);
+          console.warn(`  ⚠️ Attempt ${attempt} failed: ${errorMsg}`);
+
+          // Retry with exponential backoff for transient errors
+          if (attempt < MAX_RETRIES) {
+            const isTransientError = atomicError?.message?.includes('connection') ||
+                                     atomicError?.message?.includes('network') ||
+                                     atomicError?.message?.includes('timeout') ||
+                                     atomicError?.message?.includes('reset') ||
+                                     atomicError?.message?.includes('ECONNRESET');
+            
+            if (isTransientError || !atomicError) {
+              const delay = Math.pow(2, attempt) * 500; // 1s, 2s, 4s
+              console.log(`  ⏳ Retrying in ${delay}ms...`);
+              await new Promise(r => setTimeout(r, delay));
+              continue;
+            }
+          }
+          
+          // Non-transient error or max retries reached
+          break;
+        }
+
+        // Final check after all attempts
+        if (!insertedProjectId) {
+          const errorMsg = atomicError?.message || atomicResult?.[0]?.error_message || 'Unknown error after retries';
+          console.error(`  ❌ Atomic project creation failed after ${MAX_RETRIES} attempts:`, errorMsg);
           generationErrors.push({
             company: company.name,
             error: `Atomic insert failed: ${errorMsg}`
           });
           continue; // Skip to next company - NO orphaned project created
-        }
-
-        const insertedProjectId = atomicResult[0].project_id;
-
-        if (!atomicResult[0].success || !insertedProjectId) {
-          console.error(`  ❌ Atomic creation unsuccessful:`, atomicResult[0].error_message);
-          generationErrors.push({
-            company: company.name,
-            error: atomicResult[0].error_message || 'Unknown atomic error'
-          });
-          continue;
         }
 
         projectIds.push(insertedProjectId);
