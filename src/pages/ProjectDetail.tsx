@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Printer } from "lucide-react";
+import { PrintableProjectView } from "@/components/project-detail/PrintableProjectView";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import ProjectFeedback from "@/components/ProjectFeedback";
@@ -230,8 +231,26 @@ const ProjectDetail = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <ProjectHeader project={project} courseIdFilter={courseIdFromState} />
+        <div className="flex items-center justify-between mb-4">
+          <ProjectHeader project={project} courseIdFilter={courseIdFromState} />
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => window.print()}
+            className="no-print flex items-center gap-2"
+          >
+            <Printer className="h-4 w-4" />
+            Print Project
+          </Button>
+        </div>
 
+        {/* Print View - Only visible when printing */}
+        <div className="hidden print:block">
+          <PrintableProjectView data={data} />
+        </div>
+
+        {/* Interactive View - Hidden when printing */}
+        <div className="print:hidden">
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="flex flex-wrap h-auto gap-2 p-2">
             <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -626,6 +645,7 @@ const ProjectDetail = () => {
             <AlgorithmTab project={project} />
           </TabsContent>
         </Tabs>
+        </div>
       </div>
     </div>
     );

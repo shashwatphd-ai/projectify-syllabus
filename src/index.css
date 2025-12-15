@@ -2,6 +2,97 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================================
+   PRINT STYLES - Optimized for printing project documents
+   ============================================================================ */
+@media print {
+  /* Hide non-printable elements */
+  .no-print,
+  header,
+  nav,
+  .tabs-list,
+  [role="tablist"],
+  .sidebar,
+  .toast,
+  .dialog-overlay {
+    display: none !important;
+  }
+
+  /* Show print-only elements */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Reset backgrounds for printing */
+  body,
+  .card,
+  .bg-background,
+  .bg-muted,
+  .bg-primary\/5 {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Ensure text is readable */
+  body {
+    font-size: 11pt;
+    line-height: 1.4;
+    color: black !important;
+  }
+
+  .text-foreground,
+  .text-primary,
+  .text-muted-foreground {
+    color: black !important;
+  }
+
+  /* Page break handling */
+  .print-section {
+    page-break-inside: avoid;
+    margin-bottom: 1.5rem;
+  }
+
+  .print-section h2 {
+    page-break-after: avoid;
+  }
+
+  /* Card styling for print */
+  .card {
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+  }
+
+  /* Badge styling for print */
+  .badge {
+    border: 1px solid #999 !important;
+    background: #f5f5f5 !important;
+  }
+
+  /* Page margins */
+  @page {
+    margin: 0.75in;
+  }
+
+  /* Hide buttons in print view */
+  button:not(.print-keep) {
+    display: none !important;
+  }
+
+  /* Ensure images print */
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid;
+  }
+
+  /* Print document container */
+  .print-document {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+  }
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
