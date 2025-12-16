@@ -1,33 +1,39 @@
 /**
  * Semantic Matching Service
  *
- * Uses Sentence-BERT embeddings to compute semantic similarity between
+ * Uses Gemini text-embedding-004 to compute semantic similarity between
  * course content and company job postings/descriptions.
  *
  * Phase 3 of intelligent company matching system.
  *
- * Model: @xenova/transformers - all-MiniLM-L6-v2 (Sentence-BERT)
- * Size: ~23MB (acceptable for edge functions)
- * Speed: ~50-100ms per embedding
+ * Model: Google Gemini text-embedding-004 (768 dimensions)
+ * Speed: ~50-100ms per batch (optimized batch processing)
+ * Quality: Superior semantic understanding vs keyword matching
  */
 
 import { ExtractedSkill } from './skill-extraction-service.ts';
 import { StandardOccupation } from './occupation-provider-interface.ts';
-import { computeSemanticSimilarity } from './embedding-service.ts';
+import { 
+  computeBatchSimilarities, 
+  isEmbeddingServiceAvailable,
+  getCircuitBreakerStatus 
+} from './embedding-service.ts';
 import { shouldExcludeIndustry, classifyCourseDomain } from './context-aware-industry-filter.ts';
 import { SOCMapping } from './course-soc-mapping.ts';
 
 // ========================================
 // FEATURE FLAG: Toggle between keyword and embedding-based matching
 // ========================================
-// PRODUCTION MODE: Embeddings enabled by default (can disable with USE_SEMANTIC_EMBEDDINGS=false)
-const USE_SEMANTIC_EMBEDDINGS = Deno.env.get('USE_SEMANTIC_EMBEDDINGS') !== 'false'; // Default: true
-const EMBEDDING_FALLBACK_ENABLED = Deno.env.get('EMBEDDING_FALLBACK_ENABLED') !== 'false'; // Default: true
+// Default: true (embeddings enabled), set USE_SEMANTIC_EMBEDDINGS=false to disable
+const USE_SEMANTIC_EMBEDDINGS = Deno.env.get('USE_SEMANTIC_EMBEDDINGS') !== 'false';
+const EMBEDDING_FALLBACK_ENABLED = Deno.env.get('EMBEDDING_FALLBACK_ENABLED') !== 'false';
 
 // Log current mode on module load
-console.log(`\n🔧 [Semantic Matching] Mode: ${USE_SEMANTIC_EMBEDDINGS ? 'EMBEDDINGS (High Quality)' : 'KEYWORDS (Fallback)'}`);
-if (USE_SEMANTIC_EMBEDDINGS && EMBEDDING_FALLBACK_ENABLED) {
-  console.log('   Fallback to keywords: ENABLED (failsafe)');
+console.log(`\n🔧 [Semantic Matching] Configuration:`);
+console.log(`   Mode: ${USE_SEMANTIC_EMBEDDINGS ? 'GEMINI EMBEDDINGS (High Quality)' : 'KEYWORDS (Fallback)'}`);
+console.log(`   Fallback to keywords: ${EMBEDDING_FALLBACK_ENABLED ? 'ENABLED' : 'DISABLED'}`);
+if (USE_SEMANTIC_EMBEDDINGS) {
+  console.log(`   Provider: Google Gemini text-embedding-004 (768-dim)`);
 }
 
 export interface SemanticMatch {
@@ -48,14 +54,15 @@ export interface SemanticFilteringResult {
   averageSimilarity: number;
   threshold: number;                // Threshold used
   processingTimeMs: number;
+  embeddingProvider?: string;       // Which provider was used
 }
 
 /**
  * Compute semantic similarity between course and company
  *
  * Dual-mode support:
- * - USE_SEMANTIC_EMBEDDINGS=true → Sentence-BERT embeddings (with fallback)
- * - USE_SEMANTIC_EMBEDDINGS=false → Keyword matching (default, always works)
+ * - USE_SEMANTIC_EMBEDDINGS=true → Gemini embeddings (with fallback)
+ * - USE_SEMANTIC_EMBEDDINGS=false → Keyword matching (always works)
  */
 export async function computeCourseSimilarity(
   courseSkills: ExtractedSkill[],
@@ -70,18 +77,17 @@ export async function computeCourseSimilarity(
   // Build company text from job postings and description
   const companyText = buildCompanyText(companyJobPostings, companyDescription, companyTechnologies);
 
-  // Choose similarity computation method based on feature flag
-  if (USE_SEMANTIC_EMBEDDINGS) {
-    // Try embedding-based similarity with automatic fallback
+  // Choose similarity computation method based on feature flag and availability
+  if (USE_SEMANTIC_EMBEDDINGS && isEmbeddingServiceAvailable()) {
     return await computeSimilarityWithFallback(courseText, companyText);
   } else {
-    // Use keyword-based similarity (default, no breaking changes)
+    // Use keyword-based similarity
     return computeKeywordSimilarity(courseText, companyText);
   }
 }
 
 /**
- * Compute similarity using embeddings with automatic fallback to keywords
+ * Compute similarity using Gemini embeddings with automatic fallback to keywords
  * This ensures the system never breaks if embeddings fail
  */
 async function computeSimilarityWithFallback(
@@ -89,15 +95,14 @@ async function computeSimilarityWithFallback(
   text2: string
 ): Promise<number> {
   try {
-    // Try embedding-based similarity
-    const similarity = await computeSemanticSimilarity(text1, text2);
+    // Use batch API for efficiency (single course + single company)
+    const [similarity] = await computeBatchSimilarities(text1, [text2]);
     return similarity;
   } catch (error) {
     if (EMBEDDING_FALLBACK_ENABLED) {
       console.warn(`⚠️  [Semantic Matching] Embeddings failed, falling back to keywords:`, error);
       return computeKeywordSimilarity(text1, text2);
     } else {
-      // Fallback disabled - propagate error
       throw error;
     }
   }
@@ -105,6 +110,7 @@ async function computeSimilarityWithFallback(
 
 /**
  * Rank companies by semantic similarity to course
+ * NOW OPTIMIZED: Uses batch embedding processing for efficiency
  * NOW CONTEXT-AWARE: Accepts socMappings for intelligent industry filtering
  */
 export async function rankCompaniesBySimilarity(
@@ -123,17 +129,58 @@ export async function rankCompaniesBySimilarity(
   const { domain: courseDomain } = classifyCourseDomain(socMappings);
   console.log(`   🎓 Course Domain: ${courseDomain.toUpperCase()} (context-aware filtering enabled)`);
 
-  const matches: SemanticMatch[] = [];
+  // Determine which provider to use
+  const useEmbeddings = USE_SEMANTIC_EMBEDDINGS && isEmbeddingServiceAvailable();
+  const embeddingProvider = useEmbeddings ? 'Gemini text-embedding-004' : 'Keyword Matching';
+  console.log(`   🔧 Provider: ${embeddingProvider}`);
+  
+  if (useEmbeddings) {
+    const circuitStatus = getCircuitBreakerStatus();
+    if (circuitStatus.failures > 0) {
+      console.log(`   ⚠️  Circuit breaker: ${circuitStatus.failures}/${circuitStatus.threshold} failures`);
+    }
+  }
 
-  for (const company of companies) {
-    let similarity = await computeCourseSimilarity(
-      courseSkills,
-      occupations,
+  // Build course text once
+  const courseText = buildCourseText(courseSkills, occupations);
+  
+  // Build all company texts
+  const companyTexts = companies.map(company => 
+    buildCompanyText(
       company.job_postings || company.jobPostings || [],
       company.description || company.organizationDescription || '',
       company.technologies_used || company.technologiesUsed || []
-    );
+    )
+  );
 
+  // Compute similarities - batch for embeddings, individual for keywords
+  let similarities: number[];
+  
+  if (useEmbeddings) {
+    try {
+      // OPTIMIZED: Single batch call for all companies
+      similarities = await computeBatchSimilarities(courseText, companyTexts);
+    } catch (error) {
+      if (EMBEDDING_FALLBACK_ENABLED) {
+        console.warn(`⚠️  [Semantic Matching] Batch embeddings failed, falling back to keywords:`, error);
+        similarities = companyTexts.map(companyText => 
+          computeKeywordSimilarity(courseText, companyText)
+        );
+      } else {
+        throw error;
+      }
+    }
+  } else {
+    // Keyword matching
+    similarities = companyTexts.map(companyText => 
+      computeKeywordSimilarity(courseText, companyText)
+    );
+  }
+
+  // Build matches with industry penalties
+  const matches: SemanticMatch[] = companies.map((company, i) => {
+    let similarity = similarities[i];
+    
     // INDUSTRY VALIDATION: Context-aware penalty system
     const companySector = (company.sector || '').toLowerCase();
     const industryDecision = calculateIndustryPenalty(
@@ -143,15 +190,11 @@ export async function rankCompaniesBySimilarity(
       company.job_postings || company.jobPostings || []
     );
 
-    const rawSimilarity = similarity; // Save for logging
+    const rawSimilarity = similarity;
     if (industryDecision.penalty > 0) {
-      // MULTIPLICATIVE PENALTY: Gentler than subtractive
-      // 100% penalty (1.0) → multiply by 0 → score = 0 (hard exclude)
-      // 15% penalty (0.15) → multiply by 0.85 → score reduced by 15% (soft penalty)
-      // Example: 40% similarity with 15% penalty = 40% * 0.85 = 34% (vs 25% with subtraction)
       similarity = similarity * (1 - industryDecision.penalty);
       console.log(`   ⚠️  ${company.name}: ${industryDecision.reason}`);
-      console.log(`      Raw: ${(rawSimilarity * 100).toFixed(0)}% → Penalized: ${(similarity * 100).toFixed(0)}% (${(industryDecision.penalty * 100).toFixed(0)}% reduction)`);
+      console.log(`      Raw: ${(rawSimilarity * 100).toFixed(0)}% → Penalized: ${(similarity * 100).toFixed(0)}%`);
     }
 
     // Determine confidence level
@@ -163,11 +206,9 @@ export async function rankCompaniesBySimilarity(
     // Identify matching skills and DWAs
     const matchingSkills = findMatchingSkills(courseSkills, company);
     const matchingDWAs = findMatchingDWAs(occupations, company);
-
-    // Generate explanation
     const explanation = generateMatchExplanation(similarity, matchingSkills, matchingDWAs);
 
-    matches.push({
+    return {
       companyId: company.id,
       companyName: company.name,
       similarityScore: similarity,
@@ -175,8 +216,8 @@ export async function rankCompaniesBySimilarity(
       matchingSkills,
       matchingDWAs,
       explanation
-    });
-  }
+    };
+  });
 
   // Sort by similarity (highest first)
   matches.sort((a, b) => b.similarityScore - a.similarityScore);
@@ -190,6 +231,7 @@ export async function rankCompaniesBySimilarity(
     : 0;
 
   console.log(`\n📊 [Semantic Filtering Results]`);
+  console.log(`   Provider: ${embeddingProvider}`);
   console.log(`   Total Companies: ${companies.length}`);
   console.log(`   Threshold: ${(threshold * 100).toFixed(0)}%`);
   console.log(`   Passed Filter: ${filteredMatches.length}`);
@@ -227,18 +269,18 @@ export async function rankCompaniesBySimilarity(
 
     if (contextExcludedFiltered.length > 0) {
       console.log(`\n   ℹ️  Note: ${contextExcludedFiltered.length}/${filtered.length} filtered companies were excluded by context-aware rules`);
-      console.log(`      (e.g., staffing firms for engineering courses, insurance companies, etc.)`);
     }
   }
 
   return {
     matches: filteredMatches,
-    allMatches: matches,             // ALL companies with raw scores (for fallback)
+    allMatches: matches,
     totalCompanies: companies.length,
     filteredCount: filtered.length,
     averageSimilarity,
     threshold,
-    processingTimeMs
+    processingTimeMs,
+    embeddingProvider
   };
 }
 
