@@ -62,9 +62,9 @@ export const ContactTab = ({ forms, companyProfile, contactInfo, projectId, proj
     organization_employee_count: companyProfile?.organization_employee_count,
     organization_revenue_range: companyProfile?.organization_revenue_range,
     
-    // DATA QUALITY (from companyProfile)
-    data_enrichment_level: companyProfile?.data_enrichment_level || 'basic',
-    data_completeness_score: companyProfile?.data_completeness_score || 0,
+    // DATA QUALITY (from companyProfile.enrichment_status - nested by edge function)
+    data_enrichment_level: companyProfile?.enrichment_status?.level || 'basic',
+    data_completeness_score: companyProfile?.enrichment_status?.completeness_score || 0,
     
     // PREFERENCES (from form2)
     preferred_communication: form2.preferred_communication
@@ -89,7 +89,8 @@ export const ContactTab = ({ forms, companyProfile, contactInfo, projectId, proj
       {/* Enrichment Panel */}
       {companyProfile && (
         <EnrichmentPanel 
-          companyProfile={companyProfile} 
+          companyProfile={companyProfile}
+          contactInfo={contactInfo}
           onEnrichmentComplete={onDataRefresh}
         />
       )}

@@ -22,8 +22,8 @@ export const useProjectAnalytics = (
       projectId,
       projectTitle,
       companyName: companyProfile.name,
-      enrichmentLevel: companyProfile.data_enrichment_level || 'basic',
-      completenessScore: companyProfile.data_completeness_score || 0,
+      enrichmentLevel: companyProfile.enrichment_status?.level || 'basic',
+      completenessScore: companyProfile.enrichment_status?.completeness_score || 0,
       timestamp: new Date().toISOString()
     };
 

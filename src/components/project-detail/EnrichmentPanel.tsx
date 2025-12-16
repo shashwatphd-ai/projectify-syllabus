@@ -9,18 +9,21 @@ import { RefreshCw, Sparkles, CheckCircle2, AlertCircle, Clock } from "lucide-re
 
 interface EnrichmentPanelProps {
   companyProfile: any;
+  contactInfo?: any;
   onEnrichmentComplete?: () => void;
 }
 
-export const EnrichmentPanel = ({ companyProfile, onEnrichmentComplete }: EnrichmentPanelProps) => {
+export const EnrichmentPanel = ({ companyProfile, contactInfo, onEnrichmentComplete }: EnrichmentPanelProps) => {
   const [enriching, setEnriching] = useState(false);
 
   if (!companyProfile) return null;
 
-  const enrichmentLevel = companyProfile.data_enrichment_level || 'basic';
-  const completeness = companyProfile.data_completeness_score || 0;
-  const lastEnriched = companyProfile.apollo_enrichment_date 
-    ? new Date(companyProfile.apollo_enrichment_date).toLocaleDateString()
+  // Use nested enrichment_status from get-project-detail edge function
+  const enrichmentStatus = companyProfile.enrichment_status || {};
+  const enrichmentLevel = enrichmentStatus.level || 'basic';
+  const completeness = enrichmentStatus.completeness_score || 0;
+  const lastEnriched = enrichmentStatus.apollo_date 
+    ? new Date(enrichmentStatus.apollo_date).toLocaleDateString()
     : 'Never';
 
   const getEnrichmentStatus = () => {
@@ -115,7 +118,7 @@ export const EnrichmentPanel = ({ companyProfile, onEnrichmentComplete }: Enrich
           <div>
             <p className="text-muted-foreground">Contact Info</p>
             <p className="font-medium">
-              {companyProfile.contact_email && companyProfile.contact_phone ? 'Complete' : 'Partial'}
+              {contactInfo?.email && contactInfo?.phone ? 'Complete' : 'Partial'}
             </p>
           </div>
         </div>
