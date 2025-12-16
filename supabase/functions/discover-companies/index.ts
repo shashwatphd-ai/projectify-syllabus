@@ -944,11 +944,13 @@ serve(async (req) => {
       };
 
 
-      // UPSERT using website as unique identifier
+      // UPSERT using (name, zip) unique constraint - this matches the actual database constraint
+      const companyZip = company.zip || '';
       const { data: existingCompany } = await supabase
         .from('company_profiles')
         .select('id')
-        .eq('website', company.website)
+        .eq('name', company.name)
+        .eq('zip', companyZip)
         .maybeSingle();
 
       if (existingCompany) {
@@ -958,8 +960,9 @@ serve(async (req) => {
           .eq('id', existingCompany.id);
         
         if (updateError) {
-          console.error(`❌ Failed to update company ${company.name}:`, updateError);
-          throw new Error(`Database update failed for ${company.name}: ${updateError.message}`);
+          console.error(`⚠️ Failed to update company ${company.name}:`, updateError);
+          // Continue with other companies instead of crashing
+          continue;
         }
         console.log(`   ✓ Updated existing company: ${company.name}`);
       } else {
@@ -968,8 +971,9 @@ serve(async (req) => {
           .insert(companyData);
         
         if (insertError) {
-          console.error(`❌ Failed to insert company ${company.name}:`, insertError);
-          throw new Error(`Database insert failed for ${company.name}: ${insertError.message}`);
+          console.error(`⚠️ Failed to insert company ${company.name}: ${insertError.code} - ${insertError.message}`);
+          // Continue with other companies instead of crashing
+          continue;
         }
         console.log(`   ✓ Inserted new company: ${company.name}`);
       }
