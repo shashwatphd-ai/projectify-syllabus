@@ -4,6 +4,7 @@ import { calculateApolloEnrichedPricing, calculateApolloEnrichedROI } from '../_
 import { generateProjectProposal } from '../_shared/generation-service.ts';
 import { calculateLOAlignment, calculateMarketAlignmentScore, generateLOAlignmentDetail } from '../_shared/alignment-service.ts';
 import { extractSkillsFromOutcomes, formatSkillsForDisplay } from '../_shared/skill-extraction-service.ts';
+import { filterValidCompanies } from '../_shared/company-validation-service.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -647,12 +648,41 @@ serve(async (req) => {
     const projectIds: string[] = [];
     const generationErrors: any[] = [];
 
+    // QUALITY FIX: AI-powered company-course validation before project generation
+    // This prevents force-fitting projects with irrelevant companies
+    console.log('\n🔍 Phase 2: AI Company-Course Validation...');
+    const { validCompanies, rejectedCompanies } = await filterValidCompanies(
+      companiesFound,
+      course.title || level,
+      level,
+      outcomes
+    );
+    
+    // Update generation run with validation stats
+    if (generationRunId) {
+      await serviceRoleClient
+        .from('generation_runs')
+        .update({
+          companies_before_filtering: companiesFound.length,
+          companies_after_filtering: validCompanies.length,
+          scoring_notes: `AI Validation: ${validCompanies.length}/${companiesFound.length} companies passed course-fit check. Rejected: ${rejectedCompanies.map(r => r.company.name).join(', ') || 'None'}`
+        })
+        .eq('id', generationRunId);
+    }
+    
+    if (validCompanies.length === 0) {
+      console.error('❌ No companies passed AI validation for course fit');
+      throw new Error(`No companies are a good fit for "${course.title || level}". All ${companiesFound.length} companies were rejected as irrelevant to the course subject matter.`);
+    }
+    
+    console.log(`✅ ${validCompanies.length} companies passed validation, proceeding with project generation`);
+
     // Generate Full Projects Synchronously
     console.log('\n🚀 Generating full projects synchronously...');
     
-    for (let i = 0; i < companiesFound.length; i++) {
-      const company = companiesFound[i];
-      console.log(`\n📝 Generating project ${i + 1}/${companiesFound.length} for ${company.name}...`);
+    for (let i = 0; i < validCompanies.length; i++) {
+      const company = validCompanies[i];
+      console.log(`\n📝 Generating project ${i + 1}/${validCompanies.length} for ${company.name}...`);
       
       try {
         // Filter company signals for relevance

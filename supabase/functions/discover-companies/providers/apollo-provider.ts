@@ -414,11 +414,11 @@ export class ApolloProvider implements DiscoveryProvider {
    * For narrow searches, higher pages may have no results
    */
   private calculatePageOffset(courseSeed: number): number {
-    // Add timestamp-based randomness for variety across different runs
-    // This ensures re-running the same syllabus discovers different companies
-    const runVariety = Math.floor(Date.now() / 1000) % 5;
-    const pageNumber = runVariety + 1; // Pages 1-5
-    console.log(`   📄 Page Offset: ${pageNumber} (randomized for company variety, timestamp-based)`);
+    // QUALITY FIX: Limit to pages 1-2 for highest relevance companies
+    // Pages 3+ often contain lower quality/less relevant matches
+    const runVariety = Math.floor(Date.now() / 1000) % 2; // 0 or 1
+    const pageNumber = runVariety + 1; // Pages 1-2 only
+    console.log(`   📄 Page Offset: ${pageNumber} (limited to pages 1-2 for quality)`);
     return pageNumber;
   }
 
