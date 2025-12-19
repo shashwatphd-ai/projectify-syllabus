@@ -11,6 +11,11 @@ verify_jwt = false
 [functions.admin-reset-password]
 verify_jwt = false
 
+# Parse syllabus - verify_jwt = false to allow CORS preflight
+# Function handles auth internally via Authorization header
+[functions.parse-syllabus]
+verify_jwt = false
+
 # University data import - requires authentication
 [functions.import-university-data]
 verify_jwt = true
