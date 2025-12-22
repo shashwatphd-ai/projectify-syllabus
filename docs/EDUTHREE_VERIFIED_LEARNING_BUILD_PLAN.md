@@ -138,6 +138,19 @@ The new Verified Learning flow **branches after syllabus parsing**. Both flows s
 
 ## Part 3: New Database Schema
 
+### 3.0 New Tables Summary
+
+| Table | Purpose | Key Fields |
+|-------|---------|------------|
+| `learning_objective_extended` | Semantic data for LO content matching | `course_id`, `outcome_text`, `bloom_level`, `embedding` (768-dim), `verification_state` |
+| `content_sources` | Curated YouTube/uploaded content | `learning_objective_id`, `youtube_video_id`, `match_score`, `status` |
+| `micro_checks` | Comprehension questions during video | `content_source_id`, `trigger_time_seconds`, `question_text` |
+| `consumption_records` | Student engagement tracking | `student_id`, `content_source_id`, `watched_segments`, `engagement_score` |
+| `question_banks` | Assessment questions per LO | `learning_objective_id`, `question_type`, `bloom_level`, `time_limit_seconds` |
+| `assessment_sessions` | Timed assessment attempts | `student_id`, `learning_objective_id`, `score`, `passed` |
+| `student_lo_progress` | Learning objective state machine | `student_id`, `learning_objective_id`, `state`, `assessment_attempts` |
+| `course_enrollments` | **Student-course access control** | `student_id`, `course_id`, `enrollment_method`, `status` |
+
 ### 3.1 New Tables (Complete Definitions)
 
 #### Table: `learning_objective_extended`
@@ -159,8 +172,8 @@ CREATE TABLE public.learning_objective_extended (
   search_keywords TEXT[], -- For YouTube search
   expected_duration_minutes INTEGER,
   
-  -- Semantic data
-  embedding VECTOR(1536), -- ada-002 embedding for semantic matching
+  -- Semantic data (768-dimensional to match existing Gemini embedding-service.ts)
+  embedding VECTOR(768), -- Gemini embedding (matches existing embedding-service.ts)
   
   -- State machine
   verification_state TEXT DEFAULT 'unstarted' CHECK (verification_state IN (
@@ -172,6 +185,9 @@ CREATE TABLE public.learning_objective_extended (
   
   UNIQUE(course_id, outcome_index)
 );
+
+-- Enable RLS
+ALTER TABLE public.learning_objective_extended ENABLE ROW LEVEL SECURITY;
 ```
 
 #### Table: `content_sources`
@@ -398,6 +414,40 @@ CREATE TABLE public.student_lo_progress (
   
   UNIQUE(student_id, learning_objective_id)
 );
+
+-- Enable RLS
+ALTER TABLE public.student_lo_progress ENABLE ROW LEVEL SECURITY;
+```
+
+#### Table: `course_enrollments`
+Links students to courses for the Verified Learning flow (student enrollment mechanism).
+
+```sql
+CREATE TABLE public.course_enrollments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  course_id UUID NOT NULL REFERENCES course_profiles(id) ON DELETE CASCADE,
+  
+  -- Enrollment metadata
+  enrolled_at TIMESTAMPTZ DEFAULT now(),
+  enrolled_by UUID REFERENCES profiles(id), -- Faculty who enrolled the student
+  enrollment_method TEXT DEFAULT 'manual' CHECK (enrollment_method IN ('manual', 'invite_code', 'lms_sync')),
+  
+  -- Status
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed', 'dropped', 'suspended')),
+  completed_at TIMESTAMPTZ,
+  
+  -- Invite code support
+  invite_code TEXT, -- Used if enrollment_method = 'invite_code'
+  
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  
+  UNIQUE(student_id, course_id)
+);
+
+-- Enable RLS
+ALTER TABLE public.course_enrollments ENABLE ROW LEVEL SECURITY;
 ```
 
 ### 3.2 Entity Relationship Diagram
@@ -407,56 +457,56 @@ CREATE TABLE public.student_lo_progress (
 │    course_profiles      │
 │ (EXISTING - SHARED)     │
 ├─────────────────────────┤
-│ id                      │───────────────────────────────┐
-│ owner_id                │                               │
-│ title                   │                               │
-│ outcomes (JSON array)   │                               │
-│ ...                     │                               │
-└─────────────────────────┘                               │
+│ id                      │───────────────────────────────┬───────────────────────┐
+│ owner_id                │                               │                       │
+│ title                   │                               │                       │
+│ outcomes (JSON array)   │                               │                       │
+│ ...                     │                               │                       │
+└─────────────────────────┘                               │                       │
+                                                          │                       │
+                                                          ▼                       ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              NEW VERIFIED LEARNING TABLES                                     │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
                                                           │
-                                                          ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                         NEW VERIFIED LEARNING TABLES                          │
-└──────────────────────────────────────────────────────────────────────────────┘
-                                                          │
-          ┌───────────────────────────────────────────────┤
-          │                                               │
-          ▼                                               ▼
-┌─────────────────────────┐                 ┌─────────────────────────┐
-│ learning_objective_     │                 │ student_lo_progress     │
-│        extended         │                 │                         │
-├─────────────────────────┤                 ├─────────────────────────┤
-│ id                      │◀───────────────▶│ learning_objective_id   │
-│ course_id (FK)          │                 │ student_id              │
-│ outcome_index           │                 │ state                   │
-│ core_concept            │                 │ assessment_attempts     │
-│ bloom_level             │                 │ ...                     │
-│ embedding               │                 └─────────────────────────┘
-│ verification_state      │
-└─────────────────────────┘
-          │
-          │ 1:N
-          ▼
-┌─────────────────────────┐
-│    content_sources      │
-├─────────────────────────┤
-│ id                      │◀─────────────────┐
-│ learning_objective_id   │                  │
-│ source_type             │                  │
-│ youtube_video_id        │                  │
-│ match_score             │                  │
-│ status                  │                  │
-└─────────────────────────┘                  │
-          │                                  │
-          │ 1:N                              │
-          ▼                                  │
-┌─────────────────────────┐     ┌────────────┴────────────┐
-│     micro_checks        │     │   consumption_records   │
-├─────────────────────────┤     ├─────────────────────────┤
-│ id                      │     │ id                      │
-│ content_source_id       │     │ content_source_id (FK)  │
-│ trigger_time_seconds    │     │ student_id              │
-│ question_text           │     │ watched_segments        │
+          ┌───────────────────────────────────────────────┼───────────────────────────┐
+          │                                               │                           │
+          ▼                                               ▼                           ▼
+┌─────────────────────────┐                 ┌─────────────────────────┐ ┌─────────────────────────┐
+│ learning_objective_     │                 │ student_lo_progress     │ │  course_enrollments     │
+│        extended         │                 │                         │ │    (NEW - CRITICAL)     │
+├─────────────────────────┤                 ├─────────────────────────┤ ├─────────────────────────┤
+│ id                      │◀───────────────▶│ learning_objective_id   │ │ id                      │
+│ course_id (FK)          │                 │ student_id              │ │ student_id (FK)         │
+│ outcome_index           │                 │ state                   │ │ course_id (FK)          │
+│ core_concept            │                 │ course_id (FK)          │ │ enrolled_by (FK)        │
+│ bloom_level             │                 │ assessment_attempts     │ │ enrollment_method       │
+│ embedding (768-dim)     │                 │ ...                     │ │ status                  │
+│ verification_state      │                 └─────────────────────────┘ │ invite_code             │
+└─────────────────────────┘                           ▲                 └─────────────────────────┘
+          │                                           │                           │
+          │ 1:N                                       │                           │
+          ▼                                           │                           │
+┌─────────────────────────┐                           │                           │
+│    content_sources      │                           │                           │
+├─────────────────────────┤                           │                           │
+│ id                      │◀─────────────────┐        │                           │
+│ learning_objective_id   │                  │        │                           │
+│ source_type             │                  │        │                           │
+│ youtube_video_id        │                  │        │                           │
+│ match_score             │                  │        │                           │
+│ status                  │                  │        │                           │
+└─────────────────────────┘                  │        │                           │
+          │                                  │        │                           │
+          │ 1:N                              │        │                           │
+          ▼                                  ▼        │                           │
+┌─────────────────────────┐     ┌─────────────────────────┐                       │
+│     micro_checks        │     │   consumption_records   │                       │
+├─────────────────────────┤     ├─────────────────────────┤                       │
+│ id                      │     │ id                      │                       │
+│ content_source_id       │     │ content_source_id (FK)  │                       │
+│ trigger_time_seconds    │     │ student_id (FK)         │◀──────────────────────┘
+│ question_text           │     │ watched_segments        │   (student access gated by enrollment)
 │ correct_answer          │     │ total_engagement_score  │
 └─────────────────────────┘     │ status                  │
                                 └─────────────────────────┘
@@ -472,6 +522,63 @@ CREATE TABLE public.student_lo_progress (
 │ time_limit_seconds      │     │ passed                  │
 └─────────────────────────┘     └─────────────────────────┘
 ```
+
+### 3.3 Student Enrollment Mechanism Design
+
+The `course_enrollments` table is **critical** for student access control in the Verified Learning flow. Unlike the existing project generation flow (which doesn't require students to be enrolled), the Verified Learning flow requires explicit student-course relationships.
+
+#### Enrollment Methods
+
+| Method | Description | Implementation |
+|--------|-------------|----------------|
+| **Manual** (MVP) | Faculty manually adds students by email | Faculty UI: "Add Students" button → email input → creates enrollment record |
+| **Invite Code** (Phase 2) | Faculty generates shareable code | Generate unique code per course → student enters code → auto-enrollment |
+| **LMS Sync** (Future) | Sync with Canvas/Blackboard | Webhook integration → batch enrollment creation |
+
+#### Student Access Flow
+
+```
+┌─────────────────┐     ┌─────────────────────┐     ┌──────────────────────┐
+│ Student Logs In │ ──▶ │ Check Enrollments   │ ──▶ │ Display Enrolled     │
+│                 │     │ WHERE student_id =  │     │ Courses with         │
+│                 │     │   auth.uid()        │     │ "Start Learning" CTA │
+└─────────────────┘     │ AND status='active' │     └──────────────────────┘
+                        └─────────────────────┘                │
+                                                               ▼
+                                                 ┌──────────────────────┐
+                                                 │ Learning Portal      │
+                                                 │ (gated by enrollment)│
+                                                 └──────────────────────┘
+```
+
+#### Faculty Enrollment Management UI (MVP)
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│ Course: Marketing 301                                          [Settings] │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  ENROLLED STUDENTS                                      [+ Add Students]  │
+│                                                                            │
+│  ┌────────────────────────────────────────────────────────────────────┐   │
+│  │ Email                    │ Status   │ Enrolled At  │ Actions       │   │
+│  ├──────────────────────────┼──────────┼──────────────┼───────────────┤   │
+│  │ alice@university.edu     │ ✓ Active │ Dec 15, 2025 │ [Remove]      │   │
+│  │ bob@university.edu       │ ✓ Active │ Dec 15, 2025 │ [Remove]      │   │
+│  │ carol@university.edu     │ ⏸ Susp.  │ Dec 14, 2025 │ [Reactivate]  │   │
+│  └──────────────────────────┴──────────┴──────────────┴───────────────┘   │
+│                                                                            │
+│  [Bulk Import CSV]     Students: 3 active, 1 suspended                     │
+│                                                                            │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Key RLS Implications
+
+1. **content_sources**: Students can only view approved content for courses they're enrolled in
+2. **consumption_records**: Students can only create records for courses they're enrolled in  
+3. **assessment_sessions**: Students can only start assessments for courses they're enrolled in
+4. **student_lo_progress**: Students can only have progress for courses they're enrolled in
 
 ---
 
@@ -859,7 +966,8 @@ Use Cases:
    - Output: ~200 tokens (structured JSON)
    
 2. Embedding Generation: For semantic matching
-   - 1536-dimensional vectors
+   - 768-dimensional vectors (matches existing embedding-service.ts)
+   - Uses existing computeEmbedding() from supabase/functions/_shared/embedding-service.ts
    - ~10 tokens per LO text
    
 3. Short Answer Grading: Method 4 of cascade
@@ -873,21 +981,54 @@ Use Cases:
 
 ### 9.1 Row Level Security Policies
 
+**IMPORTANT:** All policies use proper `USING` for SELECT/UPDATE/DELETE and `WITH CHECK` for INSERT/UPDATE operations.
+
 ```sql
+-- ============================================
 -- learning_objective_extended: Faculty can CRUD for their courses
-CREATE POLICY "Faculty can manage LOs for their courses"
+-- ============================================
+CREATE POLICY "Faculty can view LOs for their courses"
 ON learning_objective_extended
-FOR ALL
+FOR SELECT
 USING (
   course_id IN (
     SELECT id FROM course_profiles WHERE owner_id = auth.uid()
   )
 );
 
+CREATE POLICY "Faculty can insert LOs for their courses"
+ON learning_objective_extended
+FOR INSERT
+WITH CHECK (
+  course_id IN (
+    SELECT id FROM course_profiles WHERE owner_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Faculty can update LOs for their courses"
+ON learning_objective_extended
+FOR UPDATE
+USING (
+  course_id IN (
+    SELECT id FROM course_profiles WHERE owner_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Faculty can delete LOs for their courses"
+ON learning_objective_extended
+FOR DELETE
+USING (
+  course_id IN (
+    SELECT id FROM course_profiles WHERE owner_id = auth.uid()
+  )
+);
+
+-- ============================================
 -- content_sources: Faculty can manage, students can view approved
-CREATE POLICY "Faculty can manage content for their courses"
+-- ============================================
+CREATE POLICY "Faculty can view content for their courses"
 ON content_sources
-FOR ALL
+FOR SELECT
 USING (
   learning_objective_id IN (
     SELECT lo.id FROM learning_objective_extended lo
@@ -896,29 +1037,72 @@ USING (
   )
 );
 
-CREATE POLICY "Students can view approved content"
+CREATE POLICY "Faculty can insert content for their courses"
+ON content_sources
+FOR INSERT
+WITH CHECK (
+  learning_objective_id IN (
+    SELECT lo.id FROM learning_objective_extended lo
+    JOIN course_profiles cp ON lo.course_id = cp.id
+    WHERE cp.owner_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Faculty can update content for their courses"
+ON content_sources
+FOR UPDATE
+USING (
+  learning_objective_id IN (
+    SELECT lo.id FROM learning_objective_extended lo
+    JOIN course_profiles cp ON lo.course_id = cp.id
+    WHERE cp.owner_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Faculty can delete content for their courses"
+ON content_sources
+FOR DELETE
+USING (
+  learning_objective_id IN (
+    SELECT lo.id FROM learning_objective_extended lo
+    JOIN course_profiles cp ON lo.course_id = cp.id
+    WHERE cp.owner_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Enrolled students can view approved content"
 ON content_sources
 FOR SELECT
 USING (
   status = 'approved'
+  AND learning_objective_id IN (
+    SELECT lo.id FROM learning_objective_extended lo
+    JOIN course_enrollments ce ON lo.course_id = ce.course_id
+    WHERE ce.student_id = auth.uid() AND ce.status = 'active'
+  )
 );
 
+-- ============================================
 -- consumption_records: Students own their own records
-CREATE POLICY "Students manage own consumption"
+-- ============================================
+CREATE POLICY "Students can view own consumption"
 ON consumption_records
-FOR ALL
+FOR SELECT
 USING (student_id = auth.uid());
 
--- assessment_sessions: Students own their own sessions
-CREATE POLICY "Students manage own assessments"
-ON assessment_sessions
-FOR ALL
+CREATE POLICY "Students can insert own consumption"
+ON consumption_records
+FOR INSERT
+WITH CHECK (student_id = auth.uid());
+
+CREATE POLICY "Students can update own consumption"
+ON consumption_records
+FOR UPDATE
 USING (student_id = auth.uid());
 
--- question_banks: Faculty can CRUD, students cannot view directly
-CREATE POLICY "Faculty can manage questions"
-ON question_banks
-FOR ALL
+CREATE POLICY "Faculty can view consumption for their courses"
+ON consumption_records
+FOR SELECT
 USING (
   learning_objective_id IN (
     SELECT lo.id FROM learning_objective_extended lo
@@ -927,10 +1111,98 @@ USING (
   )
 );
 
+-- ============================================
+-- assessment_sessions: Students own their own sessions
+-- ============================================
+CREATE POLICY "Students can view own assessments"
+ON assessment_sessions
+FOR SELECT
+USING (student_id = auth.uid());
+
+CREATE POLICY "Students can insert own assessments"
+ON assessment_sessions
+FOR INSERT
+WITH CHECK (student_id = auth.uid());
+
+CREATE POLICY "Students can update own assessments"
+ON assessment_sessions
+FOR UPDATE
+USING (student_id = auth.uid());
+
+CREATE POLICY "Faculty can view assessments for their courses"
+ON assessment_sessions
+FOR SELECT
+USING (
+  learning_objective_id IN (
+    SELECT lo.id FROM learning_objective_extended lo
+    JOIN course_profiles cp ON lo.course_id = cp.id
+    WHERE cp.owner_id = auth.uid()
+  )
+);
+
+-- ============================================
+-- question_banks: Faculty can CRUD, students cannot view directly
+-- ============================================
+CREATE POLICY "Faculty can view questions for their courses"
+ON question_banks
+FOR SELECT
+USING (
+  learning_objective_id IN (
+    SELECT lo.id FROM learning_objective_extended lo
+    JOIN course_profiles cp ON lo.course_id = cp.id
+    WHERE cp.owner_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Faculty can insert questions for their courses"
+ON question_banks
+FOR INSERT
+WITH CHECK (
+  learning_objective_id IN (
+    SELECT lo.id FROM learning_objective_extended lo
+    JOIN course_profiles cp ON lo.course_id = cp.id
+    WHERE cp.owner_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Faculty can update questions for their courses"
+ON question_banks
+FOR UPDATE
+USING (
+  learning_objective_id IN (
+    SELECT lo.id FROM learning_objective_extended lo
+    JOIN course_profiles cp ON lo.course_id = cp.id
+    WHERE cp.owner_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Faculty can delete questions for their courses"
+ON question_banks
+FOR DELETE
+USING (
+  learning_objective_id IN (
+    SELECT lo.id FROM learning_objective_extended lo
+    JOIN course_profiles cp ON lo.course_id = cp.id
+    WHERE cp.owner_id = auth.uid()
+  )
+);
+
+-- ============================================
 -- student_lo_progress: Students own, faculty can view for their courses
-CREATE POLICY "Students manage own progress"
+-- ============================================
+CREATE POLICY "Students can view own progress"
 ON student_lo_progress
-FOR ALL
+FOR SELECT
+USING (student_id = auth.uid());
+
+CREATE POLICY "Students can insert own progress"
+ON student_lo_progress
+FOR INSERT
+WITH CHECK (student_id = auth.uid());
+
+CREATE POLICY "Students can update own progress"
+ON student_lo_progress
+FOR UPDATE
 USING (student_id = auth.uid());
 
 CREATE POLICY "Faculty can view progress for their courses"
@@ -941,6 +1213,79 @@ USING (
     SELECT id FROM course_profiles WHERE owner_id = auth.uid()
   )
 );
+
+-- ============================================
+-- course_enrollments: Faculty can manage, students can view own
+-- ============================================
+CREATE POLICY "Faculty can view enrollments for their courses"
+ON course_enrollments
+FOR SELECT
+USING (
+  course_id IN (
+    SELECT id FROM course_profiles WHERE owner_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Faculty can insert enrollments for their courses"
+ON course_enrollments
+FOR INSERT
+WITH CHECK (
+  course_id IN (
+    SELECT id FROM course_profiles WHERE owner_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Faculty can update enrollments for their courses"
+ON course_enrollments
+FOR UPDATE
+USING (
+  course_id IN (
+    SELECT id FROM course_profiles WHERE owner_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Faculty can delete enrollments for their courses"
+ON course_enrollments
+FOR DELETE
+USING (
+  course_id IN (
+    SELECT id FROM course_profiles WHERE owner_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Students can view own enrollments"
+ON course_enrollments
+FOR SELECT
+USING (student_id = auth.uid());
+
+-- ============================================
+-- micro_checks: Faculty can manage, students indirectly access via edge functions
+-- ============================================
+CREATE POLICY "Faculty can manage micro_checks for their courses"
+ON micro_checks
+FOR ALL
+USING (
+  content_source_id IN (
+    SELECT cs.id FROM content_sources cs
+    JOIN learning_objective_extended lo ON cs.learning_objective_id = lo.id
+    JOIN course_profiles cp ON lo.course_id = cp.id
+    WHERE cp.owner_id = auth.uid()
+  )
+)
+WITH CHECK (
+  content_source_id IN (
+    SELECT cs.id FROM content_sources cs
+    JOIN learning_objective_extended lo ON cs.learning_objective_id = lo.id
+    JOIN course_profiles cp ON lo.course_id = cp.id
+    WHERE cp.owner_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Service role full access to micro_checks"
+ON micro_checks
+FOR ALL
+USING (auth.role() = 'service_role')
+WITH CHECK (auth.role() = 'service_role');
 ```
 
 ---
@@ -984,20 +1329,27 @@ USING (
 
 ### 12.1 Before Starting Phase 1
 
-- [ ] YouTube Data API key obtained and added to Lovable secrets
-- [ ] Vector extension enabled in Supabase for embeddings
+- [ ] YouTube Data API key obtained and added to Lovable secrets (`YOUTUBE_API_KEY`)
+- [ ] `pgvector` extension enabled in Supabase for 768-dimensional embeddings
 - [ ] Design system tokens reviewed for new components
+- [ ] New routes added to `App.tsx` for content curation pages
+- [ ] "Curate Content" button added to `ReviewSyllabus.tsx` as flow branch point
+- [ ] "Verified Learning" section added to `InstructorDashboard.tsx`
 
 ### 12.2 Before Starting Phase 2
 
 - [ ] Phase 1 content curation complete and tested
 - [ ] YouTube iframe API tested in Lovable preview
+- [ ] `course_enrollments` table created and populated for test students
+- [ ] Student enrollment management UI added to instructor dashboard
+- [ ] "Start Learning" button added to `StudentDashboard.tsx`
 
 ### 12.3 Before Starting Phase 3
 
 - [ ] Phase 2 consumption tracking complete and tested
 - [ ] Instructor has created sample micro-checks
 - [ ] Assessment state machine logic reviewed
+- [ ] Question bank has minimum 5 questions per LO for testing
 
 ---
 
@@ -1042,6 +1394,13 @@ src/
 │   │   ├── ResultsView.tsx
 │   │   └── RemediationPath.tsx
 │   │
+│   ├── enrollment/                          # NEW - Student enrollment management
+│   │   ├── EnrollmentManager.tsx            # Faculty UI for managing enrollments
+│   │   ├── StudentEnrollmentList.tsx        # List of enrolled students
+│   │   ├── AddStudentDialog.tsx             # Modal to add students by email
+│   │   ├── BulkImportDialog.tsx             # CSV import for students
+│   │   └── InviteCodeGenerator.tsx          # Generate invite codes (Phase 2)
+│   │
 │   └── verified-learning/
 │       ├── ModuleSidebar.tsx
 │       ├── LOProgressCard.tsx
@@ -1053,7 +1412,8 @@ src/
 │   ├── useContentCuration.ts
 │   ├── useVideoTracking.ts
 │   ├── useAssessmentSession.ts
-│   └── useLearningProgress.ts
+│   ├── useLearningProgress.ts
+│   └── useCourseEnrollment.ts               # NEW - Enrollment management hook
 
 supabase/
 ├── functions/
@@ -1075,7 +1435,9 @@ supabase/
 │   │   └── index.ts
 │   ├── complete-assessment/
 │   │   └── index.ts
-│   └── check-content-availability/
+│   ├── check-content-availability/
+│   │   └── index.ts
+│   └── enroll-student/                      # NEW - Handle student enrollment
 │       └── index.ts
 ```
 
@@ -1137,6 +1499,22 @@ supabase/
 
 **Document Status: COMPLETE - Ready for Implementation Approval**
 
+### Revision History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0 | December 2025 | Initial complete build plan |
+| 1.1 | December 2025 | Fixed identified gaps: embedding dimension (768 for Gemini), added `course_enrollments` table for student access control, fixed RLS `WITH CHECK` clauses for INSERT operations, added student enrollment mechanism design |
+
+### Gap Fixes Applied (v1.1)
+
+1. **Embedding Dimension**: Changed from 1536 (OpenAI ada-002) to 768 to match existing `embedding-service.ts` which uses Gemini
+2. **Student Enrollment Table**: Added `course_enrollments` table to link students to courses for access control
+3. **RLS Policy Fixes**: All INSERT policies now use `WITH CHECK` instead of `USING`; separated ALL policies into individual SELECT/INSERT/UPDATE/DELETE policies
+4. **Enrollment Mechanism**: Added complete design for manual enrollment (MVP), invite codes (Phase 2), and LMS sync (Future)
+5. **UI Components**: Added enrollment management components (`EnrollmentManager.tsx`, `AddStudentDialog.tsx`, etc.)
+6. **Prerequisites Updated**: Added explicit checklist items for routes, UI entry points, and enrollment setup
+
 *Last Updated: December 2025*
 *Author: Lovable AI*
-*Version: 1.0*
+*Version: 1.1*
