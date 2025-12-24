@@ -85,7 +85,22 @@ Faculty Dashboard → Role-Based Auth → RLS Policies
 |-------|----------|------------|--------|
 | Profiles email exposure | 🔴 High | Add service_role check for email field | ✅ DONE |
 | Partnership proposals | 🔴 High | Add column-level masking | ✅ DONE |
-| University domains public | 🟡 Medium | Document or restrict | TODO |
+| University domains public | 🟢 Documented | Justified public read access | ✅ DONE |
+
+### Security Documentation: university_domains Public Access
+
+**Justification:** The `university_domains` table has intentional public read access because:
+
+1. **Public Reference Data** - Contains only publicly available institutional information (names, domains, locations) with no PII
+2. **Signup Requirement** - Must be accessible before authentication for email domain validation during user registration
+3. **Write Protection** - Only `service_role` can INSERT/UPDATE/DELETE, preventing tampering
+
+| RLS Policy | Command | Access |
+|------------|---------|--------|
+| Public read access | SELECT | `USING: true` |
+| Service role full access | ALL | `USING: (auth.role() = 'service_role')` |
+
+**Conclusion:** This is a deliberate security design, not an oversight. The table functions as a public reference dataset with appropriate write protection.
 
 ---
 
@@ -104,7 +119,9 @@ Faculty Dashboard → Role-Based Auth → RLS Policies
 | Re-enable distance filtering | P0 | 2h | Backend | ✅ DONE |
 | Increase batch size to 25 | P1 | 1h | Backend | ✅ DONE |
 | Fix partnership proposals masking | P0 | 2h | Backend | ✅ DONE |
-| Document university domains access | P1 | 1h | Docs | TODO |
+| Document university domains access | P1 | 1h | Docs | ✅ DONE |
+
+**🎉 Phase 0 Complete!** All stabilization tasks finished. Ready for Phase 1.
 
 **Detailed Schedule:**
 ```
@@ -305,7 +322,7 @@ Feb 7: Testing & validation
 | **Code Quality** | ✅ Good patterns, typed, documented |
 | **Feature Completeness** | ⚠️ 55% complete |
 | **Production Ready** | ❌ Needs 6-8 weeks work |
-| **Security** | ⚠️ 3 medium issues to fix |
+| **Security** | ✅ All issues resolved |
 
 ### Launch Blockers
 
