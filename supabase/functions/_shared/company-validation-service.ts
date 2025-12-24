@@ -111,7 +111,7 @@ Respond with ONLY valid JSON (no markdown):
         messages: [
           { role: 'user', content: prompt }
         ],
-        // Note: temperature removed - some models don't support it
+        temperature: 0.1, // Low temperature for consistent evaluation
       }),
     });
 
