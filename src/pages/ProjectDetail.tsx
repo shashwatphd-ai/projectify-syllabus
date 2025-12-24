@@ -21,6 +21,7 @@ import { VerificationTab } from "@/components/project-detail/VerificationTab";
 import { MarketInsightsTab } from "@/components/project-detail/MarketInsightsTab";
 import { ValueAnalysisTab } from "@/components/project-detail/ValueAnalysisTab";
 import { DiscoveryQualityTab } from "@/components/project-detail/DiscoveryQualityTab";
+import { PremiumInsightsTab } from "@/components/project-detail/PremiumInsightsTab";
 import { Header } from "@/components/Header";
 import { useProjectAnalytics } from "@/hooks/useProjectAnalytics";
 
@@ -255,6 +256,9 @@ const ProjectDetail = () => {
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="flex flex-wrap h-auto gap-2 p-2">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="premium" className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-300/30 dark:border-amber-700/30">
+              ✨ Premium Insights
+            </TabsTrigger>
             <TabsTrigger value="discovery">Discovery Quality</TabsTrigger>
             <TabsTrigger value="value-analysis">Value Analysis</TabsTrigger>
             <TabsTrigger value="market-insights">Market Intelligence</TabsTrigger>
@@ -272,6 +276,15 @@ const ProjectDetail = () => {
 
           <TabsContent value="overview">
             <OverviewTab project={project} forms={forms} metadata={metadata} />
+          </TabsContent>
+
+          <TabsContent value="premium">
+            <PremiumInsightsTab
+              projectSkills={Array.isArray(project.skills) ? project.skills : []}
+              location={course?.location_city || course?.location_formatted}
+              sector={project.sector}
+              courseOutcomes={Array.isArray(course?.outcomes) ? course.outcomes : []}
+            />
           </TabsContent>
 
           <TabsContent value="discovery">
