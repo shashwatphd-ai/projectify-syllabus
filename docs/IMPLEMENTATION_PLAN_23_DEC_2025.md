@@ -55,72 +55,96 @@ Shows:
 
 ## AI Pattern Reference
 
-**CRITICAL: The codebase uses TWO distinct AI integration patterns. All new code MUST follow these patterns for coherence.**
+**DECISION: Standardize on Direct Google Gemini API (`GEMINI_API_KEY`) for ALL new code.**
 
-### Pattern 1: Direct Google Gemini API (GEMINI_API_KEY)
+### Why Direct Gemini API Only
 
-**Use For:** Embeddings, semantic matching, web-grounded search, structured alignment
+1. **Coherence** - Codebase already uses direct Gemini for embeddings, alignment, web-grounded search
+2. **No extra hop** - Direct API has lower latency than proxying through a gateway
+3. **Full feature access** - Web grounding, structured outputs, all Gemini features available
+4. **Single billing** - All AI usage goes through one Google Cloud account
+5. **Already configured** - `GEMINI_API_KEY` is already in secrets and working
 
-**Existing Implementations:**
+### Standard Pattern: Direct Google Gemini API (GEMINI_API_KEY)
+
+**Use For:** ALL AI operations - embeddings, chat completions, structured extraction, tool calling
+
+**Existing Implementations (reference these as patterns):**
 - `supabase/functions/_shared/embedding-service.ts` - text-embedding-004 model
-- `supabase/functions/_shared/alignment-service.ts` - gemini-2.0-flash-exp
+- `supabase/functions/_shared/alignment-service.ts` - gemini-2.0-flash-exp with structured output
 - `supabase/functions/data-enrichment-pipeline/index.ts` - web-grounded search
 
-**Pattern:**
+**Pattern for Embeddings:**
 ```typescript
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 const response = await fetch(
-  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+  `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${GEMINI_API_KEY}`,
   {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1 }
+      model: 'models/text-embedding-004',
+      content: { parts: [{ text: inputText }] }
+    })
+  }
+);
+const data = await response.json();
+const embedding = data.embedding?.values || [];
+```
+
+**Pattern for Chat/Structured Output:**
+```typescript
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+const response = await fetch(
+  `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+  {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
+      generationConfig: { 
+        temperature: 0.1,
+        responseMimeType: 'application/json'  // For structured output
+      }
     })
   }
 );
 ```
 
-### Pattern 2: Lovable AI Gateway (LOVABLE_API_KEY)
-
-**Use For:** Chat completions, tool calling, syllabus parsing, project generation
-
-**Existing Implementations:**
-- `supabase/functions/parse-syllabus/index.ts` - google/gemini-2.5-flash
-- `supabase/functions/_shared/generation-service.ts` - google/gemini-2.5-flash
-- `supabase/functions/competency-extractor/index.ts` - tool calling
-- `supabase/functions/_shared/company-validation-service.ts` - google/gemini-2.5-pro
-
-**Pattern:**
+**Pattern for Web-Grounded Search (unique to direct API):**
 ```typescript
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    model: 'google/gemini-2.5-flash',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
-    ],
-    temperature: 0.4
-  })
-});
+const response = await fetch(
+  `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+  {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      tools: [{ google_search: {} }]  // Web grounding - NOT available via gateway
+    })
+  }
+);
 ```
+
+### Legacy Code (DO NOT USE for new code)
+
+The following files currently use Lovable AI Gateway. They work but should NOT be copied for new implementations:
+- `parse-syllabus/index.ts` - uses gateway (legacy)
+- `generation-service.ts` - uses gateway (legacy)  
+- `competency-extractor/index.ts` - uses gateway (legacy)
+- `company-validation-service.ts` - uses gateway (legacy)
+
+**Migration Note:** These can be migrated to direct Gemini in a future cleanup sprint, but it's not blocking.
 
 ### Signal Implementation Pattern Map
 
-| Signal | AI Task Type | Pattern to Use | Reasoning |
-|--------|--------------|----------------|-----------|
-| Signal 1: Job-Skills Match | Semantic embeddings | **Pattern 1 (Direct)** | Embedding-based similarity, matches embedding-service.ts |
-| Signal 2: Market Intel | Text classification | **Pattern 1 (Direct)** | Structured extraction, matches alignment-service.ts |
-| Signal 3: Dept Fit | Scoring logic | None (rule-based) | Department headcount is numerical, no AI needed |
-| Signal 4: Contact Quality | Scoring logic | None (rule-based) | Seniority/relevance scoring is rule-based |
-| Composite Scoring | Weighted average | None (rule-based) | Pure math |
+| Signal | AI Task Type | API to Use | Model |
+|--------|--------------|------------|-------|
+| Signal 1: Job-Skills Match | Semantic embeddings | Direct Gemini | text-embedding-004 |
+| Signal 2: Market Intel | Text classification | Direct Gemini | gemini-2.5-flash |
+| Signal 3: Dept Fit | Scoring logic | None (rule-based) | N/A |
+| Signal 4: Contact Quality | Scoring logic | None (rule-based) | N/A |
+| Composite Scoring | Weighted average | None (rule-based) | N/A |
 
 ---
 
@@ -216,7 +240,7 @@ Multi-layer intelligence discovery using **4 parallel signals** to find companie
 
 | Feature | Diagram Requirement | Current State | Gap | Priority |
 |---------|---------------------|---------------|-----|----------|
-| **Signal 1: Job Postings** | AI-powered skill matching | ⚠️ Fetches jobs but NO skill matching | Need Lovable AI integration | P0 |
+| **Signal 1: Job Postings** | AI-powered skill matching | ⚠️ Fetches jobs but NO skill matching | Need Gemini embeddings integration | P0 |
 | **Signal 2: News/Market Intelligence** | News API for hiring/funding signals | ❌ NOT IMPLEMENTED | Full implementation needed | P0 |
 | **Signal 3: Company Intelligence** | Intent signals + dept growth | ❌ NOT IMPLEMENTED | Need Complete Org Info API | P0 |
 | **Signal 4: People Intelligence** | People search as discovery signal | ⚠️ Used for contacts AFTER, not signal | Refactor as signal | P1 |
