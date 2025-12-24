@@ -96,3 +96,10 @@ verify_jwt = true
 # Test endpoint for Apollo News API
 [functions.test-apollo-news]
 verify_jwt = false
+
+# Firecrawl web scraping functions
+[functions.firecrawl-scrape]
+verify_jwt = true
+
+[functions.firecrawl-career-pages]
+verify_jwt = true
