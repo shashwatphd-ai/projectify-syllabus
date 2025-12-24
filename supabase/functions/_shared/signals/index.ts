@@ -31,5 +31,7 @@ export type {
   SignalContext,
   SignalName,
   CompositeScore,
-  SignalScores 
+  SignalScores,
+  CompanyForSignal,
+  StorableSignalData
 } from '../signal-types.ts';
