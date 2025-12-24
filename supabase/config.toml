@@ -92,10 +92,3 @@ verify_jwt = true
 
 [functions.investigate-apollo-jobs]
 verify_jwt = true
-
-# ==========================================
-# TEST FUNCTIONS (verify_jwt = false)
-# ==========================================
-
-[functions.test-apollo-news]
-verify_jwt = false
