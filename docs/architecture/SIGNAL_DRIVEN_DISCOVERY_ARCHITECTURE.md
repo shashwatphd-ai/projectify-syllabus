@@ -1,8 +1,8 @@
 # Signal-Driven Company Discovery Architecture
 
-**Document Version:** 1.0  
+**Document Version:** 1.1  
 **Last Updated:** 24th December 2025  
-**Status:** Implemented  
+**Status:** Implemented & Verified  
 **Compliance:** Full compliance with Implementation Plan (23 Dec 2025)
 
 ---
@@ -100,14 +100,35 @@ The Signal-Driven Company Discovery system evaluates companies using 4 independe
 
 **Implementation File:** `supabase/functions/_shared/signals/job-skills-signal.ts`
 
-**Scoring Algorithm:**
-- Uses Gemini `text-embedding-004` model for semantic embeddings
-- Calculates cosine similarity between job text and skill text
-- Match threshold: 0.65 similarity
+**Job Postings Flow:**
+```
+1. discover-companies stores job_postings in CompanyForSignal
+2. signal-orchestrator.ts extracts via extractJobPostings()
+3. JobSkillsSignal receives jobPostings in SignalContext
+4. getJobPostings() prioritizes context.jobPostings over company.job_postings
+```
 
-**Score Calculation:**
+**Scoring Algorithm:**
+- **Primary:** Gemini `text-embedding-004` model for semantic embeddings
+- **Fallback:** Keyword-based matching when embeddings unavailable
+
+**Thresholds (Updated 24 Dec 2025):**
+
+| Method | Threshold | Rationale |
+|--------|-----------|-----------|
+| Semantic Match | **0.45** | Lowered from 0.65 to capture cross-domain matches |
+| Keyword Fallback | **0.15** | Lowered from 0.30 for broader keyword matching |
+
+**Score Calculation (Semantic):**
 ```
 Final Score = (Average Similarity × 50) + (Skill Coverage × 30) + (Job Coverage × 20)
+```
+
+**Score Calculation (Keyword Fallback):**
+```
+Base Score = (Average Overlap × 40) + (Skill Coverage × 40)
+Match Bonus = min(20, matches × 5)  # Bonus for having any matches
+Final Score = min(Base + Bonus, 70)  # Capped at 70 for keyword method
 ```
 
 | Component | Weight | Description |
@@ -116,7 +137,12 @@ Final Score = (Average Similarity × 50) + (Skill Coverage × 30) + (Job Coverag
 | Skill Coverage | 30% | % of syllabus skills with matching jobs |
 | Job Coverage | 20% | % of jobs relevant to syllabus |
 
-**Fallback:** Keyword-based matching when embeddings unavailable (capped at 70/100).
+**Circuit Breaker:** Gemini API has a 3-failure circuit breaker with 60s reset time.
+
+**Verified Results (24 Dec 2025):**
+- Cerris Systems: 62/100 skill match (9 job postings)
+- 1898 & Co.: 47/100 skill match (14 job postings)
+- Companies without job postings: 0/100 (expected)
 
 ---
 
@@ -289,6 +315,28 @@ export const SIGNAL_WEIGHTS: Record<SignalName, number> = {
 | `calculateCompositeScore()` | Combine 4 signals with weights |
 | `filterBySignals()` | Apply threshold filtering with fallback |
 | `toStorableSignalData()` | Convert to database-ready format |
+| `extractJobPostings()` | Parse job_postings from company data (Added 24 Dec) |
+
+### Job Postings Extraction (Added 24 Dec 2025)
+
+The orchestrator now includes `extractJobPostings()` helper to properly pass job postings to signals:
+
+```typescript
+function extractJobPostings(jobPostings: unknown): JobPosting[] {
+  if (!jobPostings) return [];
+  
+  const parsed = typeof jobPostings === 'string' 
+    ? JSON.parse(jobPostings)
+    : jobPostings;
+  
+  return parsed.map((j: Record<string, unknown>) => ({
+    id: String(j.id || ''),
+    title: String(j.title || 'Unknown Role'),
+    url: j.url ? String(j.url) : undefined,
+    description: j.description ? String(j.description) : undefined
+  }));
+}
+```
 
 ### Execution Flow
 
@@ -372,6 +420,21 @@ supabase/functions/_shared/
 | `/news_articles/search` | 2 | POST | Find recent company news |
 | `/organizations/{id}` | 3 | GET | Complete org info with intent |
 | `/mixed_people/search` | 4 | POST | Find decision-makers |
+
+---
+
+## Changelog
+
+### v1.1 (24 Dec 2025)
+- **Fixed:** Job postings now properly passed to JobSkillsSignal via `extractJobPostings()` helper
+- **Changed:** Semantic match threshold lowered from 0.65 → 0.45
+- **Changed:** Keyword fallback threshold lowered from 0.30 → 0.15
+- **Added:** Match bonus scoring in keyword fallback (+5 points per match, max 20)
+- **Verified:** Pipeline tested with ME 111 Fluid Mechanics course - Cerris Systems scored 62/100
+
+### v1.0 (24 Dec 2025)
+- Initial architecture documentation
+- All 4 signals implemented and integrated
 
 ---
 
