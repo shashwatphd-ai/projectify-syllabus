@@ -1,16 +1,17 @@
 // EvidenceBasedSignalCard - Professional signal display with validation
-// Shows methodology, evidence, and limitations transparently
+// Shows methodology, evidence, data sources, and limitations transparently
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { LucideIcon, Info, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { LucideIcon, Info, CheckCircle2, XCircle, AlertCircle, Database } from "lucide-react";
 
 interface EvidenceItem {
   label: string;
   present: boolean;
   detail?: string;
+  source?: string;
 }
 
 interface EvidenceBasedSignalCardProps {
@@ -39,10 +40,10 @@ export function EvidenceBasedSignalCard({
   const hasLimitations = limitations.length > 0;
   
   const getScoreLabel = (pct: number) => {
-    if (pct >= 70) return { label: "Strong", variant: "default" as const };
-    if (pct >= 40) return { label: "Moderate", variant: "secondary" as const };
-    if (pct > 0) return { label: "Limited", variant: "outline" as const };
-    return { label: "Insufficient Data", variant: "destructive" as const };
+    if (pct >= 70) return { label: "Strong", variant: "default" as const, description: "High confidence in this signal" };
+    if (pct >= 40) return { label: "Moderate", variant: "secondary" as const, description: "Partial data available" };
+    if (pct > 0) return { label: "Limited", variant: "outline" as const, description: "Some data gaps exist" };
+    return { label: "No Data", variant: "destructive" as const, description: "Signal not available for this company" };
   };
 
   const scoreInfo = getScoreLabel(percentage);
@@ -63,7 +64,7 @@ export function EvidenceBasedSignalCard({
                   <TooltipTrigger asChild>
                     <p className="text-xs text-muted-foreground flex items-center gap-1 cursor-help">
                       <Info className="h-3 w-3" />
-                      Methodology
+                      How it's calculated
                     </p>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-xs">
@@ -83,36 +84,63 @@ export function EvidenceBasedSignalCard({
 
         {/* Score interpretation */}
         <div className="flex items-center gap-2">
-          <Badge variant={scoreInfo.variant} className="text-xs">
-            {scoreInfo.label}
-          </Badge>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <Badge variant={scoreInfo.variant} className="text-xs cursor-help">
+                  {scoreInfo.label}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="text-xs">{scoreInfo.description}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <span className="text-xs text-muted-foreground">
-            {evidenceCount}/{evidence.length} signals detected
+            {evidenceCount}/{evidence.length} data points verified
           </span>
         </div>
 
-        {/* Evidence list */}
+        {/* Evidence list with sources */}
         <div className="space-y-1.5 pt-2 border-t">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Evidence
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <Database className="h-3 w-3" />
+            Data Evidence
           </p>
           {evidence.map((item, idx) => (
-            <div key={idx} className="flex items-start gap-2 text-xs">
+            <div key={idx} className="flex items-start gap-2 text-xs group">
               {item.present ? (
                 <CheckCircle2 className="h-3.5 w-3.5 text-green-500 mt-0.5 shrink-0" />
               ) : (
                 <XCircle className="h-3.5 w-3.5 text-muted-foreground/50 mt-0.5 shrink-0" />
               )}
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <span className={cn(
                   item.present ? "text-foreground" : "text-muted-foreground/70"
                 )}>
                   {item.label}
                 </span>
-                {item.detail && item.present && (
-                  <span className="text-muted-foreground ml-1">
+                {item.detail && (
+                  <span className={cn(
+                    "ml-1",
+                    item.present ? "text-muted-foreground" : "text-muted-foreground/50"
+                  )}>
                     — {item.detail}
                   </span>
+                )}
+                {item.source && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="ml-1 text-muted-foreground/60 cursor-help hidden group-hover:inline">
+                          [{item.source}]
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs">
+                        <p className="text-xs">Data from: {item.source}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
               </div>
             </div>
@@ -124,7 +152,10 @@ export function EvidenceBasedSignalCard({
           <div className="pt-2 border-t">
             <div className="flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-400">
               <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-              <span>{limitations[0]}</span>
+              <div>
+                <span className="font-medium">Limitation: </span>
+                <span>{limitations[0]}</span>
+              </div>
             </div>
           </div>
         )}
