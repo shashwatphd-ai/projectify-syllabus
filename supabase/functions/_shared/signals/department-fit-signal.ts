@@ -1,8 +1,10 @@
 /**
  * Signal 3: Department Fit via Complete Org Info
  * 
- * Gets intent signals and department growth metrics using Apollo
- * Complete Organization Info API.
+ * Uses REAL Apollo API fields:
+ * - departmental_head_count: Employee counts by department
+ * - funding_events: Recent funding activity
+ * - current_technologies: Technology stack
  * 
  * SOLID Principles:
  * - Single Responsibility: Only calculates department fit score
@@ -19,47 +21,71 @@ import {
 } from '../signal-types.ts';
 
 // ============================================================================
-// INTERFACES (from plan)
+// INTERFACES (Based on REAL Apollo API response)
 // ============================================================================
 
-interface IntentSignalAccount {
-  overall_intent: 'high' | 'medium' | 'low';
-  total_visits: number;
-  top_5_paths: string[];
+/**
+ * Real Apollo departmental_head_count structure
+ * Key: department name, Value: employee count
+ */
+interface DepartmentalHeadCount {
+  [department: string]: number;
 }
 
-interface EmployeeMetrics {
-  [department: string]: {
-    new: number;
-    retained: number;
-    churned: number;
-  };
+/**
+ * Real Apollo funding_events structure
+ */
+interface FundingEvent {
+  id: string;
+  date: string;
+  news_url: string;
+  type: string;
+  investors: string;
+  amount: string;
+  currency: string;
+}
+
+/**
+ * Real Apollo current_technologies structure
+ */
+interface Technology {
+  uid: string;
+  name: string;
+  category: string;
 }
 
 interface OrganizationIntelligence {
-  intentSignals: IntentSignalAccount | null;
-  employeeMetrics: EmployeeMetrics | null;
-  technologies: Array<{ uid: string; name: string; category: string }>;
-  buyingIntentScore: number;        // 0-1
-  departmentGrowthScore: number;    // 0-1
-  technologyMatchScore: number;     // 0-1
-  combinedFitScore: number;         // 0-1
+  departmentalHeadCount: DepartmentalHeadCount | null;
+  fundingEvents: FundingEvent[];
+  technologies: Technology[];
+  departmentGrowthScore: number;    // 0-1 based on relevant dept size
+  fundingActivityScore: number;     // 0-1 based on recent funding
+  technologyMatchScore: number;     // 0-1 based on skill alignment
+  combinedFitScore: number;         // 0-1 weighted average
 }
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
-/** Domain to department mapping */
-const DOMAIN_TO_DEPARTMENT: Record<string, string> = {
-  finance: 'finance',
-  engineering: 'engineering',
-  marketing: 'marketing',
-  operations: 'operations',
-  sales: 'sales',
-  hr: 'human_resources',
-  unknown: 'engineering' // default
+/** Map syllabus domains to Apollo department names */
+const SYLLABUS_TO_APOLLO_DEPT: Record<string, string[]> = {
+  finance: ['finance', 'accounting'],
+  engineering: ['engineering', 'product_management', 'design'],
+  marketing: ['marketing', 'media_and_commmunication'],
+  operations: ['operations', 'support'],
+  sales: ['sales', 'business_development'],
+  hr: ['human_resources', 'consulting'],
+  data: ['engineering', 'product_management'],
+  it: ['engineering', 'information_technology'],
+  unknown: ['engineering']
 };
+
+/** Funding types that indicate growth/investment */
+const POSITIVE_FUNDING_TYPES = [
+  'Series A', 'Series B', 'Series C', 'Series D', 'Series E',
+  'Seed', 'Growth Equity', 'Private Equity', 'Venture'
+];
 
 // ============================================================================
 // DEPARTMENT FIT SIGNAL PROVIDER
@@ -68,10 +94,10 @@ const DOMAIN_TO_DEPARTMENT: Record<string, string> = {
 /**
  * Department Fit Signal Provider
  * 
- * Uses Apollo Complete Org Info API to assess:
- * - Buying intent signals
- * - Department growth metrics
- * - Technology stack match
+ * Uses Apollo Complete Org Info API with REAL fields:
+ * - departmental_head_count (department sizes)
+ * - funding_events (funding activity)
+ * - current_technologies (tech stack)
  */
 export const DepartmentFitSignal: SignalProvider = {
   name: 'department_fit' as SignalName,
@@ -113,7 +139,7 @@ export const DepartmentFitSignal: SignalProvider = {
     try {
       const intelligence = await fetchOrganizationIntelligence(
         company.apollo_organization_id,
-        syllabusDomain as keyof typeof DOMAIN_TO_DEPARTMENT,
+        syllabusDomain,
         syllabusSkills,
         apolloApiKey
       );
@@ -134,11 +160,11 @@ export const DepartmentFitSignal: SignalProvider = {
         confidence,
         signals,
         rawData: {
-          intentSignals: intelligence.intentSignals,
-          employeeMetrics: intelligence.employeeMetrics,
+          departmentalHeadCount: intelligence.departmentalHeadCount,
+          fundingEvents: intelligence.fundingEvents.slice(0, 5), // Last 5 events
           technologies: intelligence.technologies.slice(0, 10),
-          buyingIntentScore: intelligence.buyingIntentScore,
           departmentGrowthScore: intelligence.departmentGrowthScore,
+          fundingActivityScore: intelligence.fundingActivityScore,
           technologyMatchScore: intelligence.technologyMatchScore
         }
       };
@@ -154,32 +180,32 @@ export const DepartmentFitSignal: SignalProvider = {
 };
 
 // ============================================================================
-// APOLLO COMPLETE ORG INFO API (from plan)
+// APOLLO COMPLETE ORG INFO API (Using REAL fields)
 // ============================================================================
 
 /**
  * SIGNAL 3: Company Intelligence via Complete Org Info
- * Gets intent signals and department growth metrics
+ * Uses REAL Apollo fields: departmental_head_count, funding_events, current_technologies
  */
 async function fetchOrganizationIntelligence(
   orgId: string,
-  syllabusDomain: keyof typeof DOMAIN_TO_DEPARTMENT,
+  syllabusDomain: string,
   syllabusSkills: string[],
   apolloApiKey: string
 ): Promise<OrganizationIntelligence> {
   const defaultResult: OrganizationIntelligence = {
-    intentSignals: null,
-    employeeMetrics: null,
+    departmentalHeadCount: null,
+    fundingEvents: [],
     technologies: [],
-    buyingIntentScore: 0.3,      // Neutral default
-    departmentGrowthScore: 0.3,
+    departmentGrowthScore: 0.3,      // Neutral default
+    fundingActivityScore: 0.3,
     technologyMatchScore: 0.3,
     combinedFitScore: 0.3
   };
   
   try {
     const response = await fetch(
-      `https://api.apollo.io/v1/organizations/${orgId}`,
+      `https://api.apollo.io/api/v1/organizations/${orgId}`,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -198,63 +224,43 @@ async function fetchOrganizationIntelligence(
     
     if (!org) return defaultResult;
     
-    // Extract signals
-    const intentSignals = org.intent_signal_account || null;
-    const employeeMetrics = org.employee_metrics || null;
-    const technologies = org.current_technologies || [];
+    // Extract REAL Apollo fields
+    const departmentalHeadCount: DepartmentalHeadCount = org.departmental_head_count || {};
+    const fundingEvents: FundingEvent[] = org.funding_events || [];
+    const technologies: Technology[] = org.current_technologies || [];
     
-    // Calculate buying intent score
-    let buyingIntentScore = 0.3;
-    if (intentSignals) {
-      buyingIntentScore = 
-        intentSignals.overall_intent === 'high' ? 1.0 :
-        intentSignals.overall_intent === 'medium' ? 0.6 : 0.3;
-    }
+    console.log(`     📊 Dept counts: ${Object.keys(departmentalHeadCount).length} depts`);
+    console.log(`     💰 Funding events: ${fundingEvents.length}`);
+    console.log(`     🔧 Technologies: ${technologies.length}`);
     
-    // Calculate department growth score
-    let departmentGrowthScore = 0.3;
-    if (employeeMetrics) {
-      // Map syllabus domain to department
-      const relevantDept = DOMAIN_TO_DEPARTMENT[syllabusDomain] || 'engineering';
-      const deptMetrics = employeeMetrics[relevantDept];
-      
-      if (deptMetrics) {
-        const growthRate = deptMetrics.new / Math.max(1, deptMetrics.retained);
-        const churnRate = deptMetrics.churned / Math.max(1, deptMetrics.retained);
-        
-        // Growing department with low churn = best
-        departmentGrowthScore = Math.min(1, 
-          (growthRate * 0.7) + ((1 - churnRate) * 0.3)
-        );
-      }
-    }
+    // Calculate department growth score based on relevant department size
+    const departmentGrowthScore = calculateDepartmentScore(
+      departmentalHeadCount, 
+      syllabusDomain
+    );
+    
+    // Calculate funding activity score
+    const fundingActivityScore = calculateFundingScore(fundingEvents);
     
     // Calculate technology match score
-    let technologyMatchScore = 0.3;
-    if (technologies.length > 0 && syllabusSkills.length > 0) {
-      const techNames = technologies.map((t: { name: string }) => t.name.toLowerCase());
-      const matchCount = syllabusSkills.filter(skill => 
-        techNames.some((tech: string) => 
-          tech.includes(skill.toLowerCase()) || 
-          skill.toLowerCase().includes(tech)
-        )
-      ).length;
-      
-      technologyMatchScore = Math.min(1, matchCount / Math.min(5, syllabusSkills.length));
-    }
+    const technologyMatchScore = calculateTechnologyScore(
+      technologies, 
+      syllabusSkills
+    );
     
     // Combined fit score (weighted average)
+    // Department size: 40%, Funding activity: 35%, Tech match: 25%
     const combinedFitScore = 
-      (buyingIntentScore * 0.4) + 
-      (departmentGrowthScore * 0.4) + 
-      (technologyMatchScore * 0.2);
+      (departmentGrowthScore * 0.40) + 
+      (fundingActivityScore * 0.35) + 
+      (technologyMatchScore * 0.25);
     
     return {
-      intentSignals,
-      employeeMetrics,
+      departmentalHeadCount,
+      fundingEvents,
       technologies,
-      buyingIntentScore,
       departmentGrowthScore,
+      fundingActivityScore,
       technologyMatchScore,
       combinedFitScore
     };
@@ -263,6 +269,139 @@ async function fetchOrganizationIntelligence(
     console.error(`     ❌ Failed to fetch org intelligence for ${orgId}:`, error);
     return defaultResult;
   }
+}
+
+// ============================================================================
+// SCORING FUNCTIONS
+// ============================================================================
+
+/**
+ * Calculate score based on relevant department size
+ * Larger relevant departments = higher capacity for student projects
+ */
+function calculateDepartmentScore(
+  deptCounts: DepartmentalHeadCount,
+  syllabusDomain: string
+): number {
+  if (!deptCounts || Object.keys(deptCounts).length === 0) {
+    return 0.3; // Neutral if no data
+  }
+  
+  // Get relevant Apollo department names for this syllabus domain
+  const relevantDepts = SYLLABUS_TO_APOLLO_DEPT[syllabusDomain.toLowerCase()] 
+    || SYLLABUS_TO_APOLLO_DEPT['unknown'];
+  
+  // Sum up employees in relevant departments
+  let relevantCount = 0;
+  let totalCount = 0;
+  
+  for (const [dept, count] of Object.entries(deptCounts)) {
+    totalCount += count;
+    if (relevantDepts.some(rd => dept.toLowerCase().includes(rd))) {
+      relevantCount += count;
+    }
+  }
+  
+  if (totalCount === 0) return 0.3;
+  
+  // Score based on:
+  // 1. Absolute size of relevant department (capacity)
+  // 2. Proportion of relevant department (focus)
+  
+  // Capacity score: More than 50 employees in relevant dept = max
+  const capacityScore = Math.min(1, relevantCount / 50);
+  
+  // Focus score: Higher proportion = more relevant
+  const focusScore = relevantCount / totalCount;
+  
+  // Weight capacity more than focus
+  return (capacityScore * 0.7) + (focusScore * 0.3);
+}
+
+/**
+ * Calculate score based on funding activity
+ * Recent funding indicates growth and resources for projects
+ */
+function calculateFundingScore(fundingEvents: FundingEvent[]): number {
+  if (!fundingEvents || fundingEvents.length === 0) {
+    return 0.3; // Neutral if no funding data
+  }
+  
+  const now = new Date();
+  const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+  const twoYearsAgo = new Date(now.getTime() - 730 * 24 * 60 * 60 * 1000);
+  
+  let score = 0.3; // Base score
+  
+  for (const event of fundingEvents) {
+    const eventDate = new Date(event.date);
+    const isPositiveFunding = POSITIVE_FUNDING_TYPES.some(
+      type => event.type?.toLowerCase().includes(type.toLowerCase())
+    );
+    
+    if (isPositiveFunding) {
+      // Recent funding (within 1 year) = big boost
+      if (eventDate > oneYearAgo) {
+        score += 0.3;
+      } 
+      // Funding within 2 years = moderate boost
+      else if (eventDate > twoYearsAgo) {
+        score += 0.15;
+      }
+      // Older funding = small boost
+      else {
+        score += 0.05;
+      }
+    }
+  }
+  
+  return Math.min(1, score);
+}
+
+/**
+ * Calculate score based on technology stack alignment
+ * Better match = higher chance of relevant project work
+ */
+function calculateTechnologyScore(
+  technologies: Technology[],
+  syllabusSkills: string[]
+): number {
+  if (!technologies || technologies.length === 0) {
+    return 0.3; // Neutral if no tech data
+  }
+  
+  if (!syllabusSkills || syllabusSkills.length === 0) {
+    return 0.4; // Slightly above neutral if we have tech but no skills to match
+  }
+  
+  const techNames = technologies.map(t => t.name.toLowerCase());
+  const techCategories = technologies.map(t => t.category?.toLowerCase() || '');
+  
+  let matchCount = 0;
+  
+  for (const skill of syllabusSkills) {
+    const skillLower = skill.toLowerCase();
+    
+    // Check direct tech name match
+    const nameMatch = techNames.some(tech => 
+      tech.includes(skillLower) || skillLower.includes(tech)
+    );
+    
+    // Check category match (broader)
+    const categoryMatch = techCategories.some(cat => 
+      cat.includes(skillLower) || skillLower.includes(cat)
+    );
+    
+    if (nameMatch) {
+      matchCount += 1;
+    } else if (categoryMatch) {
+      matchCount += 0.5; // Partial credit for category match
+    }
+  }
+  
+  // Score: How many skills matched vs total skills (cap at 5 for normalization)
+  const maxSkillsToConsider = Math.min(5, syllabusSkills.length);
+  return Math.min(1, matchCount / maxSkillsToConsider);
 }
 
 // ============================================================================
@@ -275,8 +414,11 @@ async function fetchOrganizationIntelligence(
 function calculateConfidence(intelligence: OrganizationIntelligence): number {
   let dataPoints = 0;
   
-  if (intelligence.intentSignals) dataPoints++;
-  if (intelligence.employeeMetrics) dataPoints++;
+  if (intelligence.departmentalHeadCount && 
+      Object.keys(intelligence.departmentalHeadCount).length > 0) {
+    dataPoints++;
+  }
+  if (intelligence.fundingEvents.length > 0) dataPoints++;
   if (intelligence.technologies.length > 0) dataPoints++;
   
   // More data sources = higher confidence
@@ -292,33 +434,48 @@ function generateSignalDescriptions(
 ): string[] {
   const signals: string[] = [];
   
-  // Intent signals
-  if (intelligence.intentSignals) {
-    const intent = intelligence.intentSignals.overall_intent;
-    if (intent === 'high') {
-      signals.push('High buying intent detected');
-    } else if (intent === 'medium') {
-      signals.push('Moderate buying intent detected');
+  // Department size signals
+  if (intelligence.departmentalHeadCount) {
+    const relevantDepts = SYLLABUS_TO_APOLLO_DEPT[syllabusDomain.toLowerCase()] 
+      || SYLLABUS_TO_APOLLO_DEPT['unknown'];
+    
+    let relevantCount = 0;
+    for (const [dept, count] of Object.entries(intelligence.departmentalHeadCount)) {
+      if (relevantDepts.some(rd => dept.toLowerCase().includes(rd))) {
+        relevantCount += count;
+      }
+    }
+    
+    if (relevantCount > 50) {
+      signals.push(`Large ${syllabusDomain} team (${relevantCount}+ employees)`);
+    } else if (relevantCount > 20) {
+      signals.push(`Growing ${syllabusDomain} team (${relevantCount} employees)`);
+    } else if (relevantCount > 0) {
+      signals.push(`${syllabusDomain} team present (${relevantCount} employees)`);
     }
   }
   
-  // Department growth
-  if (intelligence.departmentGrowthScore > 0.6) {
-    const dept = DOMAIN_TO_DEPARTMENT[syllabusDomain] || 'engineering';
-    signals.push(`${dept.charAt(0).toUpperCase() + dept.slice(1)} department is growing`);
-  } else if (intelligence.departmentGrowthScore < 0.3) {
-    signals.push('Relevant department shows limited growth');
+  // Funding signals
+  if (intelligence.fundingActivityScore > 0.6) {
+    const recentFunding = intelligence.fundingEvents[0];
+    if (recentFunding) {
+      signals.push(`Recent funding: ${recentFunding.type || 'Investment'}`);
+    }
+  } else if (intelligence.fundingEvents.length > 0) {
+    signals.push(`${intelligence.fundingEvents.length} funding rounds on record`);
   }
   
-  // Technology match
-  if (intelligence.technologyMatchScore > 0.5) {
-    signals.push('Technology stack aligns with syllabus skills');
+  // Technology match signals
+  if (intelligence.technologyMatchScore > 0.6) {
+    signals.push('Strong technology stack alignment');
+  } else if (intelligence.technologyMatchScore > 0.4) {
+    signals.push('Moderate technology overlap');
   }
   
   // Technologies found
   if (intelligence.technologies.length > 0) {
-    const techCount = intelligence.technologies.length;
-    signals.push(`${techCount} technologies identified`);
+    const topTech = intelligence.technologies.slice(0, 3).map(t => t.name);
+    signals.push(`Tech stack: ${topTech.join(', ')}`);
   }
   
   if (signals.length === 0) {
