@@ -56,7 +56,7 @@ const CHAMPION_TITLES = [
  * Implements SignalProvider interface for decision-maker availability scoring.
  * Uses Apollo People Search API to find and analyze company contacts.
  */
-export class ContactQualitySignal implements SignalProvider {
+class ContactQualitySignalProvider implements SignalProvider {
   readonly name: SignalName = 'contact_quality';
   readonly weight: number = SIGNAL_WEIGHTS.contact_quality;
 
@@ -445,6 +445,9 @@ export class ContactQualitySignal implements SignalProvider {
     };
   }
 }
+
+// Export singleton instance for consistency with other signals
+export const ContactQualitySignal = new ContactQualitySignalProvider();
 
 // =============================================================================
 // SUPPORTING TYPES
