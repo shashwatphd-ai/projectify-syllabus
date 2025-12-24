@@ -99,11 +99,11 @@ Faculty Dashboard → Role-Based Auth → RLS Policies
 
 | Task | Priority | Effort | Owner | Status |
 |------|----------|--------|-------|--------|
-| Fix RLS on profiles table | P0 | 2h | Backend | TODO |
+| Fix RLS on profiles table | P0 | 2h | Backend | ✅ DONE |
 | Re-enable tech filtering with fallback | P0 | 4h | Backend | TODO |
 | Re-enable distance filtering | P0 | 2h | Backend | TODO |
 | Increase batch size to 25 | P1 | 1h | Backend | TODO |
-| Fix partnership proposals masking | P0 | 2h | Backend | TODO |
+| Fix partnership proposals masking | P0 | 2h | Backend | ✅ DONE |
 | Document university domains access | P1 | 1h | Docs | TODO |
 
 **Detailed Schedule:**

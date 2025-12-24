@@ -1423,6 +1423,63 @@ export type Database = {
       }
     }
     Views: {
+      partnership_proposals_masked: {
+        Row: {
+          company_profile_id: string | null
+          created_at: string | null
+          id: string | null
+          message: string | null
+          pitch_type: string | null
+          project_id: string | null
+          proposer_email: string | null
+          proposer_id: string | null
+          proposer_name: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_profile_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          message?: string | null
+          pitch_type?: string | null
+          project_id?: string | null
+          proposer_email?: never
+          proposer_id?: string | null
+          proposer_name?: never
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_profile_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          message?: string | null
+          pitch_type?: string | null
+          project_id?: string | null
+          proposer_email?: never
+          proposer_id?: string | null
+          proposer_name?: never
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partnership_proposals_company_profile_id_fkey"
+            columns: ["company_profile_id"]
+            isOneToOne: false
+            referencedRelation: "company_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partnership_proposals_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_feedback_analytics: {
         Row: {
           all_rating_tags: string[] | null
@@ -1503,8 +1560,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      mask_email: { Args: { email: string }; Returns: string }
       student_has_project_with_company: {
         Args: { p_company_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      user_is_proposer: {
+        Args: { proposal_id: string; user_id: string }
+        Returns: boolean
+      }
+      user_owns_proposal_project: {
+        Args: { proposal_id: string; user_id: string }
         Returns: boolean
       }
     }
