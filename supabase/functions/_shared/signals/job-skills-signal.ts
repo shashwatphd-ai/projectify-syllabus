@@ -30,8 +30,8 @@ import {
 // CONFIGURATION
 // ============================================================================
 
-/** Minimum similarity threshold for a valid match */
-const MATCH_THRESHOLD = 0.65;
+/** Minimum similarity threshold for a valid match - lowered for cross-domain matching */
+const MATCH_THRESHOLD = 0.45;
 
 /** Weight for title match vs description match */
 const TITLE_WEIGHT = 0.7;
@@ -226,6 +226,7 @@ function calculateKeywordFallback(
   skills: string[]
 ): SignalResult {
   console.log(`     🔄 Using keyword fallback matching`);
+  console.log(`     📋 Jobs: ${jobs.length}, Skills: ${skills.length}`);
   
   const limitedJobs = jobs.slice(0, MAX_JOBS_TO_PROCESS);
   const limitedSkills = skills.slice(0, MAX_SKILLS_TO_PROCESS);
@@ -242,14 +243,17 @@ function calculateKeywordFallback(
   const matchedSkills = new Set<string>();
   
   for (const job of limitedJobs) {
-    const jobTokens = tokenize(`${job.title} ${job.description || ''}`);
+    const jobText = `${job.title} ${job.description || ''}`;
+    const jobTokens = tokenize(jobText);
     
     for (const [skill, skillTokens] of skillKeywords) {
       const overlap = calculateOverlap(jobTokens, skillTokens);
       
-      if (overlap >= 0.3) { // 30% keyword overlap threshold
+      // Lowered threshold for better matching
+      if (overlap >= 0.15) { // 15% keyword overlap threshold (was 30%)
         matches.push({ job: job.title, skill, overlap });
         matchedSkills.add(skill);
+        console.log(`     ✓ Match: "${job.title}" ↔ "${skill}" (${Math.round(overlap * 100)}%)`);
       }
     }
   }
@@ -257,16 +261,25 @@ function calculateKeywordFallback(
   // Sort by overlap
   matches.sort((a, b) => b.overlap - a.overlap);
   
+  console.log(`     📊 Keyword matches found: ${matches.length}`);
+  
   // Calculate score (lower confidence for keyword matching)
   const avgOverlap = matches.length > 0
     ? matches.reduce((sum, m) => sum + m.overlap, 0) / matches.length
     : 0;
   
   const skillCoverage = matchedSkills.size / limitedSkills.length;
-  const score = Math.round((avgOverlap * 40) + (skillCoverage * 40));
+  
+  // Improved scoring: give credit for any matches found
+  const baseScore = Math.round((avgOverlap * 40) + (skillCoverage * 40));
+  // Bonus for having matches at all
+  const matchBonus = matches.length > 0 ? Math.min(20, matches.length * 5) : 0;
+  const score = Math.min(baseScore + matchBonus, 70); // Cap at 70 for keyword matching
+  
+  console.log(`     ✅ Keyword fallback score: ${score}/100`);
   
   return {
-    score: Math.min(score, 70), // Cap at 70 for keyword matching
+    score,
     confidence: 0.5, // Lower confidence for keyword method
     signals: [
       `Keyword matching: ${matches.length} potential matches`,
@@ -276,7 +289,8 @@ function calculateKeywordFallback(
     rawData: {
       method: 'keyword_fallback',
       matchCount: matches.length,
-      skillCoverage
+      skillCoverage,
+      topMatches: matches.slice(0, 5)
     }
   };
 }
