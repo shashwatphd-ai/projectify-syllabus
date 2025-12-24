@@ -25,6 +25,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { LiveDemandBadge } from "@/components/premium/LiveDemandBadge";
 
 const getQualityBorder = (similarity: number) => {
   if (similarity >= 0.80) return 'border-l-4 border-l-green-500';
@@ -439,6 +440,14 @@ const Projects = () => {
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Tier</span>
                     <Badge variant="outline" className="text-xs py-0">{project.tier}</Badge>
+                  </div>
+
+                  {/* Live Demand Badge - Premium Feature */}
+                  <div className="pt-2">
+                    <LiveDemandBadge 
+                      skills={Array.isArray(project.skills) ? project.skills.map((s: any) => typeof s === 'string' ? s : s?.name || '').filter(Boolean) : []}
+                      variant="compact"
+                    />
                   </div>
 
                   <div className="pt-3 border-t space-y-2">
