@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { calculateApolloEnrichedPricing, calculateApolloEnrichedROI } from '../_shared/pricing-service.ts';
 import { generateProjectProposal } from '../_shared/generation-service.ts';
 import { calculateLOAlignment, calculateMarketAlignmentScore, generateLOAlignmentDetail } from '../_shared/alignment-service.ts';
-import { extractSkillsFromOutcomes, formatSkillsForDisplay } from '../_shared/skill-extraction-service.ts';
+import { extractSkillsHybrid, formatSkillsForDisplay } from '../_shared/skill-extraction-service.ts';
 import { filterValidCompanies } from '../_shared/company-validation-service.ts';
 
 const corsHeaders = {
@@ -490,14 +490,17 @@ serve(async (req) => {
     const cityZip = course.city_zip;
     const level = course.level;
 
-    // PHASE 1: Extract skills from course outcomes
+    // PHASE 1: Extract skills from course outcomes (Lightcast NLP primary, pattern fallback)
     console.log('\n🧠 [Phase 1] Extracting skills from course outcomes...');
-    const skillExtractionResult = await extractSkillsFromOutcomes(
+    const skillExtractionResult = await extractSkillsHybrid(
       outcomes,
       course.title,
       level
     );
     console.log(formatSkillsForDisplay(skillExtractionResult));
+    if (skillExtractionResult.lightcastEnriched) {
+      console.log('  🌟 Skills extracted via Lightcast NLP');
+    }
 
     // CRITICAL: Enforce Apollo-First Architecture - generation_run_id is MANDATORY
     const generationRunId = generation_run_id;
