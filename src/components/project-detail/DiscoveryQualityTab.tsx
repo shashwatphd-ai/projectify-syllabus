@@ -39,6 +39,12 @@ interface DiscoveryQualityTabProps {
     name?: string;
     discovery_source?: string | null;
     signal_confidence?: string | null;
+    enrichment_status?: {
+      level?: string;
+      last_enriched?: string | null;
+      completeness_score?: number;
+      apollo_date?: string | null;
+    } | null;
   } | null;
   project?: {
     title?: string;
@@ -124,6 +130,7 @@ export function DiscoveryQualityTab({
   const matchingSkills = parseMatchingSkills(company?.matching_skills);
   const jobPostingsCount = countJobPostings(company?.job_postings);
   const confidence = company?.signal_confidence || signalData?.confidence || 'medium';
+  const enrichmentLevel = company?.enrichment_status?.level || 'basic';
 
   return (
     <ProfessionalSignalDashboard
@@ -139,6 +146,7 @@ export function DiscoveryQualityTab({
       confidence={confidence}
       matchingSkills={matchingSkills}
       jobPostingsCount={jobPostingsCount}
+      enrichmentLevel={enrichmentLevel}
     />
   );
 }
