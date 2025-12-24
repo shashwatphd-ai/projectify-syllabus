@@ -55,6 +55,7 @@ export type Database = {
           apollo_organization_id: string | null
           buying_intent_signals: Json | null
           city: string | null
+          composite_signal_score: number | null
           contact_city: string | null
           contact_country: string | null
           contact_email: string | null
@@ -67,11 +68,13 @@ export type Database = {
           contact_phone: string | null
           contact_phone_numbers: Json | null
           contact_photo_url: string | null
+          contact_quality_score: number | null
           contact_state: string | null
           contact_title: string | null
           contact_twitter_url: string | null
           data_completeness_score: number | null
           data_enrichment_level: string | null
+          department_fit_score: number | null
           departmental_head_count: Json | null
           description: string | null
           discovery_source: string | null
@@ -88,6 +91,7 @@ export type Database = {
           last_enriched_at: string
           last_verified_at: string | null
           linkedin_profile: string | null
+          market_signal_score: number | null
           match_confidence: string | null
           matching_dwas: Json | null
           matching_skills: Json | null
@@ -105,8 +109,11 @@ export type Database = {
           recent_news: string | null
           sector: string | null
           seo_description: string | null
+          signal_confidence: string | null
+          signal_data: Json | null
           similarity_score: number | null
           size: string | null
+          skill_match_score: number | null
           source: string | null
           technologies: Json | null
           technologies_used: Json | null
@@ -119,6 +126,7 @@ export type Database = {
           apollo_organization_id?: string | null
           buying_intent_signals?: Json | null
           city?: string | null
+          composite_signal_score?: number | null
           contact_city?: string | null
           contact_country?: string | null
           contact_email?: string | null
@@ -131,11 +139,13 @@ export type Database = {
           contact_phone?: string | null
           contact_phone_numbers?: Json | null
           contact_photo_url?: string | null
+          contact_quality_score?: number | null
           contact_state?: string | null
           contact_title?: string | null
           contact_twitter_url?: string | null
           data_completeness_score?: number | null
           data_enrichment_level?: string | null
+          department_fit_score?: number | null
           departmental_head_count?: Json | null
           description?: string | null
           discovery_source?: string | null
@@ -152,6 +162,7 @@ export type Database = {
           last_enriched_at?: string
           last_verified_at?: string | null
           linkedin_profile?: string | null
+          market_signal_score?: number | null
           match_confidence?: string | null
           matching_dwas?: Json | null
           matching_skills?: Json | null
@@ -169,8 +180,11 @@ export type Database = {
           recent_news?: string | null
           sector?: string | null
           seo_description?: string | null
+          signal_confidence?: string | null
+          signal_data?: Json | null
           similarity_score?: number | null
           size?: string | null
+          skill_match_score?: number | null
           source?: string | null
           technologies?: Json | null
           technologies_used?: Json | null
@@ -183,6 +197,7 @@ export type Database = {
           apollo_organization_id?: string | null
           buying_intent_signals?: Json | null
           city?: string | null
+          composite_signal_score?: number | null
           contact_city?: string | null
           contact_country?: string | null
           contact_email?: string | null
@@ -195,11 +210,13 @@ export type Database = {
           contact_phone?: string | null
           contact_phone_numbers?: Json | null
           contact_photo_url?: string | null
+          contact_quality_score?: number | null
           contact_state?: string | null
           contact_title?: string | null
           contact_twitter_url?: string | null
           data_completeness_score?: number | null
           data_enrichment_level?: string | null
+          department_fit_score?: number | null
           departmental_head_count?: Json | null
           description?: string | null
           discovery_source?: string | null
@@ -216,6 +233,7 @@ export type Database = {
           last_enriched_at?: string
           last_verified_at?: string | null
           linkedin_profile?: string | null
+          market_signal_score?: number | null
           match_confidence?: string | null
           matching_dwas?: Json | null
           matching_skills?: Json | null
@@ -233,8 +251,11 @@ export type Database = {
           recent_news?: string | null
           sector?: string | null
           seo_description?: string | null
+          signal_confidence?: string | null
+          signal_data?: Json | null
           similarity_score?: number | null
           size?: string | null
+          skill_match_score?: number | null
           source?: string | null
           technologies?: Json | null
           technologies_used?: Json | null
@@ -598,6 +619,7 @@ export type Database = {
           ai_tokens_consumed: number | null
           apollo_credits_used: number | null
           average_similarity_score: number | null
+          companies_above_threshold: number | null
           companies_after_filtering: number | null
           companies_before_filtering: number | null
           companies_discovered: number | null
@@ -609,13 +631,16 @@ export type Database = {
           error_details: Json | null
           error_message: string | null
           extracted_skills: Json | null
+          fallback_threshold_used: number | null
           id: string
           industries: Json | null
           location: string | null
+          news_api_calls: number | null
           num_teams: number
           occupation_mapping_confidence: number | null
           occupation_mapping_provider: string | null
           onet_occupations: Json | null
+          people_api_calls: number | null
           processing_time_seconds: number | null
           projects_generated: number | null
           scoring_notes: string | null
@@ -623,6 +648,7 @@ export type Database = {
           scoring_weights: Json | null
           semantic_filter_applied: boolean | null
           semantic_filter_threshold: number | null
+          signal_scores_summary: Json | null
           skill_extraction_model: string | null
           specific_companies: Json | null
           started_at: string
@@ -635,6 +661,7 @@ export type Database = {
           ai_tokens_consumed?: number | null
           apollo_credits_used?: number | null
           average_similarity_score?: number | null
+          companies_above_threshold?: number | null
           companies_after_filtering?: number | null
           companies_before_filtering?: number | null
           companies_discovered?: number | null
@@ -646,13 +673,16 @@ export type Database = {
           error_details?: Json | null
           error_message?: string | null
           extracted_skills?: Json | null
+          fallback_threshold_used?: number | null
           id?: string
           industries?: Json | null
           location?: string | null
+          news_api_calls?: number | null
           num_teams: number
           occupation_mapping_confidence?: number | null
           occupation_mapping_provider?: string | null
           onet_occupations?: Json | null
+          people_api_calls?: number | null
           processing_time_seconds?: number | null
           projects_generated?: number | null
           scoring_notes?: string | null
@@ -660,6 +690,7 @@ export type Database = {
           scoring_weights?: Json | null
           semantic_filter_applied?: boolean | null
           semantic_filter_threshold?: number | null
+          signal_scores_summary?: Json | null
           skill_extraction_model?: string | null
           specific_companies?: Json | null
           started_at?: string
@@ -672,6 +703,7 @@ export type Database = {
           ai_tokens_consumed?: number | null
           apollo_credits_used?: number | null
           average_similarity_score?: number | null
+          companies_above_threshold?: number | null
           companies_after_filtering?: number | null
           companies_before_filtering?: number | null
           companies_discovered?: number | null
@@ -683,13 +715,16 @@ export type Database = {
           error_details?: Json | null
           error_message?: string | null
           extracted_skills?: Json | null
+          fallback_threshold_used?: number | null
           id?: string
           industries?: Json | null
           location?: string | null
+          news_api_calls?: number | null
           num_teams?: number
           occupation_mapping_confidence?: number | null
           occupation_mapping_provider?: string | null
           onet_occupations?: Json | null
+          people_api_calls?: number | null
           processing_time_seconds?: number | null
           projects_generated?: number | null
           scoring_notes?: string | null
@@ -697,6 +732,7 @@ export type Database = {
           scoring_weights?: Json | null
           semantic_filter_applied?: boolean | null
           semantic_filter_threshold?: number | null
+          signal_scores_summary?: Json | null
           skill_extraction_model?: string | null
           specific_companies?: Json | null
           started_at?: string
