@@ -6,6 +6,12 @@ import { extractSkillsFromOutcomes, formatSkillsForDisplay } from '../_shared/sk
 import { createDefaultCoordinator, formatCoordinatedResultsForDisplay } from '../_shared/occupation-coordinator.ts';
 import { rankCompaniesBySimilarity, formatSemanticFilteringForDisplay, getRecommendedThreshold, shouldSkipSemanticFiltering } from '../_shared/semantic-matching-service.ts';
 
+// Signal-driven discovery (Step 8 of Implementation Plan 23 Dec 2025)
+import { 
+  calculateBatchSignals, 
+  toStorableSignalData,
+  type CompanyForSignal 
+} from '../_shared/signals/index.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -125,6 +131,53 @@ function classifyDiscoveryError(error: unknown, phase: string = 'unknown'): Clas
       rawError: errorMessage.substring(0, 200)
     }
   };
+}
+
+/**
+ * Infer syllabus domain from course title and outcomes
+ * Used for Signal 3 (Department Fit) and Signal 4 (Contact Quality)
+ * to identify relevant departments and decision-makers
+ */
+function inferSyllabusDomain(
+  courseTitle: string,
+  outcomes: string[]
+): string {
+  const titleLower = (courseTitle || '').toLowerCase();
+  const outcomesText = outcomes.join(' ').toLowerCase();
+  const combined = `${titleLower} ${outcomesText}`;
+  
+  // Finance domain keywords
+  if (/\b(finance|financial|accounting|investment|portfolio|banking|trading|risk management|cfa|cpa)\b/.test(combined)) {
+    return 'finance';
+  }
+  
+  // Engineering/Tech domain keywords
+  if (/\b(engineering|software|programming|developer|coding|computer science|data science|machine learning|ai|algorithm|devops|cloud|aws|azure)\b/.test(combined)) {
+    return 'engineering';
+  }
+  
+  // Marketing domain keywords
+  if (/\b(marketing|advertising|branding|social media|seo|content|digital marketing|campaign|analytics|growth)\b/.test(combined)) {
+    return 'marketing';
+  }
+  
+  // Operations domain keywords
+  if (/\b(operations|supply chain|logistics|manufacturing|process|lean|six sigma|project management|procurement)\b/.test(combined)) {
+    return 'operations';
+  }
+  
+  // Healthcare domain keywords
+  if (/\b(healthcare|medical|nursing|pharmacy|clinical|patient|health|biomedical)\b/.test(combined)) {
+    return 'healthcare';
+  }
+  
+  // HR domain keywords
+  if (/\b(human resources|hr|recruiting|talent|workforce|employee|organizational)\b/.test(combined)) {
+    return 'hr';
+  }
+  
+  // Default to 'unknown' if no clear domain detected
+  return 'unknown';
 }
 
 /**
@@ -980,7 +1033,109 @@ serve(async (req) => {
     }
 
     // ====================================
-    // Step 6: Update generation run
+    // Step 6.5: Calculate Signal Scores (Phase 3 of Implementation Plan)
+    // Signal-driven company scoring using 4 parallel signals
+    // ====================================
+    console.log(`\n📊 [Phase 3] Calculating signal scores for ${filteredCompanies.length} companies...`);
+    
+    // Prepare API keys
+    const apolloApiKey = Deno.env.get('APOLLO_API_KEY');
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    
+    // Convert filtered companies to signal format
+    const companiesForSignal: CompanyForSignal[] = filteredCompanies.map(company => ({
+      id: company.apollo_organization_id || company.name, // Use Apollo ID if available
+      name: company.name,
+      apollo_organization_id: company.apollo_organization_id,
+      industries: company.industries,
+      departmental_head_count: company.departmentalHeadCount,
+      technologies: company.technologiesUsed,
+      job_postings: company.jobPostings,
+      description: company.description,
+      size: company.size
+    }));
+    
+    // Extract syllabus domain from course title/outcomes
+    const syllabusDomain = inferSyllabusDomain(course.title, outcomes);
+    
+    // Extract skill names from the extracted skills
+    const syllabusSkillNames = skillExtractionResult.skills.map(s => s.skill);
+    
+    // Calculate signal scores in batch
+    let signalScores: Map<string, import('../_shared/signals/index.ts').CompositeScore> = new Map();
+    
+    try {
+      signalScores = await calculateBatchSignals(
+        companiesForSignal,
+        syllabusSkillNames,
+        syllabusDomain,
+        apolloApiKey,
+        geminiApiKey
+      );
+      
+      console.log(`   ✅ Signal scores calculated for ${signalScores.size} companies`);
+      
+      // Update company_profiles with signal scores
+      for (const [companyId, composite] of signalScores) {
+        const storableData = toStorableSignalData(composite);
+        
+        // Find the company in filteredCompanies to get actual DB identifier
+        const company = filteredCompanies.find(c => 
+          (c.apollo_organization_id === companyId) || (c.name === companyId)
+        );
+        
+        if (company) {
+          const { error: signalUpdateError } = await supabase
+            .from('company_profiles')
+            .update({
+              skill_match_score: storableData.skill_match_score,
+              market_signal_score: storableData.market_signal_score,
+              department_fit_score: storableData.department_fit_score,
+              contact_quality_score: storableData.contact_quality_score,
+              composite_signal_score: storableData.composite_signal_score,
+              signal_confidence: storableData.signal_confidence,
+              signal_data: storableData.signal_data
+            })
+            .eq('name', company.name)
+            .eq('zip', company.zip || '');
+          
+          if (signalUpdateError) {
+            console.warn(`   ⚠️ Failed to update signal scores for ${company.name}:`, signalUpdateError.message);
+          } else {
+            console.log(`   ✓ Signal scores stored for: ${company.name} (composite: ${composite.overall}/100)`);
+          }
+        }
+      }
+      
+      // Calculate summary stats for generation_run
+      const allScores = Array.from(signalScores.values());
+      const avgComposite = allScores.length > 0 
+        ? allScores.reduce((sum, s) => sum + s.overall, 0) / allScores.length 
+        : 0;
+      
+      // Store signal summary in generation_run
+      await supabase
+        .from('generation_runs')
+        .update({
+          signal_scores_summary: {
+            companies_scored: signalScores.size,
+            average_composite: Math.round(avgComposite * 10) / 10,
+            high_confidence_count: allScores.filter(s => s.confidence === 'high').length,
+            medium_confidence_count: allScores.filter(s => s.confidence === 'medium').length,
+            low_confidence_count: allScores.filter(s => s.confidence === 'low').length
+          }
+        })
+        .eq('id', generationRunId);
+      
+      console.log(`   📈 Signal summary: avg=${avgComposite.toFixed(1)}/100, high-confidence=${allScores.filter(s => s.confidence === 'high').length}`);
+      
+    } catch (signalError) {
+      console.error(`   ❌ Signal calculation failed:`, signalError);
+      // Non-blocking: continue with discovery even if signals fail
+    }
+
+    // ====================================
+    // Step 7: Update generation run
     // ====================================
     const totalProcessingTime = (Date.now() - startTime) / 1000;
     
@@ -995,7 +1150,8 @@ serve(async (req) => {
         apollo_credits_used: discoveryResult.stats.apiCreditsUsed,
         ai_models_used: { 
           discovery: discoveryResult.stats.providerUsed,
-          provider_version: provider.version
+          provider_version: provider.version,
+          signal_scoring: signalScores.size > 0 ? 'signal-orchestrator-v1' : 'skipped'
         }
       })
       .eq('id', generationRunId);
