@@ -5,7 +5,10 @@
  * This replaces generic text extraction with semantic skill identification.
  *
  * Phase 1 of intelligent company matching system.
+ * Phase 2 Enhancement: Lightcast NLP as primary, pattern-matching as fallback.
  */
+
+import { extractSkillsFromJobPosting, enrichSkillsWithLightcast, LightcastSkill } from './lightcast-service.ts';
 
 export interface ExtractedSkill {
   skill: string;              // The skill name (e.g., "Fluid Dynamics Analysis")
@@ -22,10 +25,87 @@ export interface SkillExtractionResult {
   totalExtracted: number;
   courseContext: string;      // Combined course title + level
   extractionMethod: string;   // For debugging
+  lightcastEnriched?: boolean; // Whether Lightcast was used
 }
 
 /**
- * Main skill extraction function
+ * NEW: Hybrid skill extraction - Lightcast primary, pattern-matching fallback
+ * This is the recommended entry point for all skill extraction.
+ */
+export async function extractSkillsHybrid(
+  outcomes: string[],
+  courseTitle?: string,
+  courseLevel?: string
+): Promise<SkillExtractionResult> {
+  console.log(`🧠 [Skill Extraction - Hybrid] Starting extraction...`);
+  console.log(`  📚 Course: ${courseTitle || 'Unknown'} (${courseLevel || 'Unknown'})`);
+  console.log(`  📝 Outcomes: ${outcomes.length}`);
+
+  const courseContext = `${courseTitle || ''} ${courseLevel || ''}`.trim();
+  const lightcastApiKey = Deno.env.get('LIGHTCAST_API_KEY');
+
+  // Try Lightcast NLP extraction first (if API key is configured)
+  if (lightcastApiKey) {
+    console.log(`  🌟 Lightcast API available - using NLP extraction as primary`);
+    
+    try {
+      const text = outcomes.join('\n');
+      const lightcastSkills = await extractSkillsFromJobPosting(text);
+      
+      if (lightcastSkills && lightcastSkills.length > 0) {
+        console.log(`  ✅ Lightcast extracted ${lightcastSkills.length} skills via NLP`);
+        
+        const skills: ExtractedSkill[] = lightcastSkills.map((ls: LightcastSkill) => ({
+          skill: ls.name,
+          category: mapLightcastTypeToCategory(ls.type),
+          confidence: ls.confidence,
+          source: 'Lightcast Skills Extractor API',
+          keywords: ls.tags || []
+        }));
+
+        // Sort by confidence
+        const sorted = skills.sort((a, b) => b.confidence - a.confidence);
+        
+        sorted.forEach(skill => {
+          console.log(`    • ${skill.skill} (${skill.category}, confidence: ${skill.confidence.toFixed(2)})`);
+        });
+
+        return {
+          skills: sorted,
+          totalExtracted: sorted.length,
+          courseContext,
+          extractionMethod: 'lightcast-nlp',
+          lightcastEnriched: true
+        };
+      } else {
+        console.log(`  ⚠️  Lightcast returned no skills - falling back to pattern matching`);
+      }
+    } catch (error) {
+      console.error(`  ❌ Lightcast extraction failed: ${error}`);
+      console.log(`  ⚠️  Falling back to pattern matching`);
+    }
+  } else {
+    console.log(`  ⚠️  Lightcast API key not configured - using pattern matching`);
+  }
+
+  // Fallback to pattern-based extraction
+  return extractSkillsFromOutcomes(outcomes, courseTitle, courseLevel);
+}
+
+/**
+ * Map Lightcast skill type to our category system
+ */
+function mapLightcastTypeToCategory(lightcastType: string): SkillCategory {
+  const lowerType = lightcastType.toLowerCase();
+  if (lowerType === 'hard' || lowerType === 'technical') return 'technical';
+  if (lowerType === 'soft' || lowerType === 'common') return 'analytical';
+  if (lowerType === 'certification') return 'framework';
+  if (lowerType === 'tool' || lowerType === 'software') return 'tool';
+  return 'domain';
+}
+
+/**
+ * Original pattern-based skill extraction function (now used as fallback)
  * Analyzes course outcomes and extracts structured skills
  */
 export async function extractSkillsFromOutcomes(
@@ -33,7 +113,7 @@ export async function extractSkillsFromOutcomes(
   courseTitle?: string,
   courseLevel?: string
 ): Promise<SkillExtractionResult> {
-  console.log(`🧠 [Skill Extraction] Starting extraction...`);
+  console.log(`🧠 [Skill Extraction - Pattern] Starting extraction...`);
   console.log(`  📚 Course: ${courseTitle || 'Unknown'} (${courseLevel || 'Unknown'})`);
   console.log(`  📝 Outcomes: ${outcomes.length}`);
 
@@ -49,7 +129,7 @@ export async function extractSkillsFromOutcomes(
   // Deduplicate and merge similar skills
   let deduplicated = deduplicateSkills(skills);
 
-  // ✨ NEW: Fallback to course-title-based inference for generic courses
+  // Fallback to course-title-based inference for generic courses
   // If we extracted very few skills (< 3), the learning outcomes are probably too generic
   // In this case, infer skills from the course title itself
   if (deduplicated.length < 3 && courseTitle) {
@@ -85,7 +165,8 @@ export async function extractSkillsFromOutcomes(
     skills: sorted,
     totalExtracted: sorted.length,
     courseContext,
-    extractionMethod
+    extractionMethod,
+    lightcastEnriched: false
   };
 }
 
