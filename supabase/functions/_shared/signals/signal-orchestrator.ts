@@ -22,7 +22,8 @@ import {
   SIGNAL_WEIGHTS,
   DEFAULT_FALLBACK_CONFIG,
   FallbackConfig,
-  StorableSignalData
+  StorableSignalData,
+  JobPosting
 } from '../signal-types.ts';
 
 // Import all signal providers
@@ -30,6 +31,35 @@ import { JobSkillsSignal } from './job-skills-signal.ts';
 import { MarketIntelSignal } from './market-intel-signal.ts';
 import { DepartmentFitSignal } from './department-fit-signal.ts';
 import { ContactQualitySignal } from './contact-quality-signal.ts';
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+/**
+ * Extract job postings from company data (handles various formats)
+ */
+function extractJobPostings(jobPostings: unknown): JobPosting[] {
+  if (!jobPostings) return [];
+  
+  try {
+    const parsed = typeof jobPostings === 'string' 
+      ? JSON.parse(jobPostings)
+      : jobPostings;
+    
+    if (!Array.isArray(parsed)) return [];
+    
+    return parsed.map((j: Record<string, unknown>) => ({
+      id: String(j.id || ''),
+      title: String(j.title || 'Unknown Role'),
+      url: j.url ? String(j.url) : undefined,
+      description: j.description ? String(j.description) : undefined
+    }));
+  } catch {
+    console.warn('  ⚠️ Could not parse job_postings');
+    return [];
+  }
+}
 
 // =============================================================================
 // CONFIGURATION
@@ -70,11 +100,16 @@ export async function calculateCompanySignals(
   const startTime = Date.now();
   console.log(`\n🎯 [Orchestrator] Calculating signals for: ${company.name}`);
   
+  // Extract job postings from company data
+  const jobPostings = extractJobPostings(company.job_postings);
+  console.log(`  📋 Job postings available: ${jobPostings.length}`);
+  
   // Build context for all signals
   const context: SignalContext = {
     company,
     syllabusSkills,
     syllabusDomain,
+    jobPostings,
     apolloApiKey,
     geminiApiKey
   };
