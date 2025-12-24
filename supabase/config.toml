@@ -103,3 +103,7 @@ verify_jwt = true
 
 [functions.firecrawl-career-pages]
 verify_jwt = true
+
+# Salary ROI Calculator
+[functions.salary-roi-calculator]
+verify_jwt = false

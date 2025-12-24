@@ -4,6 +4,7 @@ import { GraduationCap, Building2, Sparkles, TrendingUp, Target, AlertTriangle, 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AnalyzeValueButton } from "./AnalyzeValueButton";
 import { StakeholderValueCard } from "./StakeholderValueCard";
+import { SalaryROICard } from "./SalaryROICard";
 import { Progress } from "@/components/ui/progress";
 
 interface ValueAnalysisTabProps {
@@ -254,6 +255,28 @@ export const ValueAnalysisTab = ({
           evidence={industry_value?.evidence_summary || ""}
           benefits={industry_value?.key_benefits || []}
         />
+      </div>
+
+      {/* Salary ROI Calculator */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <SalaryROICard 
+          projectId={projectId} 
+          existingData={actualData?.salary_roi || null}
+          onCalculate={onAnalysisComplete}
+        />
+        
+        {/* Placeholder for future Skill Gap Analysis */}
+        <Card className="border-dashed border-muted-foreground/30">
+          <CardContent className="pt-6">
+            <div className="text-center py-8 space-y-3 opacity-60">
+              <Target className="h-10 w-10 mx-auto text-muted-foreground" />
+              <div>
+                <p className="font-medium text-muted-foreground">Skill Gap Analysis</p>
+                <p className="text-xs text-muted-foreground mt-1">Coming soon</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Action Intelligence */}
