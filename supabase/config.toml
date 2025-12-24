@@ -20,6 +20,10 @@ verify_jwt = false
 [functions.import-university-data]
 verify_jwt = true
 
+# Discovery pipeline - temporarily public for testing
+[functions.discover-companies]
+verify_jwt = false
+
 # Authenticated endpoints - verify_jwt = true (default)
 [functions.send-faculty-approval-email]
 verify_jwt = true
