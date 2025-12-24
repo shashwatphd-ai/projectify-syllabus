@@ -54,7 +54,14 @@ interface ProfessionalSignalDashboardProps {
   confidence: string;
   matchingSkills?: string[];
   jobPostingsCount?: number;
+  enrichmentLevel?: string;
 }
+
+const ENRICHMENT_LABELS: Record<string, { label: string; description: string }> = {
+  fully_enriched: { label: 'Complete', description: 'Full API enrichment with job postings and market data' },
+  apollo_verified: { label: 'Verified', description: 'Apollo-verified with partial market intelligence' },
+  basic: { label: 'Basic', description: 'Limited data - no job postings or market signals available' },
+};
 
 export function ProfessionalSignalDashboard({
   companyName,
@@ -62,7 +69,8 @@ export function ProfessionalSignalDashboard({
   signalData,
   confidence,
   matchingSkills = [],
-  jobPostingsCount = 0
+  jobPostingsCount = 0,
+  enrichmentLevel = 'basic'
 }: ProfessionalSignalDashboardProps) {
   const signals = signalData?.signalsDetected || {};
   const errors = signalData?.errors || [];
@@ -112,11 +120,22 @@ export function ProfessionalSignalDashboard({
   ].filter(e => e.present).length;
   const validationPercentage = Math.round((presentEvidence / totalEvidencePoints) * 100);
 
+  const enrichmentInfo = ENRICHMENT_LABELS[enrichmentLevel] || ENRICHMENT_LABELS.basic;
+  const isBasicEnrichment = enrichmentLevel === 'basic';
+
   const getConfidenceColor = (conf: string) => {
     switch (conf) {
       case 'high': return 'text-green-600 bg-green-50 dark:bg-green-950';
       case 'medium': return 'text-amber-600 bg-amber-50 dark:bg-amber-950';
       default: return 'text-red-600 bg-red-50 dark:bg-red-950';
+    }
+  };
+
+  const getEnrichmentColor = (level: string) => {
+    switch (level) {
+      case 'fully_enriched': return 'text-green-600';
+      case 'apollo_verified': return 'text-blue-600';
+      default: return 'text-amber-600';
     }
   };
 
@@ -193,17 +212,38 @@ export function ProfessionalSignalDashboard({
               </p>
             </div>
 
-            {/* Data Sources */}
+            {/* Enrichment Level */}
             <div className="p-4 rounded-lg bg-muted/50">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                Analysis Method
+                Data Enrichment
               </p>
-              <p className="text-sm font-medium">4-Signal Pipeline</p>
+              <p className={cn("text-sm font-medium", getEnrichmentColor(enrichmentLevel))}>
+                {enrichmentInfo.label}
+              </p>
               <p className="text-xs text-muted-foreground mt-1">
-                ML-enhanced matching v2.1
+                {enrichmentInfo.description}
               </p>
             </div>
           </div>
+
+          {/* Basic Enrichment Warning */}
+          {isBasicEnrichment && (
+            <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 mb-4">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    Limited Data Available
+                  </p>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                    This company has basic enrichment only. Job postings, market signals, and detailed 
+                    intelligence were not retrieved during discovery. Scores reflect available data 
+                    and may underrepresent actual fit. Consider manual research for better assessment.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Errors/Limitations Banner */}
           {errors.length > 0 && (
