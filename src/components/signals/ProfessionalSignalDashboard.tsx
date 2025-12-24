@@ -1,5 +1,5 @@
 // ProfessionalSignalDashboard - Evidence-based signal analysis
-// Business/Academia professional format with validation transparency
+// Business/Academia professional format with complete data transparency
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,9 @@ import {
   BarChart3,
   AlertTriangle,
   CheckCircle2,
-  Info
+  Info,
+  Database,
+  ExternalLink
 } from "lucide-react";
 import { EvidenceBasedSignalCard } from "./EvidenceBasedSignalCard";
 import { cn } from "@/lib/utils";
@@ -57,10 +59,31 @@ interface ProfessionalSignalDashboardProps {
   enrichmentLevel?: string;
 }
 
-const ENRICHMENT_LABELS: Record<string, { label: string; description: string }> = {
-  fully_enriched: { label: 'Complete', description: 'Full API enrichment with job postings and market data' },
-  apollo_verified: { label: 'Verified', description: 'Apollo-verified with partial market intelligence' },
-  basic: { label: 'Basic', description: 'Limited data - no job postings or market signals available' },
+const ENRICHMENT_LABELS: Record<string, { label: string; description: string; color: string }> = {
+  fully_enriched: { 
+    label: 'Complete', 
+    description: 'Full API enrichment with job postings, market data, and verified contacts',
+    color: 'text-green-600'
+  },
+  apollo_verified: { 
+    label: 'Verified', 
+    description: 'Apollo-verified with organization data. Job postings may be limited.',
+    color: 'text-blue-600'
+  },
+  basic: { 
+    label: 'Basic', 
+    description: 'Organization found but detailed signals unavailable. Scores reflect limited data.',
+    color: 'text-amber-600'
+  },
+};
+
+// Data source transparency labels
+const DATA_SOURCE_INFO = {
+  jobPostings: { source: 'Apollo Job Postings API', note: 'Live job listings from LinkedIn/company sites' },
+  skillMatch: { source: 'O*NET + Syllabus Analysis', note: 'AI-matched skills from syllabus vs. job requirements' },
+  marketIntel: { source: 'Apollo News API', note: 'Funding rounds, press releases, growth signals' },
+  contact: { source: 'Apollo People API', note: 'Decision-maker lookup (emails may require credits)' },
+  department: { source: 'Apollo Organization API', note: 'Headcount by department when available' },
 };
 
 export function ProfessionalSignalDashboard({
@@ -74,44 +97,55 @@ export function ProfessionalSignalDashboard({
 }: ProfessionalSignalDashboardProps) {
   const signals = signalData?.signalsDetected || {};
   const errors = signalData?.errors || [];
+  
+  // Use component scores from signal_data if available, fallback to direct scores
+  const componentScores = signalData?.components || {
+    jobSkillsMatch: scores.skillMatch,
+    marketIntelligence: scores.marketIntel,
+    departmentFit: scores.departmentFit,
+    contactQuality: scores.contactQuality
+  };
 
-  // Build evidence arrays for each signal
+  // Build evidence arrays for each signal with data source transparency
   const skillMatchEvidence = [
     { 
-      label: "Active job postings analyzed", 
-      present: signals.hasActiveJobPostings || false,
-      detail: jobPostingsCount > 0 ? `${jobPostingsCount} positions` : undefined
+      label: "Job postings analyzed", 
+      present: signals.hasActiveJobPostings || jobPostingsCount > 0,
+      detail: jobPostingsCount > 0 ? `${jobPostingsCount} positions from Apollo` : 'No postings available',
+      source: DATA_SOURCE_INFO.jobPostings.source
     },
     { 
       label: "Skills matched to syllabus", 
       present: matchingSkills.length > 0,
-      detail: matchingSkills.length > 0 ? `${matchingSkills.length} skills` : undefined
+      detail: matchingSkills.length > 0 ? `${matchingSkills.length} skill overlaps` : 'No direct matches found',
+      source: DATA_SOURCE_INFO.skillMatch.source
     },
     { 
-      label: "Technology stack alignment", 
-      present: signals.hasTechnologyMatch || false 
+      label: "Technology alignment", 
+      present: signals.hasTechnologyMatch || false,
+      source: 'Apollo Technology Stack'
     }
   ];
 
   const marketIntelEvidence = [
-    { label: "Recent funding activity", present: signals.hasFundingNews || false },
-    { label: "Active hiring signals", present: signals.hasHiringNews || false },
-    { label: "Growth indicators detected", present: signals.hasDepartmentGrowth || false }
+    { label: "Funding activity", present: signals.hasFundingNews || false, source: DATA_SOURCE_INFO.marketIntel.source },
+    { label: "Hiring velocity", present: signals.hasHiringNews || jobPostingsCount >= 3, source: DATA_SOURCE_INFO.marketIntel.source },
+    { label: "Department growth", present: signals.hasDepartmentGrowth || false, source: DATA_SOURCE_INFO.department.source }
   ];
 
   const departmentFitEvidence = [
-    { label: "Technical team identified", present: (scores.departmentFit > 20) },
-    { label: "Department growth detected", present: signals.hasDepartmentGrowth || false },
-    { label: "Technology stack match", present: signals.hasTechnologyMatch || false }
+    { label: "Technical team size", present: componentScores.departmentFit > 20, source: DATA_SOURCE_INFO.department.source },
+    { label: "Growth trajectory", present: signals.hasDepartmentGrowth || false, source: DATA_SOURCE_INFO.department.source },
+    { label: "Tech stack relevance", present: signals.hasTechnologyMatch || false, source: 'Apollo Technology Stack' }
   ];
 
   const contactQualityEvidence = [
-    { label: "Decision-maker identified", present: signals.hasDecisionMakers || false },
-    { label: "Verified contact information", present: (scores.contactQuality > 30) },
-    { label: "Relevant title match", present: (scores.contactQuality > 50) }
+    { label: "Decision-maker found", present: signals.hasDecisionMakers || false, source: DATA_SOURCE_INFO.contact.source },
+    { label: "Email status verified", present: componentScores.contactQuality > 50, source: DATA_SOURCE_INFO.contact.source },
+    { label: "Title relevance", present: componentScores.contactQuality > 30, source: DATA_SOURCE_INFO.contact.source }
   ];
 
-  // Calculate overall validation metrics
+  // Calculate validation percentage from actual signals
   const totalEvidencePoints = skillMatchEvidence.length + marketIntelEvidence.length + 
     departmentFitEvidence.length + contactQualityEvidence.length;
   const presentEvidence = [
