@@ -10,7 +10,7 @@
 
 // Signal implementations
 export { JobSkillsSignal } from './job-skills-signal.ts';
-// export { MarketIntelSignal } from './market-intel-signal.ts';  // Step 4
+export { MarketIntelSignal } from './market-intel-signal.ts';  // Step 4 ✓
 // export { DepartmentFitSignal } from './department-fit-signal.ts';  // Step 5
 // export { ContactQualitySignal } from './contact-quality-signal.ts';  // Step 6
 
