@@ -40,14 +40,14 @@ Syllabus Parsing → Course Management → Company Discovery → Project Generat
 Faculty Dashboard → Role-Based Auth → RLS Policies
 ```
 
-### ⚠️ Degraded Features ("Crisis Mode")
+### ⚠️ Degraded Features ("Crisis Mode") - RESOLVED
 
-| Feature | Current State | Impact | Location |
-|---------|---------------|--------|----------|
-| Technology Filtering | DISABLED | Companies not filtered by tech stack | `apollo-provider.ts` |
-| Distance Filtering | DISABLED | No geographic proximity enforcement | `apollo-provider.ts` |
-| Batch Size | Reduced to 5 | Slower API performance | `apollo-provider.ts` |
-| Semantic Matching | Keyword-only | Not using embeddings | `semantic-matching-service.ts` |
+| Feature | Current State | Impact | Location | Status |
+|---------|---------------|--------|----------|--------|
+| Technology Filtering | ✅ RE-ENABLED with fallback | Companies filtered by tech stack | `apollo-provider.ts` | ✅ FIXED |
+| Distance Filtering | ✅ RE-ENABLED with fallback | Geographic proximity enforced | `apollo-provider.ts` | ✅ FIXED |
+| Batch Size | ✅ Increased to 25x | Improved API performance | `apollo-provider.ts` | ✅ FIXED |
+| Semantic Matching | Keyword-only | Not using embeddings | `semantic-matching-service.ts` | Phase 4 |
 
 ### ❌ Not Implemented
 
@@ -83,8 +83,8 @@ Faculty Dashboard → Role-Based Auth → RLS Policies
 
 | Issue | Severity | Resolution | Status |
 |-------|----------|------------|--------|
-| Profiles email exposure | 🔴 High | Add service_role check for email field | TODO |
-| Partnership proposals | 🔴 High | Add column-level masking | TODO |
+| Profiles email exposure | 🔴 High | Add service_role check for email field | ✅ DONE |
+| Partnership proposals | 🔴 High | Add column-level masking | ✅ DONE |
 | University domains public | 🟡 Medium | Document or restrict | TODO |
 
 ---
@@ -100,9 +100,9 @@ Faculty Dashboard → Role-Based Auth → RLS Policies
 | Task | Priority | Effort | Owner | Status |
 |------|----------|--------|-------|--------|
 | Fix RLS on profiles table | P0 | 2h | Backend | ✅ DONE |
-| Re-enable tech filtering with fallback | P0 | 4h | Backend | TODO |
-| Re-enable distance filtering | P0 | 2h | Backend | TODO |
-| Increase batch size to 25 | P1 | 1h | Backend | TODO |
+| Re-enable tech filtering with fallback | P0 | 4h | Backend | ✅ DONE |
+| Re-enable distance filtering | P0 | 2h | Backend | ✅ DONE |
+| Increase batch size to 25 | P1 | 1h | Backend | ✅ DONE |
 | Fix partnership proposals masking | P0 | 2h | Backend | ✅ DONE |
 | Document university domains access | P1 | 1h | Docs | TODO |
 

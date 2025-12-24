@@ -207,9 +207,10 @@ export class ApolloProvider implements DiscoveryProvider {
       // Step 3d: Search for organizations
       const pageOffset = this.calculatePageOffset(courseSeed);
       // Request more if we already have some from company name search
+      // PHASE 0 FIX: Increased multiplier from 5 to 25 for better coverage
       const searchCount = organizations.length > 0 
-        ? remainingCount * 5  // Just get what we need + buffer
-        : context.targetCount * 5;  // Normal multiplier
+        ? remainingCount * 10  // Just get what we need + buffer
+        : context.targetCount * 25;  // Request 25x target for filtering headroom
       
       const additionalOrgs = await this.searchOrganizations(filters, searchCount, pageOffset);
       
@@ -725,17 +726,17 @@ Return JSON:
     const searchStrategy = getApolloSearchStrategy(includeIndustries.length);
     console.log(`  📊 Apollo Search Strategy: ${searchStrategy.toUpperCase()}`);
 
-    // TECHNOLOGY FILTERING: TEMPORARILY DISABLED FOR CRISIS RECOVERY
-    // Apollo may not support string-based technology UIDs (might need numeric IDs)
-    // This was breaking discovery by returning 0 companies
-    // TODO: Re-enable after verifying Apollo API supports this parameter format
+    // TECHNOLOGY FILTERING: RE-ENABLED with safe fallback
+    // Uses Apollo's technology UID search as an optional filter
+    // If technology filter returns 0 results, we retry without it
     const socCodes = context.socMappings?.map(soc => soc.socCode) || [];
     const technologyUIDs = socCodes.length > 0 ? getTechnologiesForSOCCodes(socCodes) : [];
 
     const intelligentFilters: ApolloSearchFilters = {
       organization_locations: [apolloLocation],
       q_organization_keyword_tags: [...includeIndustries], // Industry keywords for filtering
-      currently_using_any_of_technology_uids: undefined, // DISABLED - was causing 0 results
+      // Technology filtering: enabled with fallback (see searchOrganizations)
+      currently_using_any_of_technology_uids: technologyUIDs.length > 0 ? technologyUIDs : undefined,
       // NOTE: Job titles removed from mandatory filters - will use for ranking instead
       // NOTE: Job posting requirement removed - most companies don't post all jobs publicly
       // NOTE: Employee size expanded to include small startups and large enterprises
@@ -747,12 +748,13 @@ Return JSON:
     const preferredJobTitles = uniqueJobTitles;
     console.log(`  💼 Job titles for ranking (not filtering): ${preferredJobTitles.join(', ')}`);
 
-    // Technology filtering diagnostic logging - DISABLED
-    // if (technologyUIDs.length > 0) {
-    //   console.log(`  🔧 Technology filtering enabled: ${technologyUIDs.slice(0, 5).join(', ')}${technologyUIDs.length > 5 ? '...' : ''}`);
-    //   console.log(`     (Automatically excludes staffing firms - they don't use engineering software)`);
-    // }
-    console.log(`  ⚠️  Technology filtering DISABLED (crisis recovery mode)`);
+    // Technology filtering diagnostic logging
+    if (technologyUIDs.length > 0) {
+      console.log(`  🔧 Technology filtering enabled: ${technologyUIDs.slice(0, 5).join(', ')}${technologyUIDs.length > 5 ? '...' : ''}`);
+      console.log(`     (Will fallback to no-tech-filter if 0 results)`);
+    } else {
+      console.log(`  ℹ️  No technology filter (no SOC codes mapped)`);
+    }
 
     // HYBRID STRATEGY: Add course-specific keywords for diversity (not generic industries)
     // This ensures different courses (even with same occupation) get different companies
@@ -863,31 +865,56 @@ Return JSON:
   /**
    * Search Apollo API for organizations matching filters
    */
+  /**
+   * Search for organizations with intelligent fallback strategies
+   * - First tries with technology filter (if specified)
+   * - Falls back to no-tech-filter if 0 results
+   * - Then tries geographic expansion
+   * - Finally tries location-only search
+   */
   private async searchOrganizations(
     filters: ApolloSearchFilters,
     maxResults: number,
     pageOffset: number = 1
   ): Promise<ApolloOrganization[]> {
-    // CRITICAL FIX: Store original location for fallback reset
+    // CRITICAL FIX: Store original values for fallback strategies
     const originalCityLocation = filters.organization_locations[0];
     const originalIndustryTags = [...filters.q_organization_keyword_tags];
+    const originalTechFilter = filters.currently_using_any_of_technology_uids ? [...filters.currently_using_any_of_technology_uids] : undefined;
 
-    console.log(`\n  🔍 Searching Apollo with PERMISSIVE filters (Page ${pageOffset})...`);
+    console.log(`\n  🔍 Searching Apollo with INTELLIGENT filters (Page ${pageOffset})...`);
     console.log(`  📋 Filter configuration:`);
     console.log(`     Location: "${originalCityLocation}"`);
     console.log(`     Industry keywords: ${filters.q_organization_keyword_tags.slice(0, 5).join(', ')}${filters.q_organization_keyword_tags.length > 5 ? '...' : ''}`);
+    console.log(`     Technology filter: ${originalTechFilter?.slice(0, 3).join(', ') || 'NONE'}${(originalTechFilter?.length || 0) > 3 ? '...' : ''}`);
     console.log(`     Employee ranges: ${filters.organization_num_employees_ranges?.join(', ') || 'ALL'}`);
-    console.log(`     Job posting requirement: NONE`);
     console.log(`     Excluded titles: ${filters.person_not_titles?.join(', ') || 'none'}`);
 
-    // Try with specific location first (e.g., "Kansas City, Missouri, United States")
+    // ==========================================
+    // STRATEGY 1: Try with technology filter first (if specified)
+    // ==========================================
     let organizations = await this.trySearch(filters, maxResults, pageOffset);
+    const techFilterResults = organizations.length;
+    console.log(`  📊 Results with technology filter: ${techFilterResults} companies`);
+
+    // TECHNOLOGY FALLBACK: If tech filter returned 0 results, retry without it
+    if (organizations.length === 0 && originalTechFilter && originalTechFilter.length > 0) {
+      console.log(`  ⚠️  Technology filter returned 0 results - retrying WITHOUT tech filter`);
+      filters.currently_using_any_of_technology_uids = undefined;
+      organizations = await this.trySearch(filters, maxResults, pageOffset);
+      console.log(`  📊 Results without technology filter: ${organizations.length} companies`);
+      
+      if (organizations.length > 0) {
+        console.log(`  ✅ Technology fallback successful - found ${organizations.length} companies`);
+      }
+    }
+
     const specificLocationResults = organizations.length;
     console.log(`  📊 Results with specific location "${originalCityLocation}": ${specificLocationResults} companies`);
 
-    // FIX B: ONLY expand geography if we have ZERO local results
-    // Changed from "< maxResults" to "=== 0" to prevent premature geographic expansion
-    // Rationale: Better to return 5 LOCAL companies than 40 DISTANT companies
+    // ==========================================
+    // STRATEGY 2: Geographic expansion (only if ZERO results)
+    // ==========================================
     if (organizations.length === 0 && originalCityLocation.includes(',')) {
       const locationParts = originalCityLocation.split(',').map(p => p.trim());
 
@@ -915,9 +942,9 @@ Return JSON:
       console.log(`     (Prefer local companies over distant ones, even if fewer than target ${maxResults})`);
     }
 
-    // 🔥 CRITICAL FIX: If still insufficient results, try relaxing industry filters
-    // This is the KEY to making the platform work for ANY syllabus - don't be too specific with industries
-    
+    // ==========================================
+    // STRATEGY 3: Broaden industry filters
+    // ==========================================
     if (organizations.length < 3 && originalIndustryTags.length > 3) {
       console.log(`  ⚠️  Only ${organizations.length} companies found with specific industry filters`);
       console.log(`  🔄 Trying BROADER industry search (top 50% of industry keywords)...`);
@@ -936,20 +963,21 @@ Return JSON:
       }
     }
 
-    // 🔥 ULTIMATE FALLBACK: If STILL too few results, try location-only search
-    // Let semantic filtering handle relevance instead of Apollo industry tags
+    // ==========================================
+    // STRATEGY 4: Location-only search (ultimate fallback)
+    // ==========================================
     if (organizations.length < 2) {
       console.log(`  ⚠️  Still only ${organizations.length} companies - trying LOCATION-ONLY search`);
       console.log(`  🔄 Removing ALL industry filters - semantic filtering will handle relevance`);
 
-      // CRITICAL FIX: Reset to ORIGINAL city-specific location (not state/country from previous fallbacks)
+      // CRITICAL FIX: Reset to ORIGINAL city-specific location
       console.log(`  📍 Resetting location filter to original: "${originalCityLocation}"`);
       filters.organization_locations = [originalCityLocation];
 
       // Remove industry tags completely - just search by location
-      filters.q_organization_keyword_tags = []; // Empty array instead of delete
+      filters.q_organization_keyword_tags = [];
 
-      const locationOnlyResults = await this.trySearch(filters, maxResults * 2, pageOffset); // Request more since we're not filtering
+      const locationOnlyResults = await this.trySearch(filters, maxResults * 2, pageOffset);
       console.log(`  📊 Results with location-only search: ${locationOnlyResults.length} companies`);
       console.log(`     ✅ Semantic filtering will rank these by relevance to course`);
 
@@ -960,22 +988,25 @@ Return JSON:
 
     console.log(`  ✅ Apollo search complete: ${organizations.length} companies found`);
 
-    // DISTANCE FILTER: TEMPORARILY DISABLED FOR CRISIS RECOVERY
-    // This was added but may be causing issues - Apollo should already handle location filtering
-    // Semantic filtering and proximity sorting will handle relevance/distance
-    // TODO: Re-enable after confirming Apollo returns local companies successfully
-    /*
-    const MAX_DISTANCE_MILES = 150;
+    // ==========================================
+    // DISTANCE FILTER: RE-ENABLED with safe fallback
+    // ==========================================
+    const MAX_DISTANCE_MILES = 150; // Reasonable commuting/regional radius
     const beforeDistanceFilter = organizations.length;
 
     if (organizations.length > 0) {
       const filteredOrgs: ApolloOrganization[] = [];
+      const distantOrgs: ApolloOrganization[] = [];
       let distantCount = 0;
+      let noLocationCount = 0;
 
       for (const org of organizations) {
         const orgLocation = `${org.city || ''}, ${org.state || ''}`.trim();
-        if (!orgLocation || orgLocation === ',') {
+        
+        // Keep companies with no location data (safer than excluding)
+        if (!orgLocation || orgLocation === ',' || orgLocation.length < 3) {
           filteredOrgs.push(org);
+          noLocationCount++;
           continue;
         }
 
@@ -989,6 +1020,7 @@ Return JSON:
             filteredOrgs.push(org);
           } else if (distance !== null) {
             distantCount++;
+            distantOrgs.push(org); // Keep for potential fallback
             if (distantCount <= 3) {
               console.log(`     🚫 Excluded ${org.name} (${orgLocation}) - ${formatDistance(distance)} away (> ${MAX_DISTANCE_MILES} miles)`);
             }
@@ -997,19 +1029,36 @@ Return JSON:
             filteredOrgs.push(org);
           }
         } catch (error) {
+          // On error, keep the company
           filteredOrgs.push(org);
         }
+      }
+
+      // SAFE FALLBACK: If distance filter removed too many, include some distant companies
+      const MIN_COMPANIES_AFTER_FILTER = 5;
+      let addedFromDistant = 0;
+      if (filteredOrgs.length < MIN_COMPANIES_AFTER_FILTER && distantOrgs.length > 0) {
+        console.log(`  ⚠️  Distance filter too aggressive (${filteredOrgs.length} companies left)`);
+        const neededCount = Math.min(MIN_COMPANIES_AFTER_FILTER - filteredOrgs.length, distantOrgs.length);
+        console.log(`  🔄 Adding ${neededCount} distant companies as fallback`);
+        
+        // Add closest distant companies
+        filteredOrgs.push(...distantOrgs.slice(0, neededCount));
+        addedFromDistant = neededCount;
       }
 
       organizations = filteredOrgs;
 
       if (distantCount > 0) {
-        console.log(`  📍 Distance filter: ${beforeDistanceFilter} → ${organizations.length} companies (excluded ${distantCount} distant companies)`);
+        const actuallyExcluded = distantCount - addedFromDistant;
+        console.log(`  📍 Distance filter: ${beforeDistanceFilter} → ${organizations.length} companies (excluded ${actuallyExcluded} distant)`);
+      }
+      if (noLocationCount > 0) {
+        console.log(`     ℹ️  ${noLocationCount} companies kept (no location data)`);
       }
     }
-    */
-    console.log(`  ⚠️  Distance filter DISABLED (crisis recovery mode)`);
-    console.log(`     Will apply semantic filtering + proximity sorting client-side\n`);
+
+    console.log(`  ✅ Distance filtering complete\n`);
 
     if (organizations.length === 0) {
       console.error(`\n  ❌ ZERO RESULTS FROM APOLLO`);
@@ -1196,8 +1245,8 @@ Return JSON:
         console.error(`   ❌ Failed to enrich ${org.name}:`, error);
       }
 
-      // Rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Rate limiting - reduced from 1000ms to 500ms for faster enrichment
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
 
     if (skippedCount > 0 || reconsideredCount > 0) {
