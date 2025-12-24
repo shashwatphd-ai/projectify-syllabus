@@ -5,6 +5,8 @@ export { SignalScoreCard } from './SignalScoreCard';
 export { SignalBreakdownGrid } from './SignalBreakdownGrid';
 export { MatchInsightsCard } from './MatchInsightsCard';
 export { CompactSignalIndicator } from './CompactSignalIndicator';
+export { EvidenceBasedSignalCard } from './EvidenceBasedSignalCard';
+export { ProfessionalSignalDashboard } from './ProfessionalSignalDashboard';
 
 export { 
   mapCompanyToSignals, 
