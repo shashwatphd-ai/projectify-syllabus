@@ -1,9 +1,14 @@
 project_id = "wnxjeldvzjubfgzvvzov"
 
-# Public endpoints - Keep verify_jwt = false
+# ==========================================
+# PUBLIC ENDPOINTS (verify_jwt = false)
+# ==========================================
+
+# Employer interest submission - public form
 [functions.submit-employer-interest]
 verify_jwt = false
 
+# Apollo webhook listener - external webhook
 [functions.apollo-webhook-listener]
 verify_jwt = false
 
@@ -11,15 +16,79 @@ verify_jwt = false
 [functions.admin-reset-password]
 verify_jwt = false
 
-# Parse syllabus - verify_jwt = false to allow CORS preflight
-# Function handles auth internally via Authorization header
+# Parse syllabus - handles auth internally via Authorization header
 [functions.parse-syllabus]
 verify_jwt = false
 
-# University data import - requires authentication
+# ==========================================
+# AUTHENTICATED ENDPOINTS (verify_jwt = true)
+# ==========================================
+
+# University data import - admin only
 [functions.import-university-data]
 verify_jwt = true
 
-# Authenticated endpoints - verify_jwt = true (default)
+# Faculty email approval
 [functions.send-faculty-approval-email]
+verify_jwt = true
+
+# Core project generation pipeline
+[functions.generate-projects]
+verify_jwt = true
+
+[functions.discover-companies]
+verify_jwt = true
+
+[functions.get-project-detail]
+verify_jwt = true
+
+[functions.run-single-project-generation]
+verify_jwt = true
+
+[functions.process-generation-queue]
+verify_jwt = true
+
+# Analytics and insights
+[functions.get-live-demand]
+verify_jwt = true
+
+[functions.analyze-project-value]
+verify_jwt = true
+
+[functions.aggregate-demand-signals]
+verify_jwt = true
+
+# Student/Employer matching
+[functions.job-matcher]
+verify_jwt = true
+
+[functions.competency-extractor]
+verify_jwt = true
+
+[functions.sync-project-match]
+verify_jwt = true
+
+# Enrichment and utilities
+[functions.data-enrichment-pipeline]
+verify_jwt = true
+
+[functions.detect-location]
+verify_jwt = true
+
+[functions.get-apollo-org-id]
+verify_jwt = true
+
+[functions.project-suitability-scorer]
+verify_jwt = true
+
+[functions.portfolio-export]
+verify_jwt = true
+
+[functions.admin-regenerate-projects]
+verify_jwt = true
+
+[functions.migrate-technology-format]
+verify_jwt = true
+
+[functions.investigate-apollo-jobs]
 verify_jwt = true
