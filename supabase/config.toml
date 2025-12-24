@@ -92,3 +92,7 @@ verify_jwt = true
 
 [functions.investigate-apollo-jobs]
 verify_jwt = true
+
+# Test endpoint for Apollo News API
+[functions.test-apollo-news]
+verify_jwt = false
