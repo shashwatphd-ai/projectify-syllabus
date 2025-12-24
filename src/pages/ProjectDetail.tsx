@@ -20,6 +20,7 @@ import { TimelineTab } from "@/components/project-detail/TimelineTab";
 import { VerificationTab } from "@/components/project-detail/VerificationTab";
 import { MarketInsightsTab } from "@/components/project-detail/MarketInsightsTab";
 import { ValueAnalysisTab } from "@/components/project-detail/ValueAnalysisTab";
+import { DiscoveryQualityTab } from "@/components/project-detail/DiscoveryQualityTab";
 import { Header } from "@/components/Header";
 import { useProjectAnalytics } from "@/hooks/useProjectAnalytics";
 
@@ -254,6 +255,7 @@ const ProjectDetail = () => {
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="flex flex-wrap h-auto gap-2 p-2">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="discovery">Discovery Quality</TabsTrigger>
             <TabsTrigger value="value-analysis">Value Analysis</TabsTrigger>
             <TabsTrigger value="market-insights">Market Intelligence</TabsTrigger>
             <TabsTrigger value="contact">Contact</TabsTrigger>
@@ -270,6 +272,14 @@ const ProjectDetail = () => {
 
           <TabsContent value="overview">
             <OverviewTab project={project} forms={forms} metadata={metadata} />
+          </TabsContent>
+
+          <TabsContent value="discovery">
+            <DiscoveryQualityTab
+              company={company}
+              project={project}
+              generationRun={data?.generation_run}
+            />
           </TabsContent>
 
           <TabsContent value="value-analysis">
