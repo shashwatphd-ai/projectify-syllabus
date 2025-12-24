@@ -4,6 +4,29 @@
 
 ---
 
+## Reference Diagrams
+
+These diagrams define the architecture for the signal-driven discovery system:
+
+### Apollo API Audit Diagram
+![Apollo API Audit](diagrams/apollo-api-audit.png)
+
+Shows:
+- **NOT USED (Red)**: News Articles, Complete Org Info, People Search (as signal), Bulk Enrichment, People Enrichment
+- **CURRENTLY USED (Green)**: Organization Search, Org Job Postings, Org Enrichment
+- **Full API Available**: All 8 Apollo endpoints
+
+### Signal-Driven Discovery Flow
+![Signal-Driven Discovery Flow](diagrams/signal-driven-discovery-flow.png)
+
+Shows:
+- **Phase 1**: Intelligent Extraction (Skills, Technologies, Learning Outcomes)
+- **Phase 2**: Multi-Signal Discovery (4 signals: Job Postings, Market Intelligence, Company Intelligence, People Intelligence)
+- **Phase 3**: Multi-Scoring (Skill Match %, Market Signal Score, Department Fit Score, Contact Quality Score)
+- **Phase 4**: Smart Generation (Rank → Generate → Graceful Fallback)
+
+---
+
 ## Executive Summary
 
 Transform EduThree's company discovery system from **keyword-based guessing** to **signal-driven intelligence** that works for ANY syllabus (finance, engineering, arts, medicine) without hardcoded mappings.
@@ -16,43 +39,73 @@ The discovery pipeline returns irrelevant companies (e.g., staffing firms for a 
 4. News/intent signals are checked AFTER discovery (post-hoc) instead of DURING discovery
 
 ### Proposed Solution
-Multi-layer intelligence discovery that finds companies with **proven need** for syllabus skills:
+Multi-layer intelligence discovery using **4 parallel signals** to find companies with **proven need**:
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌────────────────────┐
-│   SYLLABUS      │───▶│  SKILL           │───▶│  MULTI-SIGNAL      │
-│   (Any Subject) │    │  EXTRACTION      │    │  DISCOVERY         │
-└─────────────────┘    └──────────────────┘    └────────────────────┘
-                                                         │
-                       ┌─────────────────────────────────┼─────────────────────────────────┐
-                       ▼                                 ▼                                 ▼
-              ┌────────────────┐               ┌────────────────┐               ┌────────────────┐
-              │ JOB POSTINGS   │               │ MARKET SIGNALS │               │ COMPANY        │
-              │ ANALYSIS       │               │ (News/Funding) │               │ INTELLIGENCE   │
-              │                │               │                │               │                │
-              │ • Match titles │               │ • Hiring news  │               │ • Intent score │
-              │   to skills    │               │ • Investment   │               │ • Dept growth  │
-              │ • Prove need   │               │ • Contracts    │               │ • Tech stack   │
-              └───────┬────────┘               └───────┬────────┘               └───────┬────────┘
-                      │                                │                                │
-                      └────────────────────────────────┼────────────────────────────────┘
-                                                       ▼
-                                              ┌────────────────┐
-                                              │ COMPOSITE      │
-                                              │ SCORING        │
-                                              │                │
-                                              │ • 0-100 score  │
-                                              │ • Confidence   │
-                                              │ • Signal mix   │
-                                              └───────┬────────┘
-                                                      ▼
-                                              ┌────────────────┐
-                                              │ SMART PROJECT  │
-                                              │ GENERATION     │
-                                              │                │
-                                              │ • Signal-aware │
-                                              │ • Fallback OK  │
-                                              └────────────────┘
+                              INPUT: ANY SYLLABUS
+                                      │
+                                      ▼
+                    ┌─────────────────────────────────┐
+                    │      PHASE 1: INTELLIGENT       │
+                    │          EXTRACTION             │
+                    │                                 │
+                    │  • Extract Skills via AI        │
+                    │  • Identify Technologies        │
+                    │  • Map Learning Outcomes        │
+                    └─────────────────────────────────┘
+                                      │
+        ┌─────────────────────────────┼─────────────────────────────┐
+        │                             │                             │
+        ▼                             ▼                             ▼
+┌───────────────┐           ┌───────────────┐           ┌───────────────┐
+│   SIGNAL 1:   │           │   SIGNAL 2:   │           │   SIGNAL 3:   │
+│ JOB POSTINGS  │           │    MARKET     │           │   COMPANY     │
+│               │           │ INTELLIGENCE  │           │ INTELLIGENCE  │
+│ • Search by   │           │               │           │               │
+│   location    │           │ • News Search │           │ • Complete    │
+│ • Fetch jobs  │           │ • Funding,    │           │   Org Info    │
+│ • Match to    │           │   hires,      │           │ • Intent      │
+│   skills      │           │   contracts   │           │   signals     │
+│               │           │ • Recency     │           │ • Dept growth │
+└───────┬───────┘           └───────┬───────┘           └───────┬───────┘
+        │                           │                           │
+        │     ┌───────────────┐     │                           │
+        │     │   SIGNAL 4:   │     │                           │
+        │     │    PEOPLE     │     │                           │
+        │     │ INTELLIGENCE  │     │                           │
+        │     │               │     │                           │
+        │     │ • People API  │     │                           │
+        │     │ • Filter by   │     │                           │
+        │     │   dept +      │     │                           │
+        │     │   seniority   │     │                           │
+        │     │ • Decision    │     │                           │
+        │     │   makers      │     │                           │
+        │     └───────┬───────┘     │                           │
+        │             │             │                           │
+        └─────────────┴─────────────┴───────────────────────────┘
+                                      │
+                                      ▼
+                    ┌─────────────────────────────────┐
+                    │     PHASE 3: MULTI-SCORING      │
+                    │                                 │
+                    │  Composite Suitability Score:   │
+                    │  • Skill Match %      (0-25)    │
+                    │  • Market Signal Score (0-25)   │
+                    │  • Department Fit Score(0-25)   │
+                    │  • Contact Quality Score(0-25)  │
+                    │                                 │
+                    │  Total: 0-100 points            │
+                    └─────────────────────────────────┘
+                                      │
+                                      ▼
+                    ┌─────────────────────────────────┐
+                    │    PHASE 4: SMART GENERATION    │
+                    │                                 │
+                    │  • Rank by composite score      │
+                    │  • Generate Projects            │
+                    │  • Graceful Fallback if <       │
+                    │    threshold                    │
+                    └─────────────────────────────────┘
 ```
 
 ---
@@ -419,22 +472,100 @@ async function matchJobsToSkills(
 }
 ```
 
-### Phase 5: Composite Signal Scoring
+### Phase 4B: People Intelligence (Signal 4) - NEW
+**Files to modify:**
+- `supabase/functions/discover-companies/providers/apollo-provider.ts`
+
+**Purpose:** Use People API Search as a discovery SIGNAL (not just for finding contacts after)
+
+**Rationale from Diagram:** Companies with the right decision-makers in relevant departments are better project partners.
+
+**Implementation:**
+```typescript
+interface PeopleIntelligenceResult {
+  hasDecisionMakers: boolean;       // Has director+ in relevant dept
+  relevantContactCount: number;     // Number of contacts in relevant dept
+  seniorityDistribution: {
+    c_suite: number;
+    vp: number;
+    director: number;
+    manager: number;
+  };
+  contactQualityScore: number;      // 0-1 based on above
+}
+
+async function fetchPeopleIntelligence(
+  organizationId: string,
+  syllabusDomain: 'finance' | 'engineering' | 'marketing' | 'operations'
+): Promise<PeopleIntelligenceResult> {
+  // Map syllabus domain to Apollo person titles
+  const departmentTitles = {
+    finance: ['CFO', 'Controller', 'Director of Finance', 'VP Finance'],
+    engineering: ['CTO', 'VP Engineering', 'Director of Engineering', 'Engineering Manager'],
+    marketing: ['CMO', 'VP Marketing', 'Director of Marketing', 'Marketing Manager'],
+    operations: ['COO', 'VP Operations', 'Director of Operations']
+  };
+  
+  const response = await fetch('https://api.apollo.io/v1/mixed_people/api_search', {
+    method: 'POST',
+    headers: { 'X-Api-Key': apolloApiKey },
+    body: JSON.stringify({
+      organization_ids: [organizationId],
+      person_titles: departmentTitles[syllabusDomain],
+      person_seniorities: ['director', 'vp', 'c_suite'],
+      per_page: 10
+    })
+  });
+  
+  const data = await response.json();
+  const people = data.people || [];
+  
+  return {
+    hasDecisionMakers: people.length > 0,
+    relevantContactCount: people.length,
+    seniorityDistribution: calculateSeniorityDistribution(people),
+    contactQualityScore: calculateContactQualityScore(people)
+  };
+}
+
+function calculateContactQualityScore(people: any[]): number {
+  if (people.length === 0) return 0.2; // Penalty for no contacts
+  
+  let score = 0;
+  for (const person of people) {
+    // Higher score for verified emails and senior roles
+    const emailBonus = person.email_status === 'verified' ? 0.2 : 0;
+    const seniorityBonus = 
+      person.seniority === 'c_suite' ? 0.3 :
+      person.seniority === 'vp' ? 0.25 :
+      person.seniority === 'director' ? 0.2 : 0.1;
+    
+    score += emailBonus + seniorityBonus;
+  }
+  
+  return Math.min(1, score / 3); // Normalize
+}
+```
+
+---
+
+### Phase 5: Composite Signal Scoring (Updated per Diagram)
 **Files to modify:**
 - `supabase/functions/discover-companies/index.ts`
 - `supabase/functions/discover-companies/providers/apollo-provider.ts`
 
-**New Scoring Model:**
+**Updated Scoring Model (4 components per diagram):**
 ```typescript
 interface CompositeSignalScore {
   overall: number;           // 0-100 final score
   confidence: 'high' | 'medium' | 'low';
   
+  // UPDATED: 4 components matching the diagram exactly
   components: {
-    skillMatch: number;      // 0-25 points - Job postings match syllabus skills
-    marketActivity: number;  // 0-25 points - News signals (hiring, investment)
-    buyingIntent: number;    // 0-25 points - Intent signal from Apollo
-    departmentGrowth: number; // 0-25 points - Relevant department is growing
+    skillMatch: number;        // 0-25 points - Signal 1: Job postings match syllabus skills
+    marketSignal: number;      // 0-25 points - Signal 2: News signals (hiring, investment)
+    departmentFit: number;     // 0-25 points - Signal 3: Intent + employee_metrics
+    contactQuality: number;    // 0-25 points - Signal 4: Decision makers available (NEW)
   };
   
   signals: {
@@ -443,19 +574,23 @@ interface CompositeSignalScore {
     hasHiringNews: boolean;
     hasDepartmentGrowth: boolean;
     hasTechnologyMatch: boolean;
+    hasDecisionMakers: boolean;  // NEW
   };
 }
 
 function calculateCompositeScore(
   jobSkillsMatch: JobSkillsMatchResult,
   marketSignals: MarketSignalScore,
-  orgIntelligence: OrganizationIntelligence
+  orgIntelligence: OrganizationIntelligence,
+  peopleIntelligence: PeopleIntelligenceResult  // NEW: Signal 4
 ): CompositeSignalScore {
+  // UPDATED: 4 components matching diagram exactly
   const components = {
-    skillMatch: jobSkillsMatch.matchScore * 25,
-    marketActivity: marketSignals.score * 25,
-    buyingIntent: orgIntelligence.buyingIntentScore * 25,
-    departmentGrowth: orgIntelligence.departmentGrowthScore * 25
+    skillMatch: jobSkillsMatch.matchScore * 25,           // Signal 1
+    marketSignal: marketSignals.score * 25,               // Signal 2
+    departmentFit: (orgIntelligence.buyingIntentScore + 
+                    orgIntelligence.departmentGrowthScore) / 2 * 25, // Signal 3
+    contactQuality: peopleIntelligence.contactQualityScore * 25     // Signal 4 (NEW)
   };
   
   const overall = Object.values(components).reduce((a, b) => a + b, 0);
@@ -463,6 +598,15 @@ function calculateCompositeScore(
   const confidence = 
     overall >= 70 ? 'high' :
     overall >= 40 ? 'medium' : 'low';
+  
+  const signals = {
+    hasActiveJobPostings: jobSkillsMatch.matchScore > 0,
+    hasFundingNews: marketSignals.hasFundingNews,
+    hasHiringNews: marketSignals.hasHiringNews,
+    hasDepartmentGrowth: orgIntelligence.departmentGrowthScore > 0.5,
+    hasTechnologyMatch: orgIntelligence.technologyMatchScore > 0.5,
+    hasDecisionMakers: peopleIntelligence.hasDecisionMakers  // NEW
+  };
   
   return { overall, confidence, components, signals };
 }
