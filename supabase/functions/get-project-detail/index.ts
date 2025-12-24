@@ -376,6 +376,16 @@ serve(async (req) => {
         funding_stage: company.funding_stage,
         total_funding_usd: company.total_funding_usd,
         
+        // Signal scores (4-signal discovery pipeline)
+        skill_match_score: company.skill_match_score,
+        market_signal_score: company.market_signal_score,
+        department_fit_score: company.department_fit_score,
+        contact_quality_score: company.contact_quality_score,
+        composite_signal_score: company.composite_signal_score,
+        signal_data: company.signal_data,
+        signal_confidence: company.signal_confidence,
+        matching_skills: company.matching_skills,
+        
         // Enrichment status
         enrichment_status: companyEnrichmentStatus,
         
