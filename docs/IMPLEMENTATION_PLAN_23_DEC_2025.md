@@ -44,11 +44,83 @@ Shows:
    - [Phase 7: Bulk Enrichment Optimization](#phase-7-bulk-enrichment)
    - [Phase 8: Technology Filtering Re-enable](#phase-8-technology-filtering)
    - [Phase 9: Path Consistency](#phase-9-path-consistency)
-6. [Integration Architecture](#integration-architecture)
-7. [Testing Plan](#testing-plan)
-8. [Success Metrics](#success-metrics)
-9. [Risks & Mitigations](#risks-and-mitigations)
-10. [Approval Checklist](#approval-checklist)
+6. [AI Pattern Reference](#ai-pattern-reference)
+7. [Integration Architecture](#integration-architecture)
+8. [Testing Plan](#testing-plan)
+9. [Success Metrics](#success-metrics)
+10. [Risks & Mitigations](#risks-and-mitigations)
+11. [Approval Checklist](#approval-checklist)
+
+---
+
+## AI Pattern Reference
+
+**CRITICAL: The codebase uses TWO distinct AI integration patterns. All new code MUST follow these patterns for coherence.**
+
+### Pattern 1: Direct Google Gemini API (GEMINI_API_KEY)
+
+**Use For:** Embeddings, semantic matching, web-grounded search, structured alignment
+
+**Existing Implementations:**
+- `supabase/functions/_shared/embedding-service.ts` - text-embedding-004 model
+- `supabase/functions/_shared/alignment-service.ts` - gemini-2.0-flash-exp
+- `supabase/functions/data-enrichment-pipeline/index.ts` - web-grounded search
+
+**Pattern:**
+```typescript
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+const response = await fetch(
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+  {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.1 }
+    })
+  }
+);
+```
+
+### Pattern 2: Lovable AI Gateway (LOVABLE_API_KEY)
+
+**Use For:** Chat completions, tool calling, syllabus parsing, project generation
+
+**Existing Implementations:**
+- `supabase/functions/parse-syllabus/index.ts` - google/gemini-2.5-flash
+- `supabase/functions/_shared/generation-service.ts` - google/gemini-2.5-flash
+- `supabase/functions/competency-extractor/index.ts` - tool calling
+- `supabase/functions/_shared/company-validation-service.ts` - google/gemini-2.5-pro
+
+**Pattern:**
+```typescript
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    model: 'google/gemini-2.5-flash',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    temperature: 0.4
+  })
+});
+```
+
+### Signal Implementation Pattern Map
+
+| Signal | AI Task Type | Pattern to Use | Reasoning |
+|--------|--------------|----------------|-----------|
+| Signal 1: Job-Skills Match | Semantic embeddings | **Pattern 1 (Direct)** | Embedding-based similarity, matches embedding-service.ts |
+| Signal 2: Market Intel | Text classification | **Pattern 1 (Direct)** | Structured extraction, matches alignment-service.ts |
+| Signal 3: Dept Fit | Scoring logic | None (rule-based) | Department headcount is numerical, no AI needed |
+| Signal 4: Contact Quality | Scoring logic | None (rule-based) | Seniority/relevance scoring is rule-based |
+| Composite Scoring | Weighted average | None (rule-based) | Pure math |
 
 ---
 
@@ -817,14 +889,37 @@ interface JobSkillsMatchResult {
 }
 
 /**
- * SIGNAL 1: AI-Powered Job-Skills Matching
- * Uses Lovable AI to semantically match job postings to syllabus skills
+/**
+ * SIGNAL 1: Semantic Job-Skills Matching using Gemini Embeddings
+ * 
+ * IMPORTANT: This uses the DIRECT Google Gemini API (GEMINI_API_KEY) 
+ * NOT the Lovable AI Gateway, to maintain consistency with:
+ *   - supabase/functions/_shared/embedding-service.ts
+ *   - supabase/functions/_shared/alignment-service.ts
+ *   - supabase/functions/data-enrichment-pipeline/index.ts
+ * 
+ * The codebase uses two AI patterns:
+ *   1. Direct Gemini API (GEMINI_API_KEY) - for embeddings, alignment, web-grounded search
+ *   2. Lovable Gateway (LOVABLE_API_KEY) - for chat completions (parse-syllabus, generation, competency-extraction)
+ * 
+ * Signal 1 is embedding-based semantic matching, so it uses pattern #1.
  */
+
+// Reuse existing embedding service
+import { computeCosineSimilarity } from './embedding-service.ts';
+
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta';
+const GEMINI_EMBEDDING_MODEL = 'text-embedding-004';
+
 export async function matchJobsToSkills(
   jobPostings: JobPosting[],
-  syllabusSkills: ExtractedSkill[],
-  lovableApiKey: string
+  syllabusSkills: ExtractedSkill[]
 ): Promise<JobSkillsMatchResult> {
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  if (!GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY not configured');
+  }
+
   const defaultResult: JobSkillsMatchResult = {
     matchScore: 0,
     matchedPairs: [],
@@ -841,68 +936,89 @@ export async function matchJobsToSkills(
   const skills = syllabusSkills.map(s => s.skill).slice(0, 20);
   
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a job-skills matching expert. Match job titles to relevant skills with confidence scores.
-            
-Rules:
-- Only match if there's a genuine semantic relationship
-- "Financial Analyst" matches "Financial Modeling" (0.9)
-- "Data Scientist" matches "Data Analysis" (0.85)
-- "Software Engineer" does NOT match "Financial Modeling" (no match)
-- Return ONLY valid JSON, no explanations`
-          },
-          {
-            role: 'user',
-            content: `Match these job titles to skills. Return confidence 0-1 for each genuine match.
+    // Get embeddings for jobs and skills using direct Gemini API
+    const [jobEmbeddings, skillEmbeddings] = await Promise.all([
+      batchGetEmbeddings(jobTitles, GEMINI_API_KEY),
+      batchGetEmbeddings(skills, GEMINI_API_KEY)
+    ]);
+    
+    // Calculate semantic similarity matrix
+    const matchedPairs: Array<{ job: string; skill: string; confidence: number }> = [];
+    const matchedJobs = new Set<string>();
+    const matchedSkills = new Set<string>();
+    
+    for (let i = 0; i < jobTitles.length; i++) {
+      for (let j = 0; j < skills.length; j++) {
+        const similarity = computeCosineSimilarity(jobEmbeddings[i], skillEmbeddings[j]);
+        
+        // Threshold: 0.7 for semantic relevance
+        if (similarity >= 0.7) {
+          matchedPairs.push({
+            job: jobTitles[i],
+            skill: skills[j],
+            confidence: similarity
+          });
+          matchedJobs.add(jobTitles[i]);
+          matchedSkills.add(skills[j]);
+        }
+      }
+    }
+    
+    // Sort by confidence descending
+    matchedPairs.sort((a, b) => b.confidence - a.confidence);
+    
+    // Calculate overall match score
+    const avgConfidence = matchedPairs.length > 0
+      ? matchedPairs.reduce((sum, p) => sum + p.confidence, 0) / matchedPairs.length
+      : 0;
+    const coverageScore = matchedSkills.size / skills.length;
+    const matchScore = Math.round((avgConfidence * 0.6 + coverageScore * 0.4) * 100);
+    
+    return {
+      matchScore,
+      matchedPairs: matchedPairs.slice(0, 15), // Top 15 matches
+      unmatchedJobs: jobTitles.filter(j => !matchedJobs.has(j)),
+      unmatchedSkills: skills.filter(s => !matchedSkills.has(s)),
+      hasRelevantJobs: matchedPairs.length >= 2
+    };
+    
+  } catch (error) {
+    console.error('Signal 1 matching error:', error);
+    return defaultResult;
+  }
+}
 
-Job Titles: ${JSON.stringify(jobTitles)}
-Skills: ${JSON.stringify(skills)}
-
-Return JSON:
-{
-  "matches": [
-    { "job": "exact job title", "skill": "exact skill name", "confidence": 0.X }
-  ]
-}`
-          }
-        ],
-        temperature: 0.1,
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "report_matches",
-              description: "Report job-skill matches",
-              parameters: {
-                type: "object",
-                properties: {
-                  matches: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        job: { type: "string" },
-                        skill: { type: "string" },
-                        confidence: { type: "number" }
-                      },
-                      required: ["job", "skill", "confidence"]
-                    }
-                  }
-                },
-                required: ["matches"]
-              }
-            }
-          }
+/**
+ * Batch get embeddings using direct Gemini API
+ * Matches pattern in embedding-service.ts
+ */
+async function batchGetEmbeddings(texts: string[], apiKey: string): Promise<number[][]> {
+  const embeddings: number[][] = [];
+  
+  for (const text of texts) {
+    const response = await fetch(
+      `${GEMINI_API_URL}/models/${GEMINI_EMBEDDING_MODEL}:embedContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: `models/${GEMINI_EMBEDDING_MODEL}`,
+          content: { parts: [{ text: text.substring(0, 1000) }] }
+        })
+      }
+    );
+    
+    if (!response.ok) {
+      console.error(`Embedding failed for: ${text.substring(0, 50)}...`);
+      embeddings.push([]); // Empty embedding for failed items
+      continue;
+    }
+    
+    const data = await response.json();
+    embeddings.push(data.embedding?.values || []);
+  }
+  
+  return embeddings;
         ],
         tool_choice: { type: "function", function: { name: "report_matches" } }
       })
