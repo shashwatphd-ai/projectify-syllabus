@@ -1135,6 +1135,82 @@ serve(async (req) => {
     }
 
     // ====================================
+    // Step 6.6: Career Page Validation via Firecrawl (Optional Enhancement)
+    // Validates hiring signals by scraping company career pages
+    // ====================================
+    const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
+    
+    if (firecrawlApiKey && filteredCompanies.length > 0) {
+      console.log(`\n🔥 [Phase 3.5] Career page validation via Firecrawl...`);
+      
+      // Only validate top companies by signal score to conserve API credits
+      const topCompaniesToValidate = filteredCompanies
+        .filter(c => c.website)
+        .sort((a, b) => (b.similarityScore || 0) - (a.similarityScore || 0))
+        .slice(0, 3); // Validate top 3 companies max
+      
+      for (const company of topCompaniesToValidate) {
+        try {
+          // Construct likely career page URL
+          const baseUrl = company.website.replace(/\/$/, '');
+          const careerUrl = `${baseUrl}/careers`;
+          
+          console.log(`   📄 Validating: ${company.name} (${careerUrl})`);
+          
+          const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${firecrawlApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              url: careerUrl,
+              formats: ['markdown'],
+              onlyMainContent: true,
+              waitFor: 2000,
+            }),
+          });
+          
+          if (response.ok) {
+            const scrapeData = await response.json();
+            const markdown = scrapeData.data?.markdown || scrapeData.markdown || '';
+            
+            // Quick analysis: count job-related keywords
+            const jobKeywords = ['apply', 'position', 'role', 'hiring', 'job', 'career', 'opportunity', 'join us', 'team'];
+            const matchCount = jobKeywords.filter(kw => markdown.toLowerCase().includes(kw)).length;
+            
+            if (matchCount >= 3) {
+              console.log(`   ✅ ${company.name}: Active career page (${matchCount} hiring indicators)`);
+              
+              // Update company with career page validation
+              await supabase
+                .from('company_profiles')
+                .update({
+                  inferred_needs: {
+                    career_page_validated: true,
+                    career_page_indicators: matchCount,
+                    career_page_checked_at: new Date().toISOString()
+                  }
+                })
+                .eq('name', company.name)
+                .eq('zip', company.zip || '');
+            } else {
+              console.log(`   ⚠️ ${company.name}: Limited career page (${matchCount} indicators)`);
+            }
+          } else {
+            console.log(`   ⚠️ ${company.name}: Career page not accessible (${response.status})`);
+          }
+        } catch (crawlError) {
+          console.log(`   ⚠️ ${company.name}: Firecrawl error - skipping`);
+        }
+      }
+      
+      console.log(`   ✅ Career page validation complete`);
+    } else if (!firecrawlApiKey) {
+      console.log(`\n⏭️  Skipping career page validation (FIRECRAWL_API_KEY not configured)`);
+    }
+
+    // ====================================
     // Step 7: Update generation run
     // ====================================
     const totalProcessingTime = (Date.now() - startTime) / 1000;
