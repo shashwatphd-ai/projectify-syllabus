@@ -77,14 +77,15 @@ export type SignalName =
   | 'contact_quality';      // Signal 4: Decision-maker availability
 
 /**
- * Default weights for composite scoring
- * Based on diagram: Skills most important, then market signals
+ * Weights for composite scoring - EQUAL 25% EACH
+ * As per Implementation Plan (23 Dec 2025): Each signal contributes equally
+ * Sum = 1.0 (100%), each signal 0-100 → weighted sum = 0-100
  */
 export const SIGNAL_WEIGHTS: Record<SignalName, number> = {
-  job_skills_match: 0.35,      // 35% - Most important
+  job_skills_match: 0.25,      // 25% - Job-skills semantic matching
   market_intelligence: 0.25,   // 25% - Funding/hiring signals
-  department_fit: 0.20,        // 20% - Relevant dept growing
-  contact_quality: 0.20        // 20% - Can we reach decision-makers
+  department_fit: 0.25,        // 25% - Relevant dept growing
+  contact_quality: 0.25        // 25% - Can we reach decision-makers
 } as const;
 
 // =============================================================================

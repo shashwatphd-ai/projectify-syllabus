@@ -43,9 +43,6 @@ const SIGNAL_PROVIDERS: SignalProvider[] = [
   ContactQualitySignal
 ];
 
-/** Parallel execution limit to prevent API rate limiting */
-const MAX_PARALLEL_SIGNALS = 4;
-
 /** Maximum time to wait for all signals (ms) */
 const SIGNAL_TIMEOUT_MS = 30000;
 
