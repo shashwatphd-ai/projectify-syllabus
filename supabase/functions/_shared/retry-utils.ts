@@ -103,24 +103,7 @@ function isRetryableStatus(status: number, config: RetryConfig): boolean {
   return config.retryableStatuses.includes(status);
 }
 
-/**
- * Check if an error message indicates a retryable condition
- */
-function isRetryableError(error: unknown): boolean {
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase();
-    return (
-      message.includes('timeout') ||
-      message.includes('econnreset') ||
-      message.includes('econnrefused') ||
-      message.includes('network') ||
-      message.includes('socket') ||
-      message.includes('fetch failed') ||
-      message.includes('aborted')
-    );
-  }
-  return false;
-}
+// isRetryableError function is defined and exported at the end of this file
 
 /**
  * Sleep for a specified number of milliseconds
@@ -327,4 +310,89 @@ export function createRetryConfig(overrides: Partial<RetryConfig>): RetryConfig 
     ...DEFAULT_RETRY_CONFIG,
     ...overrides,
   };
+}
+
+/**
+ * Simple retry options for withRetry function
+ */
+export interface SimpleRetryOptions {
+  maxRetries?: number;
+  baseDelayMs?: number;
+  maxDelayMs?: number;
+  operationName?: string;
+  onRetry?: (attempt: number, delay: number, error: Error) => void;
+}
+
+/**
+ * Simplified retry function for async operations
+ * This is a wrapper around retryAsync with a simpler interface
+ * 
+ * @param operation - Async function to retry
+ * @param options - Simple retry options
+ * @returns The result of the operation
+ * @throws The last error if all retries fail
+ */
+export async function withRetry<T>(
+  operation: () => Promise<T>,
+  options: SimpleRetryOptions = {}
+): Promise<T> {
+  const {
+    maxRetries = 3,
+    baseDelayMs = 1000,
+    maxDelayMs = 30000,
+    operationName = 'operation',
+    onRetry
+  } = options;
+
+  let lastError: Error | undefined;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error: unknown) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      if (attempt < maxRetries) {
+        // Calculate delay with exponential backoff and jitter
+        const exponentialDelay = baseDelayMs * Math.pow(2, attempt);
+        const cappedDelay = Math.min(exponentialDelay, maxDelayMs);
+        const jitter = Math.random() * cappedDelay * 0.25;
+        const delay = Math.round(cappedDelay + jitter);
+        
+        if (onRetry) {
+          onRetry(attempt + 1, delay, lastError);
+        } else {
+          console.log(`[withRetry] ${operationName}: Attempt ${attempt + 1} failed, retrying in ${delay}ms: ${lastError.message}`);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  console.error(`[withRetry] ${operationName}: All ${maxRetries + 1} attempts failed`);
+  throw lastError;
+}
+
+/**
+ * Check if an error is retryable based on common patterns
+ */
+export function isRetryableError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    return (
+      message.includes('timeout') ||
+      message.includes('econnreset') ||
+      message.includes('econnrefused') ||
+      message.includes('network') ||
+      message.includes('socket') ||
+      message.includes('fetch failed') ||
+      message.includes('aborted') ||
+      message.includes('rate limit') ||
+      message.includes('429') ||
+      message.includes('503') ||
+      message.includes('502')
+    );
+  }
+  return false;
 }

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-middleware.ts';
+import { withRetry } from '../_shared/retry-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -38,23 +39,34 @@ async function geocodeLocation(cityZip: string): Promise<{ lat: number; lng: num
 
   try {
     console.log(`Geocoding ${cityZip} using Google Geocoding API...`);
-    const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(cityZip)}&key=${GOOGLE_API_KEY}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
+    
+    const data = await withRetry(
+      async () => {
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(cityZip)}&key=${GOOGLE_API_KEY}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          const error = new Error(`Google Geocoding API HTTP error: ${response.status} - ${errorText}`);
+          (error as any).status = response.status;
+          throw error;
         }
+        
+        return await response.json();
+      },
+      {
+        maxRetries: 2,
+        baseDelayMs: 500,
+        operationName: `Geocoding ${cityZip}`,
       }
     );
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Google Geocoding API HTTP error: ${response.status} - ${errorText}`);
-      throw new Error(`Google Geocoding API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
     console.log(`Geocoding API response status: ${data.status}`);
     
     if (data.status === 'REQUEST_DENIED') {
@@ -465,36 +477,47 @@ CRITICAL RULES:
 
     console.log(`  🔍 Google AI Studio search: enriching ${companyName} with web search (contact info + market intelligence)`);
 
-    // Use Google AI Studio API with web search grounding
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{ text: prompt }]
-          }],
-          tools: [{
-            googleSearch: {}  // Enable web search grounding
-          }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 1024,
+    // Use Google AI Studio API with web search grounding - with retry logic
+    const data = await withRetry(
+      async () => {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{ text: prompt }]
+              }],
+              tools: [{
+                googleSearch: {}  // Enable web search grounding
+              }],
+              generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 1024,
+              }
+            }),
           }
-        }),
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          const error = new Error(`Google AI Studio error: ${response.status} - ${errorText}`);
+          (error as any).status = response.status;
+          throw error;
+        }
+
+        return await response.json();
+      },
+      {
+        maxRetries: 2,
+        baseDelayMs: 1000,
+        operationName: `Gemini web search for ${companyName}`,
       }
     );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Google AI Studio error: ${response.status} - ${errorText}`);
-      return null;
-    }
-
-    const data = await response.json();
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
     
     if (!content) {

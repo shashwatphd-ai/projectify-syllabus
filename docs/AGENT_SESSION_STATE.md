@@ -7,7 +7,7 @@
 ## Current Status
 
 ### Active Module: Module 2 - High Priority Reliability Fixes (P1)
-### Active Bit: Bit 2.1 COMPLETE - Atomic Deletion Pattern
+### Active Bit: Bit 2.6 - Error Classification System (NEXT)
 
 ## Module Progress
 
@@ -30,8 +30,8 @@
 | 2.2 | Cascade Delete for Projects | ✅ DONE | Agent-002 | Created delete_project_atomic RPC - deletes project + 7 related tables atomically |
 | 2.3 | Orphan Cleanup Automation | ✅ DONE | Agent-002 | Created cleanup-orphaned-data edge function + daily cron at 3AM UTC |
 | 2.4 | API Retry Logic Part 1 | ✅ DONE | Agent-002 | Created retry-utils.ts, integrated into Apollo provider (5 API call sites) |
-| 2.5 | API Retry Logic Part 2 | 🔄 NEXT | | Apply to other edge functions |
-| 2.6 | Error Classification System | ⬜ TODO | | |
+| 2.5 | API Retry Logic Part 2 | ✅ DONE | Agent-002 | Added withRetry to job-matcher, data-enrichment-pipeline, generate-projects |
+| 2.6 | Error Classification System | 🔄 NEXT | | |
 | 2.7 | Timeout Configuration | ⬜ TODO | | |
 | 2.8 | Circuit Breaker Pattern | ⬜ TODO | | |
 
