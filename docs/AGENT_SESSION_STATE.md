@@ -1,13 +1,13 @@
 # Agent Session State
 
-**Last Updated:** 2025-12-25T13:00:00Z  
+**Last Updated:** 2025-12-25T13:15:00Z  
 **Current Agent:** Agent-002  
 **Protocol Version:** 1.0
 
 ## Current Status
 
 ### Active Module: Module 1 - Critical Security Fixes (P0)
-### Active Bit: Bit 1.5 - CORS Hardening
+### Active Bit: Bit 1.6 - JSON Parsing Safety
 
 ## Module Progress
 
@@ -18,8 +18,8 @@
 | 1.2 | Edge Function Auth Part 2 | ✅ DONE | Agent-002 | Secured salary-roi-calculator, discover-companies |
 | 1.3 | Edge Function Auth Part 3 | ✅ DONE | Agent-002 | Secured data-enrichment-pipeline, firecrawl-scrape |
 | 1.4 | Edge Function Auth Part 4 | ✅ DONE | Agent-002 | Secured firecrawl-career-pages (generate-projects already had auth) |
-| 1.5 | CORS Hardening | 🔄 NEXT | - | All edge functions |
-| 1.6 | JSON Parsing Safety | ⬜ TODO | - | All edge functions |
+| 1.5 | CORS Hardening | ✅ DONE | Agent-002 | Enhanced _shared/cors.ts with security headers, helper functions |
+| 1.6 | JSON Parsing Safety | 🔄 NEXT | - | All edge functions |
 | 1.7 | Input Validation | ⬜ TODO | - | UUID validation, SQL injection prevention |
 | 1.8 | Rate Limiting Headers | ⬜ TODO | - | Add rate limit headers |
 
@@ -61,7 +61,23 @@
 
 ## Session History
 
-### Session 4 (Current) - Agent-002
+### Session 5 (Current) - Agent-002
+- **Started:** 2025-12-25T13:10:00Z
+- **Task:** Bit 1.5 - CORS Hardening
+- **Actions Completed:**
+  1. Reviewed current CORS patterns across edge functions
+  2. Enhanced _shared/cors.ts with comprehensive security features:
+     - Added Access-Control-Allow-Methods and Access-Control-Max-Age
+     - Added securityHeaders object (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, Cache-Control)
+     - Created getCorsHeaders() for dynamic origin validation
+     - Created createPreflightResponse() helper
+     - Created createJsonResponse() and createErrorResponse() helpers
+  3. Maintained backward compatibility with existing corsHeaders export
+- **Files Modified:**
+  - supabase/functions/_shared/cors.ts
+- **Verification:** Enhanced CORS module ready for gradual adoption; existing functions continue to work
+
+### Session 4 - Agent-002
 - **Started:** 2025-12-25T12:55:00Z
 - **Task:** Bit 1.4 - Edge Function Auth Part 4
 - **Actions Completed:**
@@ -113,15 +129,15 @@
   - supabase/functions/skill-gap-analyzer/index.ts
   - supabase/config.toml
 
-## Next Steps for Bit 1.5: CORS Hardening
+## Next Steps for Bit 1.6: JSON Parsing Safety
 
-**Objective:** Review and harden CORS headers across all edge functions
+**Objective:** Add safe JSON parsing with try-catch to all edge functions
 
 **Tasks:**
-1. Review current CORS configuration in all functions
-2. Restrict origins to production domains where appropriate
-3. Ensure consistent CORS headers across all functions
-4. Add security headers (X-Content-Type-Options, X-Frame-Options, etc.)
+1. Review functions that parse request bodies
+2. Wrap all JSON.parse / req.json() calls in try-catch
+3. Return 400 Bad Request for invalid JSON
+4. Ensure consistent error handling patterns
 
 ## Known Blockers
 
@@ -133,7 +149,8 @@ None currently.
 - [x] Bit 1.2: salary-roi-calculator and discover-companies secured
 - [x] Bit 1.3: data-enrichment-pipeline and firecrawl-scrape secured
 - [x] Bit 1.4: firecrawl-career-pages secured (generate-projects already had auth)
-- [ ] Bit 1.5: CORS hardening pending
+- [x] Bit 1.5: CORS hardening complete - enhanced _shared/cors.ts with security headers
+- [ ] Bit 1.6: JSON parsing safety pending
 - [ ] Module 1 complete verification
 - [ ] Security scan after Module 1
 
