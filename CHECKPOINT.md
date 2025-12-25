@@ -9,12 +9,31 @@
 
 | Field | Value |
 |-------|-------|
-| **Phase** | 2 - Premium Features |
-| **Next Priority Task** | Salary ROI Calculator |
+| **Phase** | 3 - Platform Maturity |
+| **Current Priority** | Student-Project Matching ✅ COMPLETE |
+| **Next Priority Task** | Email Notifications |
 | **Blocked By** | Nothing |
-| **Last Completed** | Phase 1: Signal Intelligence ✅ |
+| **Last Completed** | Phase 2: Premium Features ✅ |
 
 ---
+
+## Phase 3 Checklist (Current)
+
+- [x] **Student-Project Matching** ✅ COMPLETE
+  - ✅ Edge function: `student-project-matcher`
+  - ✅ Matches student verified skills to project requirements
+  - ✅ Returns ranked recommendations with match score %
+  - ✅ UI: RecommendedProjects component on StudentDashboard
+- [ ] **Email Notifications** (P1)
+  - Transactional emails for key events
+  - New job matches, application status, project updates
+- [ ] **Faculty Analytics Dashboard** (P2)
+  - Student outcomes tracking
+  - Project success rates
+- [ ] **In-App Messaging** (P4)
+  - Direct communication between stakeholders
+- [ ] **Multi-University Support** (P5)
+  - Tenant isolation
 
 ## Phase 2 Checklist (Current)
 

@@ -15,6 +15,7 @@ import {
   TrendingUp,
   FileCheck
 } from "lucide-react";
+import { RecommendedProjects } from "@/components/student/RecommendedProjects";
 
 interface DashboardMetrics {
   totalApplications: number;
@@ -189,7 +190,7 @@ export default function StudentDashboard() {
           ))}
         </div>
 
-        {/* Quick Actions */}
+        {/* Quick Actions & Recent Applications */}
         <div className="grid gap-6 md:grid-cols-2 mb-8">
           <Card>
             <CardHeader>
@@ -258,6 +259,11 @@ export default function StudentDashboard() {
               )}
             </CardContent>
           </Card>
+        </div>
+
+        {/* Recommended Projects Section */}
+        <div className="mb-8">
+          <RecommendedProjects />
         </div>
       </div>
     </div>
