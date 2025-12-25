@@ -6,8 +6,8 @@
 
 ## Current Status
 
-### Active Module: Module 1 - Critical Security Fixes (P0)
-### Active Bit: Module 1 COMPLETE - Ready for Module 2
+### Active Module: Module 2 - High Priority Reliability Fixes (P1)
+### Active Bit: Bit 2.1 COMPLETE - Atomic Deletion Pattern
 
 ## Module Progress
 
@@ -24,16 +24,16 @@
 | 1.8 | Rate Limiting Headers | ✅ DONE | Agent-002 | Created _shared/rate-limit-headers.ts, added to discover-companies, generate-projects, get-project-detail, job-matcher |
 
 ### Module 2: High Priority Reliability Fixes (P1)
-| Bit | Description | Status |
-|-----|-------------|--------|
-| 2.1 | Atomic Deletion Pattern | 🔄 NEXT |
-| 2.2 | Cascade Delete for Projects | ⬜ TODO |
-| 2.3 | Orphan Cleanup Automation | ⬜ TODO |
-| 2.4 | API Retry Logic Part 1 | ⬜ TODO |
-| 2.5 | API Retry Logic Part 2 | ⬜ TODO |
-| 2.6 | Error Classification System | ⬜ TODO |
-| 2.7 | Timeout Configuration | ⬜ TODO |
-| 2.8 | Circuit Breaker Pattern | ⬜ TODO |
+| Bit | Description | Status | Completed By | Notes |
+|-----|-------------|--------|--------------|-------|
+| 2.1 | Atomic Deletion Pattern | ✅ DONE | Agent-002 | Created delete_course_atomic RPC, updated SyllabusManagement.tsx |
+| 2.2 | Cascade Delete for Projects | 🔄 NEXT | | |
+| 2.3 | Orphan Cleanup Automation | ⬜ TODO | | |
+| 2.4 | API Retry Logic Part 1 | ⬜ TODO | | |
+| 2.5 | API Retry Logic Part 2 | ⬜ TODO | | |
+| 2.6 | Error Classification System | ⬜ TODO | | |
+| 2.7 | Timeout Configuration | ⬜ TODO | | |
+| 2.8 | Circuit Breaker Pattern | ⬜ TODO | | |
 
 ### Module 3: Medium Priority Code Quality (P2)
 | Bit | Description | Status |
@@ -61,30 +61,38 @@
 
 ## Session History
 
-### Session 8 (Current) - Agent-002
+### Session 9 (Current) - Agent-002
+- **Started:** 2025-12-25T16:00:00Z
+- **Task:** Bit 2.1 - Atomic Deletion Pattern
+- **Actions Completed:**
+  1. Created `delete_course_atomic` database function:
+     - Single transaction for all deletion operations
+     - Verifies course ownership before deletion
+     - Deletes in order: generation_runs, company_filter_cache, projects (cascade), course_profiles
+     - Returns success status, error message, and deleted projects count
+     - SECURITY DEFINER with proper authorization checks
+  2. Updated `src/components/syllabus/SyllabusManagement.tsx`:
+     - Replaced two-step deletion with single atomic RPC call
+     - Added user authentication check
+     - Improved toast messages with project count
+     - Proper error handling for atomic function responses
+- **Files Modified:**
+  - Database migration: Created `delete_course_atomic` function
+  - src/components/syllabus/SyllabusManagement.tsx
+- **Verification:** Course deletion now atomic - no orphaned data possible
+
+### Session 8 - Agent-002
 - **Started:** 2025-12-25T15:00:00Z
 - **Task:** Bit 1.8 - Rate Limiting Headers
 - **Actions Completed:**
-  1. Created supabase/functions/_shared/rate-limit-headers.ts with comprehensive rate limiting utilities:
-     - RateLimitConfig interface for configuration
-     - RATE_LIMIT_CONFIGS with predefined limits (PUBLIC_HIGH, AUTHENTICATED_STANDARD, RESOURCE_INTENSIVE, ADMIN_RESTRICTED, WEBHOOK)
-     - getRateLimitHeaders() - Generate X-RateLimit-* headers
-     - getEstimatedRateLimitHeaders() - Helper for estimated usage
-     - withRateLimitHeaders() - Merge with existing headers
-     - createRateLimitedResponse() - 429 response helper
-     - checkRateLimit() - In-memory rate limiter for dev/testing
-     - cleanupRateLimitEntries() - Cleanup expired entries
-  2. Added rate limit headers to discover-companies/index.ts (RESOURCE_INTENSIVE)
-  3. Added rate limit headers to generate-projects/index.ts (RESOURCE_INTENSIVE)
-  4. Added rate limit headers to get-project-detail/index.ts (PUBLIC_HIGH)
-  5. Added rate limit headers to job-matcher/index.ts (RESOURCE_INTENSIVE)
+  1. Created supabase/functions/_shared/rate-limit-headers.ts with comprehensive rate limiting utilities
+  2. Added rate limit headers to discover-companies, generate-projects, get-project-detail, job-matcher
 - **Files Modified:**
   - supabase/functions/_shared/rate-limit-headers.ts (created)
   - supabase/functions/discover-companies/index.ts
   - supabase/functions/generate-projects/index.ts
   - supabase/functions/get-project-detail/index.ts
   - supabase/functions/job-matcher/index.ts
-- **Verification:** Rate limit headers now included in all high-traffic edge function responses
 - **MODULE 1 COMPLETE:** All 8 bits of Critical Security Fixes completed
 
 ### Session 7 - Agent-002

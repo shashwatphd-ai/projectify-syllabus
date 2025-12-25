@@ -119,23 +119,34 @@ export function SyllabusManagement({ courses, onRefresh }: SyllabusManagementPro
 
   const handleDelete = async (courseId: string) => {
     try {
-      // First delete related projects
-      const { error: projectsError } = await supabase
-        .from('projects')
-        .delete()
-        .eq('course_id', courseId);
+      // Get current user for authorization check
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Not authenticated");
+        return;
+      }
 
-      if (projectsError) throw projectsError;
+      // Use atomic deletion function - all or nothing transaction
+      const { data, error } = await supabase
+        .rpc('delete_course_atomic', {
+          p_course_id: courseId,
+          p_user_id: user.id
+        });
 
-      // Then delete the course
-      const { error: courseError } = await supabase
-        .from('course_profiles')
-        .delete()
-        .eq('id', courseId);
+      if (error) throw error;
 
-      if (courseError) throw courseError;
+      // Check the result from the atomic function
+      const result = data?.[0];
+      if (!result?.success) {
+        throw new Error(result?.error_message || 'Failed to delete course');
+      }
 
-      toast.success("Syllabus and associated projects deleted");
+      const projectCount = result.deleted_projects_count || 0;
+      toast.success(
+        projectCount > 0 
+          ? `Syllabus and ${projectCount} project${projectCount === 1 ? '' : 's'} deleted`
+          : "Syllabus deleted"
+      );
       onRefresh();
     } catch (error: any) {
       console.error('Error deleting course:', error);

@@ -1541,6 +1541,14 @@ export type Database = {
           success: boolean
         }[]
       }
+      delete_course_atomic: {
+        Args: { p_course_id: string; p_user_id: string }
+        Returns: {
+          deleted_projects_count: number
+          error_message: string
+          success: boolean
+        }[]
+      }
       employer_owns_project_company: {
         Args: { p_project_id: string; p_user_id: string }
         Returns: boolean
