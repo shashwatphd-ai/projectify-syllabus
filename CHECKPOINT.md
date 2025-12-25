@@ -10,15 +10,15 @@
 | Field | Value |
 |-------|-------|
 | **Phase** | 1 - Signal Intelligence |
-| **Next Priority Task** | Signal 2: News/Market Intelligence |
+| **Next Priority Task** | Signal 3: Department Fit |
 | **Blocked By** | Nothing |
-| **Last Completed** | Phase 0: Stabilization (RLS fixes, tech/distance filters) |
+| **Last Completed** | Signal 2: Market Intelligence ✅ |
 
 ---
 
 ## Phase 1 Checklist (Must Complete First)
 
-- [ ] **Signal 2**: News/Market Intelligence (Apollo news + funding signals)
+- [x] **Signal 2**: News/Market Intelligence (Apollo news + funding signals) ✅
 - [ ] **Signal 3**: Department Fit (headcount growth analysis)
 - [ ] **Signal 4**: Contact Quality (decision-maker scoring)
 - [ ] **Composite Scoring**: Weighted 0-100 calculation (25% each signal)
@@ -39,6 +39,12 @@ These are **Phase 2+ features** - do not implement until all Phase 1 signals are
 ---
 
 ## Completed Features
+
+### Phase 1: Signal Intelligence (In Progress)
+- [x] Signal 2: Market Intelligence - Apollo News API integration
+  - Categories: funding, hiring, contracts, expansion, launches
+  - Scoring: weighted by signal type + recency + volume
+  - Verified working with live API test
 
 ### Phase 0: Stabilization ✅
 - [x] RLS policy fixes (profiles, partnership_proposals)
