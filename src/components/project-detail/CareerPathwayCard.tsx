@@ -10,7 +10,9 @@ import {
   Briefcase, 
   GraduationCap,
   DollarSign,
-  Clock
+  Clock,
+  Target,
+  Lightbulb
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -30,13 +32,28 @@ interface CareerStep {
   salaryRange: string;
   skills: string[];
   isCurrentFit: boolean;
+  onetCode?: string;
+  growthOutlook?: string;
+}
+
+interface AlternativePathway {
+  name: string;
+  description?: string;
+  steps: CareerStep[];
+  industryMatch?: number;
 }
 
 interface CareerPathwayData {
   primary_pathway: CareerStep[];
-  alternative_pathways: { name: string; steps: CareerStep[] }[];
+  alternative_pathways: AlternativePathway[];
   growth_potential: number;
   time_to_senior: string;
+  industry_demand?: {
+    score: number;
+    trend: 'growing' | 'stable' | 'declining';
+    insight: string;
+  };
+  career_trajectory?: string[];
   analyzed_at: string;
 }
 
@@ -53,51 +70,14 @@ export const CareerPathwayCard = ({
   const generatePathway = async () => {
     setLoading(true);
     try {
-      // Generate career pathway based on project skills and sector
-      const baseTitles = getCareerTitles(sector);
+      const { data: result, error } = await supabase.functions.invoke('career-pathway-mapper', {
+        body: { projectId }
+      });
+
+      if (error) throw error;
       
-      const primaryPathway: CareerStep[] = baseTitles.map((title, idx) => ({
-        title,
-        level: (['entry', 'mid', 'senior', 'lead'] as const)[idx],
-        yearsExperience: ['0-2', '2-5', '5-8', '8+'][idx],
-        salaryRange: [`$${50 + idx * 25}k-${70 + idx * 25}k`][0],
-        skills: projectSkills.slice(0, 3),
-        isCurrentFit: idx === 0
-      }));
-
-      const pathwayResult: CareerPathwayData = {
-        primary_pathway: primaryPathway,
-        alternative_pathways: [
-          {
-            name: "Technical Specialist",
-            steps: primaryPathway.slice(0, 3).map(s => ({
-              ...s,
-              title: `Senior ${s.title.replace('Junior ', '').replace('Lead ', '')}`
-            }))
-          }
-        ],
-        growth_potential: Math.round(75 + Math.random() * 20),
-        time_to_senior: "4-6 years",
-        analyzed_at: new Date().toISOString()
-      };
-
-      setData(pathwayResult);
-      
-      // Store in project metadata
-      const { error } = await supabase
-        .from('project_metadata')
-        .update({ 
-          value_analysis: JSON.parse(JSON.stringify({
-            career_pathway: pathwayResult
-          }))
-        })
-        .eq('project_id', projectId);
-
-      if (error) {
-        console.warn('Could not persist career pathway:', error);
-      }
-
-      toast.success("Career pathway mapped");
+      setData(result);
+      toast.success("Career pathway mapped successfully");
       onAnalyze?.();
     } catch (error) {
       console.error('Career pathway error:', error);
@@ -107,17 +87,6 @@ export const CareerPathwayCard = ({
     }
   };
 
-  const getCareerTitles = (sector: string): string[] => {
-    const sectorTitles: Record<string, string[]> = {
-      'Technology': ['Junior Developer', 'Software Engineer', 'Senior Engineer', 'Tech Lead'],
-      'Finance': ['Analyst', 'Senior Analyst', 'Manager', 'Director'],
-      'Healthcare': ['Associate', 'Specialist', 'Senior Specialist', 'Lead'],
-      'Marketing': ['Coordinator', 'Specialist', 'Manager', 'Director'],
-      'default': ['Entry Level', 'Mid Level', 'Senior Level', 'Lead/Manager']
-    };
-    return sectorTitles[sector] || sectorTitles['default'];
-  };
-
   const getLevelColor = (level: string) => {
     switch (level) {
       case 'entry': return 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30';
@@ -125,6 +94,14 @@ export const CareerPathwayCard = ({
       case 'senior': return 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30';
       case 'lead': return 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30';
       default: return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  const getTrendIcon = (trend: string) => {
+    switch (trend) {
+      case 'growing': return <TrendingUp className="h-3 w-3 text-green-600" />;
+      case 'stable': return <Target className="h-3 w-3 text-blue-600" />;
+      default: return <TrendingUp className="h-3 w-3 text-muted-foreground" />;
     }
   };
 
@@ -140,7 +117,7 @@ export const CareerPathwayCard = ({
         <CardContent>
           <div className="text-center py-6 space-y-4">
             <p className="text-sm text-muted-foreground">
-              Map your career progression based on project skills
+              Map potential career trajectories based on project skills and industry
             </p>
             <Button 
               onClick={generatePathway} 
@@ -152,7 +129,7 @@ export const CareerPathwayCard = ({
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Mapping...
+                  Analyzing careers...
                 </>
               ) : (
                 <>
@@ -176,23 +153,24 @@ export const CareerPathwayCard = ({
             Career Pathway
           </CardTitle>
           <Badge variant="outline" className="bg-green-500/10 text-green-700 dark:text-green-400">
-            {data.growth_potential}% Growth
+            {data.growth_potential}% Growth Potential
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Career Progression */}
+        {/* Primary Career Progression */}
         <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground mb-2">Primary Trajectory</p>
           {data.primary_pathway.map((step, idx) => (
             <div 
               key={idx} 
               className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${
                 step.isCurrentFit 
-                  ? 'bg-primary/10 border-primary/30' 
+                  ? 'bg-primary/10 border-primary/30 ring-1 ring-primary/20' 
                   : 'bg-muted/30 border-border/30'
               }`}
             >
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
                 step.isCurrentFit ? 'bg-primary text-primary-foreground' : 'bg-muted'
               }`}>
                 {step.isCurrentFit ? (
@@ -202,11 +180,18 @@ export const CareerPathwayCard = ({
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{step.title}</p>
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium truncate">{step.title}</p>
+                  {step.growthOutlook && (
+                    <Badge variant="secondary" className="text-[9px] shrink-0">
+                      {step.growthOutlook}
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                   <span className="flex items-center gap-0.5">
                     <Clock className="h-2.5 w-2.5" />
-                    {step.yearsExperience} yrs
+                    {step.yearsExperience}
                   </span>
                   <span className="flex items-center gap-0.5">
                     <DollarSign className="h-2.5 w-2.5" />
@@ -214,15 +199,40 @@ export const CareerPathwayCard = ({
                   </span>
                 </div>
               </div>
-              <Badge variant="outline" className={`text-[10px] ${getLevelColor(step.level)}`}>
+              <Badge variant="outline" className={`text-[10px] shrink-0 ${getLevelColor(step.level)}`}>
                 {step.level}
               </Badge>
               {idx < data.primary_pathway.length - 1 && (
-                <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
               )}
             </div>
           ))}
         </div>
+
+        {/* Industry Demand */}
+        {data.industry_demand && (
+          <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-border/30">
+            <div className="flex items-center gap-2 text-xs">
+              {getTrendIcon(data.industry_demand.trend)}
+              <span className="text-muted-foreground">Industry Demand</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-[10px]">
+                {data.industry_demand.score}%
+              </Badge>
+              <Badge 
+                variant="outline" 
+                className={`text-[10px] capitalize ${
+                  data.industry_demand.trend === 'growing' 
+                    ? 'text-green-600 border-green-500/30' 
+                    : 'text-blue-600 border-blue-500/30'
+                }`}
+              >
+                {data.industry_demand.trend}
+              </Badge>
+            </div>
+          </div>
+        )}
 
         {/* Time to Senior */}
         <div className="flex items-center justify-between text-xs pt-2 border-t border-border/50">
@@ -233,19 +243,65 @@ export const CareerPathwayCard = ({
           <Badge variant="secondary">{data.time_to_senior}</Badge>
         </div>
 
+        {/* Career Insights */}
+        {data.career_trajectory && data.career_trajectory.length > 0 && (
+          <div className="space-y-2 pt-2 border-t border-border/50">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              <Lightbulb className="h-3 w-3" />
+              Career Insights
+            </p>
+            <ul className="space-y-1">
+              {data.career_trajectory.slice(0, 3).map((insight, idx) => (
+                <li key={idx} className="text-[11px] text-muted-foreground pl-3 relative">
+                  <span className="absolute left-0 top-1.5 w-1.5 h-1.5 rounded-full bg-green-500/50" />
+                  {insight}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Alternative Paths */}
-        {data.alternative_pathways.length > 0 && (
-          <div className="text-xs">
-            <p className="text-muted-foreground mb-1">Alternative paths:</p>
-            <div className="flex flex-wrap gap-1">
+        {data.alternative_pathways && data.alternative_pathways.length > 0 && (
+          <div className="text-xs pt-2 border-t border-border/50">
+            <p className="text-muted-foreground mb-2">Alternative Career Tracks</p>
+            <div className="flex flex-wrap gap-1.5">
               {data.alternative_pathways.map((path, idx) => (
-                <Badge key={idx} variant="outline" className="text-[10px]">
+                <Badge 
+                  key={idx} 
+                  variant="outline" 
+                  className="text-[10px] cursor-help"
+                  title={path.description || `${path.name} career track`}
+                >
                   {path.name}
+                  {path.industryMatch && (
+                    <span className="ml-1 opacity-70">{path.industryMatch}%</span>
+                  )}
                 </Badge>
               ))}
             </div>
           </div>
         )}
+
+        {/* Regenerate button */}
+        <div className="pt-2">
+          <Button 
+            onClick={generatePathway} 
+            disabled={loading}
+            size="sm"
+            variant="ghost"
+            className="w-full text-xs h-7"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                Updating...
+              </>
+            ) : (
+              'Refresh Analysis'
+            )}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
