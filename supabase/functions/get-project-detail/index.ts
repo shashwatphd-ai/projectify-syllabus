@@ -9,6 +9,7 @@ import {
   sanitizeForLog
 } from '../_shared/input-validation.ts';
 import { safeParseRequestBody } from '../_shared/json-parser.ts';
+import { getEstimatedRateLimitHeaders } from '../_shared/rate-limit-headers.ts';
 
 /**
  * GET-PROJECT-DETAIL EDGE FUNCTION
@@ -18,7 +19,12 @@ import { safeParseRequestBody } from '../_shared/json-parser.ts';
  * GUARANTEES: Clean, normalized, predictable payload with explicit status fields
  */
 
-const responseHeaders = { ...corsHeaders, ...securityHeaders, 'Content-Type': 'application/json' };
+const responseHeaders = { 
+  ...corsHeaders, 
+  ...securityHeaders, 
+  ...getEstimatedRateLimitHeaders('PUBLIC_HIGH'),
+  'Content-Type': 'application/json' 
+};
 
 serve(async (req) => {
   // Handle CORS preflight

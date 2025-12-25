@@ -1,10 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.78.0";
+import { getEstimatedRateLimitHeaders } from '../_shared/rate-limit-headers.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Rate limit headers for job matching (resource-intensive)
+const getResponseHeaders = () => ({
+  ...corsHeaders,
+  ...getEstimatedRateLimitHeaders('RESOURCE_INTENSIVE'),
+  'Content-Type': 'application/json',
+});
 
 interface JobMatchRequest {
   student_id: string;
