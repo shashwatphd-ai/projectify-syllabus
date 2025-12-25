@@ -92,13 +92,81 @@ function calculateImportance(jobMentions: number, totalJobs: number): 'critical'
   return 'nice_to_have';
 }
 
+/**
+ * Verifies the JWT token from the Authorization header
+ */
+async function verifyAuth(req: Request): Promise<{ authenticated: boolean; userId?: string; error?: string }> {
+  const authHeader = req.headers.get('Authorization');
+  
+  if (!authHeader) {
+    return { authenticated: false, error: 'Missing Authorization header' };
+  }
+  
+  const token = authHeader.replace('Bearer ', '');
+  
+  if (!token) {
+    return { authenticated: false, error: 'Invalid Authorization header format' };
+  }
+  
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('[skill-gap-analyzer] Missing Supabase environment variables');
+    return { authenticated: false, error: 'Server configuration error' };
+  }
+  
+  try {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    });
+    
+    const { data: { user }, error } = await supabase.auth.getUser();
+    
+    if (error || !user) {
+      console.warn('[skill-gap-analyzer] Token verification failed:', error?.message);
+      return { authenticated: false, error: 'Invalid or expired token' };
+    }
+    
+    return { authenticated: true, userId: user.id };
+  } catch (err) {
+    console.error('[skill-gap-analyzer] Auth error:', err);
+    return { authenticated: false, error: 'Authentication failed' };
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { projectId } = await req.json();
+    // Verify authentication
+    const authResult = await verifyAuth(req);
+    if (!authResult.authenticated) {
+      console.warn(`[skill-gap-analyzer] Unauthorized request: ${authResult.error}`);
+      return new Response(
+        JSON.stringify({ error: authResult.error || 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log(`[skill-gap-analyzer] Authenticated user: ${authResult.userId}`);
+
+    // Safe JSON parsing
+    let body: { projectId?: string };
+    try {
+      body = await req.json();
+    } catch (parseError) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const { projectId } = body;
     
     if (!projectId) {
       return new Response(
