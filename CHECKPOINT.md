@@ -9,42 +9,57 @@
 
 | Field | Value |
 |-------|-------|
-| **Phase** | 1 - Signal Intelligence |
-| **Next Priority Task** | Signal 3: Department Fit |
+| **Phase** | 1 - Signal Intelligence ✅ COMPLETE |
+| **Next Priority Task** | Phase 2 ready - await user direction |
 | **Blocked By** | Nothing |
-| **Last Completed** | Signal 2: Market Intelligence ✅ |
+| **Last Completed** | Signal 4: Contact Quality ✅ |
 
 ---
 
-## Phase 1 Checklist (Must Complete First)
+## Phase 1 Checklist ✅ COMPLETE
 
-- [x] **Signal 2**: News/Market Intelligence (Apollo news + funding signals) ✅
-- [ ] **Signal 3**: Department Fit (headcount growth analysis)
-- [ ] **Signal 4**: Contact Quality (decision-maker scoring)
-- [ ] **Composite Scoring**: Weighted 0-100 calculation (25% each signal)
+- [x] **Signal 1**: Job-Skills Match (semantic skill alignment)
+- [x] **Signal 2**: News/Market Intelligence (Apollo news + funding signals)
+- [x] **Signal 3**: Department Fit (headcount growth analysis)
+- [x] **Signal 4**: Contact Quality (decision-maker scoring)
+- [x] **Composite Scoring**: Weighted 0-100 calculation (25% each signal)
+
+All signals implemented in `supabase/functions/_shared/signals/`:
+- `job-skills-signal.ts` - Job postings skill matching
+- `market-intel-signal.ts` - News API (funding, hiring, contracts, expansion, launches)
+- `department-fit-signal.ts` - Org intelligence (dept counts, funding events, tech stack)
+- `contact-quality-signal.ts` - People search (decision-makers, verified emails)
+- `signal-orchestrator.ts` - Parallel execution + composite scoring
 
 ---
 
-## 🚫 DO NOT BUILD (Until Phase 1 Complete)
+## 🟡 Phase 2: Premium Features (Ready to Start)
 
-These are **Phase 2+ features** - do not implement until all Phase 1 signals are complete:
+These are now eligible to implement:
 
-- Salary ROI enhancements
-- Skill Gap Analysis features
-- Career Pathway mapping
-- Portfolio Export
-- Employer Portal
-- Student Rating System
+- [ ] Salary ROI enhancements
+- [ ] Skill Gap Analysis features
+- [ ] Career Pathway mapping
+- [ ] Portfolio Export
+- [ ] Employer Portal
+- [ ] Student Rating System
 
 ---
 
 ## Completed Features
 
-### Phase 1: Signal Intelligence (In Progress)
+### Phase 1: Signal Intelligence ✅
+- [x] Signal 1: Job-Skills Match - keyword + semantic matching
 - [x] Signal 2: Market Intelligence - Apollo News API integration
   - Categories: funding, hiring, contracts, expansion, launches
   - Scoring: weighted by signal type + recency + volume
-  - Verified working with live API test
+- [x] Signal 3: Department Fit - Apollo Complete Org Info API
+  - Departmental head counts + funding events + tech stack
+  - Scoring: department size (40%) + funding (35%) + tech match (25%)
+- [x] Signal 4: Contact Quality - Apollo People Search API
+  - Decision-maker seniority + verified emails + department relevance
+  - Scoring: decision-makers (40pts) + relevance (25pts) + emails (15pts) + titles (10pts)
+- [x] Composite Scoring: 25% weight per signal → 0-100 overall score
 
 ### Phase 0: Stabilization ✅
 - [x] RLS policy fixes (profiles, partnership_proposals)
@@ -53,7 +68,6 @@ These are **Phase 2+ features** - do not implement until all Phase 1 signals are
 - [x] Increased batch size to 25
 
 ### Existing Infrastructure ✅
-- [x] Signal 1: Job-Skills matching (partial - keyword only)
 - [x] Syllabus parsing pipeline
 - [x] Company discovery (Apollo)
 - [x] Project generation with LO alignment
@@ -67,12 +81,12 @@ These are **Phase 2+ features** - do not implement until all Phase 1 signals are
 The 4-signal system (25% weight each):
 
 ```
-Signal 1: Job-Skills Match     → Semantic skill alignment
-Signal 2: Market Intelligence  → News, funding, expansion signals
-Signal 3: Department Fit       → Team growth matching course domain
-Signal 4: Contact Quality      → Decision-maker availability score
+Signal 1: Job-Skills Match     → Semantic skill alignment (job-skills-signal.ts)
+Signal 2: Market Intelligence  → News, funding, expansion signals (market-intel-signal.ts)
+Signal 3: Department Fit       → Team growth + tech stack match (department-fit-signal.ts)
+Signal 4: Contact Quality      → Decision-maker availability (contact-quality-signal.ts)
          ────────────────────────────────────────────────────────
-         Composite Score       → Weighted 0-100 ranking
+         Composite Score       → Weighted 0-100 ranking (signal-orchestrator.ts)
 ```
 
 ---
