@@ -18,16 +18,20 @@
 
 ## Phase 2 Checklist (Current)
 
-- [x] **P0: Salary ROI Calculator** ✅ ENHANCED
+- [x] **Salary ROI Calculator** ✅ ENHANCED
   - ✅ Integrated signal scores (skill match, market intel, dept fit, contact quality)
   - ✅ Partnership readiness score for faculty decision-making
-  - ✅ Hiring likelihood, funding stability, decision-maker access insights
-  - ✅ Overall recommendation with confidence level
-- [ ] Skill Gap Analysis
+- [x] **Skill Gap Analysis** ✅ COMPLETE
+  - ✅ Edge function: `skill-gap-analyzer`
+  - ✅ Compares syllabus skills vs company job postings
+  - ✅ Shows: skills already have, will learn, gaps to develop
+  - ✅ Career readiness assessment with confidence level
 - [ ] Career Pathway mapping
 - [ ] Portfolio Export
 - [ ] Employer Portal
 - [ ] Student Rating System
+
+**Next P0**: Awaiting direction
 
 ---
 
