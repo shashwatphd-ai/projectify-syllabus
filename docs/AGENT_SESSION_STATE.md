@@ -27,8 +27,8 @@
 | Bit | Description | Status | Completed By | Notes |
 |-----|-------------|--------|--------------|-------|
 | 2.1 | Atomic Deletion Pattern | ✅ DONE | Agent-002 | Created delete_course_atomic RPC, updated SyllabusManagement.tsx |
-| 2.2 | Cascade Delete for Projects | 🔄 NEXT | | |
-| 2.3 | Orphan Cleanup Automation | ⬜ TODO | | |
+| 2.2 | Cascade Delete for Projects | ✅ DONE | Agent-002 | Created delete_project_atomic RPC - deletes project + 7 related tables atomically |
+| 2.3 | Orphan Cleanup Automation | 🔄 NEXT | | |
 | 2.4 | API Retry Logic Part 1 | ⬜ TODO | | |
 | 2.5 | API Retry Logic Part 2 | ⬜ TODO | | |
 | 2.6 | Error Classification System | ⬜ TODO | | |
