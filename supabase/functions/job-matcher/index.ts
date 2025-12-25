@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.78.0";
 import { getEstimatedRateLimitHeaders } from '../_shared/rate-limit-headers.ts';
+import { withRetry, isRetryableError } from '../_shared/retry-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -107,50 +108,81 @@ serve(async (req) => {
     
     console.log(`Querying Apollo for job postings at: ${apolloJobsUrl}`);
 
-    const apolloResponse = await fetch(apolloJobsUrl, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-        'X-Api-Key': APOLLO_API_KEY,
+    // Use retry utility for Apollo API call
+    const apolloData = await withRetry(
+      async () => {
+        const response = await fetch(apolloJobsUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+            'X-Api-Key': APOLLO_API_KEY,
+          },
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Apollo API error:', response.status, errorText);
+          
+          // Check for rate limit - handled by retry utility
+          if (response.status === 429) {
+            const retryAfter = response.headers.get('Retry-After');
+            const error = new Error('Apollo API rate limit exceeded');
+            (error as any).status = 429;
+            (error as any).retryAfter = retryAfter ? parseInt(retryAfter) : undefined;
+            throw error;
+          }
+          
+          // Auth errors - don't retry
+          if (response.status === 401 || response.status === 403) {
+            const error = new Error('Apollo API authentication failed. Please check API key.');
+            (error as any).status = response.status;
+            throw error;
+          }
+          
+          // 404 means no job postings - not an error, return empty
+          if (response.status === 404) {
+            return { job_postings: [], is404: true };
+          }
+          
+          // Server errors - retry
+          if (response.status >= 500) {
+            const error = new Error(`Apollo API server error: ${response.status}`);
+            (error as any).status = response.status;
+            throw error;
+          }
+          
+          throw new Error(`Apollo API request failed: ${errorText}`);
+        }
+
+        return await response.json();
       },
-    });
+      {
+        maxRetries: 3,
+        baseDelayMs: 1000,
+        operationName: 'Apollo job postings fetch',
+        onRetry: (attempt, delay, error) => {
+          console.log(`Retrying Apollo job postings (attempt ${attempt}) after ${delay}ms: ${error.message}`);
+        }
+      }
+    );
 
-    if (!apolloResponse.ok) {
-      const errorText = await apolloResponse.text();
-      console.error('Apollo API error:', apolloResponse.status, errorText);
-      
-      if (apolloResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Apollo API rate limit exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      if (apolloResponse.status === 401 || apolloResponse.status === 403) {
-        throw new Error('Apollo API authentication failed. Please check API key.');
-      }
-      
-      if (apolloResponse.status === 404) {
-        console.log('No job postings found for this company (404)');
-        return new Response(
-          JSON.stringify({ 
-            success: true,
-            message: 'No job postings found for this company',
-            student_id,
-            project_id,
-            company_name: project.company_name,
-            jobs_found: 0,
-            matches_created: 0
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      throw new Error(`Apollo API request failed: ${errorText}`);
+    // Handle 404 case (no job postings)
+    if (apolloData.is404) {
+      console.log('No job postings found for this company (404)');
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          message: 'No job postings found for this company',
+          student_id,
+          project_id,
+          company_name: project.company_name,
+          jobs_found: 0,
+          matches_created: 0
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
-
-    const apolloData = await apolloResponse.json();
     const jobPostings: ApolloJobPosting[] = apolloData.job_postings || [];
     
     console.log(`Found ${jobPostings.length} job postings for company: ${project.company_name}`);
@@ -284,24 +316,43 @@ serve(async (req) => {
           const subject = "A student with skills you're hiring for just completed a project";
           const body = `Hi ${contactData.contact_first_name || 'Hiring Manager'},<br/><br/>A student at EduThree just completed a project with skills that match your open job postings (e.g., "${skills[0]}").<br/><br/>You can view this student's verified portfolio and job matches by logging into your EduThree employer portal.<br/><br/>Best,<br/>The EduThree Team`;
 
-          const resendResponse = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${RESEND_API_KEY}`
-            },
-            body: JSON.stringify({
-              from: 'EduThree Alerts <alerts@eduthree.com>', // NOTE: This 'from' domain must be verified in Resend
-              to: contactData.contact_email,
-              subject: subject,
-              html: body
-            })
-          });
+          // Use retry utility for Resend API call
+          const resendResult = await withRetry(
+            async () => {
+              const response = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${RESEND_API_KEY}`
+                },
+                body: JSON.stringify({
+                  from: 'EduThree Alerts <alerts@eduthree.com>',
+                  to: contactData.contact_email,
+                  subject: subject,
+                  html: body
+                })
+              });
 
-          if (!resendResponse.ok) {
-            const errorText = await resendResponse.text();
-            console.error('Resend API error:', errorText);
-          } else {
+              if (!response.ok) {
+                const errorText = await response.text();
+                const error = new Error(`Resend API error: ${errorText}`);
+                (error as any).status = response.status;
+                throw error;
+              }
+              
+              return { success: true };
+            },
+            {
+              maxRetries: 2,
+              baseDelayMs: 500,
+              operationName: 'Resend talent alert email',
+              onRetry: (attempt, delay, error) => {
+                console.log(`Retrying Resend email (attempt ${attempt}) after ${delay}ms: ${error.message}`);
+              }
+            }
+          );
+
+          if (resendResult.success) {
             console.log(`Successfully sent REAL Talent Alert to ${contactData.contact_email}`);
             
             // 3. Update the status of the matches to 'notified'
