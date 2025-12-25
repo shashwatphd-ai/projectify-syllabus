@@ -1,13 +1,13 @@
 # Agent Session State
 
-**Last Updated:** 2025-12-25T12:45:00Z  
+**Last Updated:** 2025-12-25T13:00:00Z  
 **Current Agent:** Agent-002  
 **Protocol Version:** 1.0
 
 ## Current Status
 
 ### Active Module: Module 1 - Critical Security Fixes (P0)
-### Active Bit: Bit 1.4 - Edge Function Auth Part 4
+### Active Bit: Bit 1.5 - CORS Hardening
 
 ## Module Progress
 
@@ -17,8 +17,8 @@
 | 1.1 | Edge Function Auth Part 1 | ✅ DONE | Agent-001 | Created auth-middleware.ts, secured career-pathway-mapper, skill-gap-analyzer |
 | 1.2 | Edge Function Auth Part 2 | ✅ DONE | Agent-002 | Secured salary-roi-calculator, discover-companies |
 | 1.3 | Edge Function Auth Part 3 | ✅ DONE | Agent-002 | Secured data-enrichment-pipeline, firecrawl-scrape |
-| 1.4 | Edge Function Auth Part 4 | 🔄 NEXT | - | firecrawl-career-pages, generate-projects |
-| 1.5 | CORS Hardening | ⬜ TODO | - | All edge functions |
+| 1.4 | Edge Function Auth Part 4 | ✅ DONE | Agent-002 | Secured firecrawl-career-pages (generate-projects already had auth) |
+| 1.5 | CORS Hardening | 🔄 NEXT | - | All edge functions |
 | 1.6 | JSON Parsing Safety | ⬜ TODO | - | All edge functions |
 | 1.7 | Input Validation | ⬜ TODO | - | UUID validation, SQL injection prevention |
 | 1.8 | Rate Limiting Headers | ⬜ TODO | - | Add rate limit headers |
@@ -61,7 +61,19 @@
 
 ## Session History
 
-### Session 3 (Current) - Agent-002
+### Session 4 (Current) - Agent-002
+- **Started:** 2025-12-25T12:55:00Z
+- **Task:** Bit 1.4 - Edge Function Auth Part 4
+- **Actions Completed:**
+  1. Added auth-middleware import to firecrawl-career-pages/index.ts
+  2. Implemented JWT verification in firecrawl-career-pages
+  3. Verified generate-projects already has JWT auth (lines 442-466)
+  4. Confirmed both functions have verify_jwt = true in config.toml
+- **Files Modified:**
+  - supabase/functions/firecrawl-career-pages/index.ts
+- **Verification:** firecrawl-career-pages now verifies JWT; generate-projects already secure
+
+### Session 3 - Agent-002
 - **Started:** 2025-12-25T12:40:00Z
 - **Task:** Bit 1.3 - Edge Function Auth Part 3
 - **Actions Completed:**
@@ -101,24 +113,15 @@
   - supabase/functions/skill-gap-analyzer/index.ts
   - supabase/config.toml
 
-## Next Steps for Bit 1.4
+## Next Steps for Bit 1.5: CORS Hardening
 
-**Target Files:**
-- supabase/functions/firecrawl-career-pages/index.ts
-- supabase/functions/generate-projects/index.ts
+**Objective:** Review and harden CORS headers across all edge functions
 
-**Implementation Pattern:**
-```typescript
-import { verifyAuth, unauthorizedResponse } from '../_shared/auth-middleware.ts';
-
-// After OPTIONS check:
-const authResult = await verifyAuth(req);
-if (!authResult.authenticated) {
-  console.warn('[function-name] Auth failed:', authResult.error);
-  return unauthorizedResponse(corsHeaders, authResult.error);
-}
-console.log(`[function-name] Authenticated user: ${authResult.userId}`);
-```
+**Tasks:**
+1. Review current CORS configuration in all functions
+2. Restrict origins to production domains where appropriate
+3. Ensure consistent CORS headers across all functions
+4. Add security headers (X-Content-Type-Options, X-Frame-Options, etc.)
 
 ## Known Blockers
 
@@ -129,7 +132,8 @@ None currently.
 - [x] Bit 1.1: Auth middleware created and tested
 - [x] Bit 1.2: salary-roi-calculator and discover-companies secured
 - [x] Bit 1.3: data-enrichment-pipeline and firecrawl-scrape secured
-- [ ] Bit 1.4: firecrawl-career-pages and generate-projects pending
+- [x] Bit 1.4: firecrawl-career-pages secured (generate-projects already had auth)
+- [ ] Bit 1.5: CORS hardening pending
 - [ ] Module 1 complete verification
 - [ ] Security scan after Module 1
 
