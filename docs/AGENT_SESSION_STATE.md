@@ -7,7 +7,7 @@
 ## Current Status
 
 ### Active Module: Module 1 - Critical Security Fixes (P0)
-### Active Bit: Bit 1.6 - JSON Parsing Safety
+### Active Bit: Bit 1.7 - Input Validation
 
 ## Module Progress
 
@@ -19,8 +19,8 @@
 | 1.3 | Edge Function Auth Part 3 | ✅ DONE | Agent-002 | Secured data-enrichment-pipeline, firecrawl-scrape |
 | 1.4 | Edge Function Auth Part 4 | ✅ DONE | Agent-002 | Secured firecrawl-career-pages (generate-projects already had auth) |
 | 1.5 | CORS Hardening | ✅ DONE | Agent-002 | Enhanced _shared/cors.ts with security headers, helper functions |
-| 1.6 | JSON Parsing Safety | 🔄 NEXT | - | All edge functions |
-| 1.7 | Input Validation | ⬜ TODO | - | UUID validation, SQL injection prevention |
+| 1.6 | JSON Parsing Safety | ✅ DONE | Agent-002 | Created _shared/json-parser.ts with safeParseRequestBody, validateRequiredFields |
+| 1.7 | Input Validation | 🔄 NEXT | - | UUID validation, SQL injection prevention |
 | 1.8 | Rate Limiting Headers | ⬜ TODO | - | Add rate limit headers |
 
 ### Module 2: High Priority Reliability Fixes (P1)
@@ -61,7 +61,24 @@
 
 ## Session History
 
-### Session 5 (Current) - Agent-002
+### Session 6 (Current) - Agent-002
+- **Started:** 2025-12-25T13:30:00Z
+- **Task:** Bit 1.6 - JSON Parsing Safety
+- **Actions Completed:**
+  1. Created supabase/functions/_shared/json-parser.ts with safe JSON parsing utilities:
+     - safeParseRequestBody<T>() - Safely parse request body with proper error handling
+     - safeParse<T>() - Parse JSON strings safely
+     - createBadRequestResponse() - Consistent 400 Bad Request responses
+     - validateRequiredFields() - Check for required fields in parsed data
+     - parseAndValidate<T>() - Combined parsing and validation helper
+  2. Integrates with cors.ts security headers
+  3. Returns typed ParseResult with success/error states
+  4. Handles edge cases: empty bodies, GET requests, non-JSON content
+- **Files Modified:**
+  - supabase/functions/_shared/json-parser.ts (created)
+- **Verification:** Safe JSON parsing utilities ready for adoption in edge functions
+
+### Session 5 - Agent-002
 - **Started:** 2025-12-25T13:10:00Z
 - **Task:** Bit 1.5 - CORS Hardening
 - **Actions Completed:**
@@ -129,15 +146,15 @@
   - supabase/functions/skill-gap-analyzer/index.ts
   - supabase/config.toml
 
-## Next Steps for Bit 1.6: JSON Parsing Safety
+## Next Steps for Bit 1.7: Input Validation
 
-**Objective:** Add safe JSON parsing with try-catch to all edge functions
+**Objective:** Add UUID validation and SQL injection prevention
 
 **Tasks:**
-1. Review functions that parse request bodies
-2. Wrap all JSON.parse / req.json() calls in try-catch
-3. Return 400 Bad Request for invalid JSON
-4. Ensure consistent error handling patterns
+1. Create input validation utilities in _shared/input-validation.ts
+2. Add UUID format validation for all ID parameters
+3. Add string sanitization for user inputs
+4. Ensure consistent validation across edge functions
 
 ## Known Blockers
 
@@ -150,7 +167,7 @@ None currently.
 - [x] Bit 1.3: data-enrichment-pipeline and firecrawl-scrape secured
 - [x] Bit 1.4: firecrawl-career-pages secured (generate-projects already had auth)
 - [x] Bit 1.5: CORS hardening complete - enhanced _shared/cors.ts with security headers
-- [ ] Bit 1.6: JSON parsing safety pending
+- [x] Bit 1.6: JSON parsing safety complete - created _shared/json-parser.ts
 - [ ] Module 1 complete verification
 - [ ] Security scan after Module 1
 
