@@ -6,6 +6,7 @@ import { extractSkillsHybrid, formatSkillsForDisplay } from '../_shared/skill-ex
 import { createDefaultCoordinator, formatCoordinatedResultsForDisplay } from '../_shared/occupation-coordinator.ts';
 import { rankCompaniesBySimilarity, formatSemanticFilteringForDisplay, getRecommendedThreshold, shouldSkipSemanticFiltering } from '../_shared/semantic-matching-service.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-middleware.ts';
+import { getEstimatedRateLimitHeaders, RATE_LIMIT_CONFIGS } from '../_shared/rate-limit-headers.ts';
 
 // Signal-driven discovery (Step 8 of Implementation Plan 23 Dec 2025)
 import { 
@@ -18,6 +19,12 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Rate limit headers for this resource-intensive endpoint
+const getRateLimitedCorsHeaders = () => ({
+  ...corsHeaders,
+  ...getEstimatedRateLimitHeaders('RESOURCE_INTENSIVE'),
+});
 
 /**
  * ERROR CLASSIFICATION MODEL

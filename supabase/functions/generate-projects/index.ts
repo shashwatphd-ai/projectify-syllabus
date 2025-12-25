@@ -5,11 +5,18 @@ import { generateProjectProposal } from '../_shared/generation-service.ts';
 import { calculateLOAlignment, calculateMarketAlignmentScore, generateLOAlignmentDetail } from '../_shared/alignment-service.ts';
 import { extractSkillsHybrid, formatSkillsForDisplay } from '../_shared/skill-extraction-service.ts';
 import { filterValidCompanies } from '../_shared/company-validation-service.ts';
+import { getEstimatedRateLimitHeaders } from '../_shared/rate-limit-headers.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Rate limit headers for resource-intensive project generation
+const getRateLimitedCorsHeaders = () => ({
+  ...corsHeaders,
+  ...getEstimatedRateLimitHeaders('RESOURCE_INTENSIVE'),
+});
 
 interface CompanyInfo {
   id?: string;
