@@ -31,7 +31,10 @@
   - ✅ O*NET-based sector career progressions
   - ✅ Alternative career tracks with industry match %
   - ✅ Growth potential, time-to-senior, industry demand analysis
-- [ ] Portfolio Export
+- [x] **Portfolio Export** ✅ COMPLETE
+  - ✅ Edge function: `portfolio-export` (pdf-lib PDF generation)
+  - ✅ Includes completed projects, verified skills, job matches
+  - ✅ UI: MyCompetencies page with Export button
 - [ ] Employer Portal
 - [ ] Student Rating System
 
