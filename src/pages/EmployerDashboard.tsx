@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Building2, Mail, Globe, MapPin, Briefcase, ExternalLink } from "lucide-react";
+import { Building2, Mail, Globe, MapPin, Briefcase, ExternalLink, Star } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StudentRatingDialog } from "@/components/employer/StudentRatingDialog";
 
 interface CompanyProfile {
   id: string;
@@ -56,6 +57,15 @@ export default function EmployerDashboard() {
   const [loading, setLoading] = useState(true);
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [applicationsLoading, setApplicationsLoading] = useState(false);
+  
+  // Rating dialog state
+  const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<{
+    id: string;
+    email: string | null;
+    projectId: string;
+    projectTitle: string;
+  } | null>(null);
 
   // Redirect if not authenticated or not an employer
   useEffect(() => {
@@ -240,6 +250,16 @@ export default function EmployerDashboard() {
       default:
         return status;
     }
+  };
+
+  const handleRateStudent = (application: StudentApplication) => {
+    setSelectedStudent({
+      id: application.student_id,
+      email: application.student_email,
+      projectId: application.project_id,
+      projectTitle: application.projects.title,
+    });
+    setRatingDialogOpen(true);
   };
 
   if (authLoading || loading) {
@@ -476,6 +496,17 @@ export default function EmployerDashboard() {
                             <span>📅 Applied {new Date(application.created_at).toLocaleDateString()}</span>
                           </div>
                         </div>
+                        {application.status === 'approved' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRateStudent(application)}
+                            className="gap-1"
+                          >
+                            <Star className="h-4 w-4" />
+                            Rate
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -484,6 +515,21 @@ export default function EmployerDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Rating Dialog */}
+        {selectedStudent && (
+          <StudentRatingDialog
+            open={ratingDialogOpen}
+            onOpenChange={setRatingDialogOpen}
+            studentId={selectedStudent.id}
+            studentEmail={selectedStudent.email}
+            projectId={selectedStudent.projectId}
+            projectTitle={selectedStudent.projectTitle}
+            onRated={() => {
+              toast.success("Rating submitted successfully");
+            }}
+          />
+        )}
       </main>
     </>
   );
