@@ -5,6 +5,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AnalyzeValueButton } from "./AnalyzeValueButton";
 import { StakeholderValueCard } from "./StakeholderValueCard";
 import { SalaryROICard } from "./SalaryROICard";
+import { SkillGapAnalysisCard } from "./SkillGapAnalysisCard";
+import { CareerPathwayCard } from "./CareerPathwayCard";
 import { Progress } from "@/components/ui/progress";
 
 interface ValueAnalysisTabProps {
@@ -265,19 +267,23 @@ export const ValueAnalysisTab = ({
           onCalculate={onAnalysisComplete}
         />
         
-        {/* Placeholder for future Skill Gap Analysis */}
-        <Card className="border-dashed border-muted-foreground/30">
-          <CardContent className="pt-6">
-            <div className="text-center py-8 space-y-3 opacity-60">
-              <Target className="h-10 w-10 mx-auto text-muted-foreground" />
-              <div>
-                <p className="font-medium text-muted-foreground">Skill Gap Analysis</p>
-                <p className="text-xs text-muted-foreground mt-1">Coming soon</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <SkillGapAnalysisCard
+          projectId={projectId}
+          projectSkills={Array.isArray(project?.skills) ? project.skills : []}
+          courseOutcomes={Array.isArray(courseProfile?.outcomes) ? courseProfile.outcomes : []}
+          existingData={actualData?.skill_gap_analysis || null}
+          onAnalyze={onAnalysisComplete}
+        />
       </div>
+
+      {/* Career Pathway */}
+      <CareerPathwayCard
+        projectId={projectId}
+        projectSkills={Array.isArray(project?.skills) ? project.skills : []}
+        sector={project?.sector || 'Technology'}
+        existingData={actualData?.career_pathway || null}
+        onAnalyze={onAnalysisComplete}
+      />
 
       {/* Action Intelligence */}
       {actualStakeholderInsights && (
