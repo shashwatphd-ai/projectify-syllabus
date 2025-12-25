@@ -33,17 +33,19 @@
 
 ---
 
-### 1.2 Signal 2: Market Intel ⚠️ NEEDS CORRECTION
+### 1.2 Signal 2: Market Intel ✅ VERIFIED & WORKING
 
 **File:** `supabase/functions/_shared/signals/market-intel-signal.ts`
 
 **Endpoint Used:** `POST https://api.apollo.io/v1/news_articles/search`
 
+**Status:** Verified working via live API test on December 25, 2025
+
 **Current Implementation:**
 ```typescript
 body: JSON.stringify({
   organization_ids: organizationIds.slice(0, MAX_ORGS_PER_REQUEST),
-  categories: ['hires', 'investment', 'contract'],
+  categories: ['hires', 'investment', 'contract', 'expansion', 'launches', 'attends_event'],
   published_at: {
     min: ninetyDaysAgo.toISOString().split('T')[0],
     max: today.toISOString().split('T')[0]
@@ -52,17 +54,33 @@ body: JSON.stringify({
 })
 ```
 
-**Issue:** Apollo News Articles API may not exist or has different parameters
+**API Response Structure (Verified):**
+```json
+{
+  "news_articles": [
+    {
+      "id": "...",
+      "title": "...",
+      "snippet": "...",
+      "url": "...",
+      "domain": "...",
+      "published_at": "2025-11-14T00:00:00.000+00:00",
+      "event_categories": ["hires", "launches", "investment", ...],
+      "organization_ids": ["5f49cce978959f0001c33e5c"]
+    }
+  ],
+  "pagination": { "page": 1, "per_page": 10, "total_entries": 5, "total_pages": 1 }
+}
+```
 
-**Apollo Documentation says:**
-- News Articles endpoint is NOT in their public API documentation
-- This appears to be an assumed/legacy endpoint
-- May return 404 or empty results
-
-**Recommendation:** 
-- Test endpoint manually with APOLLO_API_KEY
-- If not working, remove Signal 2 or replace with alternative data source
-- Consider using company funding_events from enrichment instead
+**Scoring Weights:**
+- Funding news: +0.20 (strongest signal)
+- Hiring news: +0.15
+- Expansion news: +0.12
+- Contract news: +0.10
+- Launch news: +0.08
+- Volume bonus: up to +0.15
+- Recency bonus: up to +0.20
 
 ---
 
