@@ -1,10 +1,15 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, securityHeaders } from '../_shared/cors.ts';
+import { 
+  isValidUUID, 
+  isInRange, 
+  sanitizeString,
+  createValidationErrorResponse,
+  createMissingFieldResponse,
+  createInvalidUUIDResponse
+} from '../_shared/input-validation.ts';
+import { safeParseRequestBody } from '../_shared/json-parser.ts';
 
 interface RatingRequest {
   student_id: string;
@@ -14,6 +19,8 @@ interface RatingRequest {
 }
 
 serve(async (req) => {
+  const responseHeaders = { ...corsHeaders, ...securityHeaders, 'Content-Type': 'application/json' };
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -21,7 +28,10 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('Missing authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: responseHeaders }
+      );
     }
 
     const supabaseClient = createClient(
@@ -34,7 +44,10 @@ serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
-      throw new Error('Unauthorized');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: responseHeaders }
+      );
     }
 
     // Verify user is an employer
@@ -45,19 +58,52 @@ serve(async (req) => {
       .eq('role', 'employer');
 
     if (rolesError || !roles || roles.length === 0) {
-      throw new Error('Only employers can rate students');
+      return new Response(
+        JSON.stringify({ error: 'Only employers can rate students' }),
+        { status: 403, headers: responseHeaders }
+      );
     }
 
-    const { student_id, project_id, rating, skill_name } = await req.json() as RatingRequest;
-
-    // Validate rating
-    if (!rating || rating < 1 || rating > 5) {
-      throw new Error('Rating must be between 1 and 5');
+    // Parse request body safely
+    const parseResult = await safeParseRequestBody<RatingRequest>(req);
+    if (!parseResult.success) {
+      return new Response(
+        JSON.stringify({ error: parseResult.error }),
+        { status: 400, headers: responseHeaders }
+      );
     }
 
-    if (!student_id || !project_id) {
-      throw new Error('student_id and project_id are required');
+    const { student_id, project_id, rating, skill_name } = parseResult.data;
+
+    // Validate UUID fields
+    if (!student_id) {
+      return createMissingFieldResponse('student_id');
     }
+    if (!isValidUUID(student_id)) {
+      return createInvalidUUIDResponse('student_id');
+    }
+
+    if (!project_id) {
+      return createMissingFieldResponse('project_id');
+    }
+    if (!isValidUUID(project_id)) {
+      return createInvalidUUIDResponse('project_id');
+    }
+
+    // Validate rating is within range
+    if (rating === undefined || rating === null) {
+      return createMissingFieldResponse('rating');
+    }
+    if (!isInRange(rating, 1, 5)) {
+      return createValidationErrorResponse([{
+        field: 'rating',
+        message: 'Rating must be between 1 and 5',
+        code: 'OUT_OF_RANGE'
+      }]);
+    }
+
+    // Sanitize optional skill_name
+    const sanitizedSkillName = skill_name ? sanitizeString(skill_name, 255) : undefined;
 
     console.log(`⭐ Rating student ${student_id} on project ${project_id}: ${rating}/5`);
 
@@ -106,14 +152,14 @@ serve(async (req) => {
 
     if (existingCompetencies && existingCompetencies.length > 0) {
       // Update existing competencies with rating
-      if (skill_name) {
+      if (sanitizedSkillName) {
         // Rate specific skill
         const { error: updateError } = await supabaseAdmin
           .from('verified_competencies')
           .update({ employer_rating: rating })
           .eq('student_id', student_id)
           .eq('project_id', project_id)
-          .eq('skill_name', skill_name);
+          .eq('skill_name', sanitizedSkillName);
 
         if (updateError) throw updateError;
         updatedCount = 1;
@@ -135,7 +181,7 @@ serve(async (req) => {
         .insert({
           student_id,
           project_id,
-          skill_name: skill_name || 'Project Completion',
+          skill_name: sanitizedSkillName || 'Project Completion',
           employer_rating: rating,
           verification_source: `Employer rating from ${project.company_name}`
         });

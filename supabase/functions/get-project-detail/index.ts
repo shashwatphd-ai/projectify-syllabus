@@ -1,10 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, securityHeaders } from '../_shared/cors.ts';
+import { 
+  isValidUUID, 
+  sanitizeUUID,
+  createInvalidUUIDResponse,
+  createMissingFieldResponse,
+  sanitizeForLog
+} from '../_shared/input-validation.ts';
+import { safeParseRequestBody } from '../_shared/json-parser.ts';
 
 /**
  * GET-PROJECT-DETAIL EDGE FUNCTION
@@ -13,6 +17,8 @@ const corsHeaders = {
  * REPLACES: 5 separate frontend queries (projects, forms, metadata, company, course)
  * GUARANTEES: Clean, normalized, predictable payload with explicit status fields
  */
+
+const responseHeaders = { ...corsHeaders, ...securityHeaders, 'Content-Type': 'application/json' };
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -26,18 +32,30 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Read projectId from request body (not query params)
-    const { projectId } = await req.json();
-
-    if (!projectId) {
+    // Parse and validate request body safely
+    const parseResult = await safeParseRequestBody<{ projectId: unknown }>(req);
+    if (!parseResult.success) {
       return new Response(
-        JSON.stringify({ error: 'projectId is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: parseResult.error }),
+        { status: 400, headers: responseHeaders }
       );
     }
 
-    console.log(`[get-project-detail] Fetching data for project: ${projectId}`);
-    console.log(`[get-project-detail] DEBUG: Received projectId type:`, typeof projectId, 'value:', projectId);
+    const { projectId } = parseResult.data;
+
+    // Validate projectId is present
+    if (!projectId) {
+      return createMissingFieldResponse('projectId');
+    }
+
+    // Validate projectId is a valid UUID
+    if (!isValidUUID(projectId)) {
+      console.warn(`[get-project-detail] Invalid projectId format: ${sanitizeForLog(projectId)}`);
+      return createInvalidUUIDResponse('projectId');
+    }
+
+    const sanitizedProjectId = sanitizeUUID(projectId)!;
+    console.log(`[get-project-detail] Fetching data for project: ${sanitizedProjectId}`);
 
     // ============================================================================
     // STEP 1: AGGREGATED QUERY (Single Database Call)
@@ -54,18 +72,18 @@ serve(async (req) => {
         project_metadata (*),
         company_profiles (*)
       `)
-      .eq('id', projectId)
+      .eq('id', sanitizedProjectId)
       .maybeSingle();
 
-    console.log(`[get-project-detail] DEBUG: Query completed`);
-    console.log(`[get-project-detail] DEBUG: Query Error:`, queryError);
-    console.log(`[get-project-detail] DEBUG: Raw Data:`, rawData ? 'Data received' : 'NULL', rawData ? `with keys: ${Object.keys(rawData).join(', ')}` : '');
+    console.log(`[get-project-detail] Query completed`);
+    console.log(`[get-project-detail] Query Error:`, queryError);
+    console.log(`[get-project-detail] Raw Data:`, rawData ? 'Data received' : 'NULL', rawData ? `with keys: ${Object.keys(rawData).join(', ')}` : '');
 
     if (queryError) {
       console.error('[get-project-detail] Query error:', queryError);
       return new Response(
         JSON.stringify({ error: 'Failed to fetch project', details: queryError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: responseHeaders }
       );
     }
 
@@ -74,10 +92,10 @@ serve(async (req) => {
     // ============================================================================
     // If project exists but forms/course don't, check if it's pending generation
     if (!rawData) {
-      console.log('[get-project-detail] Project not found:', projectId);
+      console.log('[get-project-detail] Project not found:', sanitizedProjectId);
       return new Response(
         JSON.stringify({ error: 'Project not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 404, headers: responseHeaders }
       );
     }
 
@@ -89,7 +107,7 @@ serve(async (req) => {
       const { data: queueData } = await supabase
         .from('project_generation_queue')
         .select('status, created_at, attempts, error_message')
-        .eq('project_id', projectId)
+        .eq('project_id', sanitizedProjectId)
         .single();
 
       console.log('[get-project-detail] Queue status:', queueData?.status);
@@ -115,7 +133,7 @@ serve(async (req) => {
           }),
           { 
             status: 200, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            headers: responseHeaders 
           }
         );
       }
@@ -127,7 +145,7 @@ serve(async (req) => {
           error: 'Project data incomplete', 
           details: 'Missing required data (forms/course) but not in generation queue'
         }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: responseHeaders }
       );
     }
 
@@ -416,8 +434,7 @@ serve(async (req) => {
       { 
         status: 200, 
         headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json',
+          ...responseHeaders, 
           'X-Data-Quality-Score': String(
             (cleanPayload.data_quality.has_metadata ? 25 : 0) +
             (cleanPayload.data_quality.has_company ? 25 : 0) +
@@ -435,7 +452,7 @@ serve(async (req) => {
       JSON.stringify({ 
         error: 'Failed to load project details. Please try again later.'
       }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: responseHeaders }
     );
   }
 });
