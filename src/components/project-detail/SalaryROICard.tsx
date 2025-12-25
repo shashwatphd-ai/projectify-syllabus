@@ -8,12 +8,17 @@ import {
   TrendingUp, 
   DollarSign, 
   Zap, 
-  Target, 
   Calculator, 
   Sparkles,
   ArrowUpRight,
   Award,
-  Briefcase
+  Briefcase,
+  Users,
+  Building2,
+  Mail,
+  CheckCircle,
+  AlertCircle,
+  HelpCircle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -35,6 +40,14 @@ interface OccupationData {
   totalJobs: number;
 }
 
+interface SignalInsights {
+  partnershipReadiness: number;
+  hiringLikelihood: string;
+  fundingStability: string;
+  decisionMakerAccess: string;
+  overallRecommendation: string;
+}
+
 interface ROIData {
   currentSalaryEstimate: number;
   projectedSalaryWithSkills: number;
@@ -44,6 +57,7 @@ interface ROIData {
   careerAcceleration: string;
   skillPremiums: SkillPremium[];
   occupationData: OccupationData;
+  signalInsights?: SignalInsights;
   confidence: number;
   calculatedAt: string;
 }
@@ -74,6 +88,17 @@ const MarketValueBadge = ({ value }: { value: string }) => {
       {value}
     </span>
   );
+};
+
+const RecommendationIcon = ({ recommendation }: { recommendation: string }) => {
+  if (recommendation.startsWith('✅')) {
+    return <CheckCircle className="h-5 w-5 text-green-600" />;
+  } else if (recommendation.startsWith('👍')) {
+    return <CheckCircle className="h-5 w-5 text-blue-600" />;
+  } else if (recommendation.startsWith('⚠️')) {
+    return <AlertCircle className="h-5 w-5 text-amber-600" />;
+  }
+  return <HelpCircle className="h-5 w-5 text-muted-foreground" />;
 };
 
 export const SalaryROICard = ({ projectId, existingData, onCalculate }: SalaryROICardProps) => {
@@ -133,7 +158,7 @@ export const SalaryROICard = ({ projectId, existingData, onCalculate }: SalaryRO
             <div>
               <h3 className="font-semibold text-lg">Salary ROI Calculator</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Calculate potential salary gains from this project's skills
+                Calculate potential salary gains and partnership value
               </p>
             </div>
             <Button onClick={calculateROI} className="mt-4">
@@ -145,6 +170,8 @@ export const SalaryROICard = ({ projectId, existingData, onCalculate }: SalaryRO
       </Card>
     );
   }
+
+  const signalInsights = roiData.signalInsights;
 
   return (
     <Card className="border-green-500/30 bg-gradient-to-br from-green-500/5 to-background overflow-hidden">
@@ -161,6 +188,47 @@ export const SalaryROICard = ({ projectId, existingData, onCalculate }: SalaryRO
       </CardHeader>
       
       <CardContent className="pt-4 space-y-5">
+        {/* Signal-Based Recommendation for Faculty */}
+        {signalInsights && (
+          <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-4 border border-primary/20">
+            <div className="flex items-start gap-3">
+              <RecommendationIcon recommendation={signalInsights.overallRecommendation} />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Faculty Recommendation</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {signalInsights.overallRecommendation.replace(/^[✅👍⚠️❓]\s*/, '')}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-primary">{signalInsights.partnershipReadiness}</p>
+                <p className="text-xs text-muted-foreground">Partnership Score</p>
+              </div>
+            </div>
+            
+            {/* Signal Breakdown */}
+            <div className="grid grid-cols-3 gap-2 mt-4">
+              <div className="flex items-center gap-1.5 text-xs">
+                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-muted-foreground truncate" title={signalInsights.hiringLikelihood}>
+                  {signalInsights.hiringLikelihood.split(' - ')[0]}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-muted-foreground truncate" title={signalInsights.fundingStability}>
+                  {signalInsights.fundingStability.split(' - ')[0]}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-muted-foreground truncate" title={signalInsights.decisionMakerAccess}>
+                  {signalInsights.decisionMakerAccess.split(' - ')[0]}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Main Value Proposition */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-background/50 rounded-lg p-4 border border-border/50">
