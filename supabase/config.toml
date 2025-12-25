@@ -20,6 +20,10 @@ verify_jwt = false
 [functions.parse-syllabus]
 verify_jwt = false
 
+# Test endpoint for Apollo News API
+[functions.test-apollo-news]
+verify_jwt = false
+
 # ==========================================
 # AUTHENTICATED ENDPOINTS (verify_jwt = true)
 # ==========================================
@@ -93,10 +97,6 @@ verify_jwt = true
 [functions.investigate-apollo-jobs]
 verify_jwt = true
 
-# Test endpoint for Apollo News API
-[functions.test-apollo-news]
-verify_jwt = false
-
 # Firecrawl web scraping functions
 [functions.firecrawl-scrape]
 verify_jwt = true
@@ -104,6 +104,12 @@ verify_jwt = true
 [functions.firecrawl-career-pages]
 verify_jwt = true
 
-# Salary ROI Calculator
+# Premium analysis functions (Bit 1.1 security fix)
+[functions.career-pathway-mapper]
+verify_jwt = true
+
+[functions.skill-gap-analyzer]
+verify_jwt = true
+
 [functions.salary-roi-calculator]
-verify_jwt = false
+verify_jwt = true
