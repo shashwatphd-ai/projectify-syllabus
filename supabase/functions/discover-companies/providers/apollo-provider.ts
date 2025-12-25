@@ -7,6 +7,7 @@ import {
 import { mapSOCIndustriesToApollo, getApolloSearchStrategy } from './apollo-industry-mapper.ts';
 import { getTechnologiesForSOCCodes } from './apollo-technology-mapping.ts';
 import { calculateDistanceBetweenLocations, formatDistance } from '../../_shared/geo-distance.ts';
+import { fetchWithRetry, DEFAULT_RETRY_CONFIG, LIGHT_RETRY_CONFIG, createRetryConfig } from '../../_shared/retry-utils.ts';
 
 interface ApolloSearchFilters {
   organization_locations: string[];
@@ -286,8 +287,8 @@ export class ApolloProvider implements DiscoveryProvider {
       console.log(`     Searching for: "${companyName}"...`);
       
       try {
-        // Apollo's q_organization_name parameter searches by company name
-        const response = await fetch(
+        // BIT 2.4: Use fetchWithRetry for reliable company name search
+        const result = await fetchWithRetry<{ organizations: ApolloOrganization[] }>(
           'https://api.apollo.io/v1/mixed_companies/search',
           {
             method: 'POST',
@@ -300,22 +301,22 @@ export class ApolloProvider implements DiscoveryProvider {
               q_organization_name: companyName,
               organization_locations: [location],
               page: 1,
-              per_page: 5 // Get a few in case of multiple matches
+              per_page: 5
             })
-          }
+          },
+          DEFAULT_RETRY_CONFIG,
+          `Apollo Company Name Search (${companyName})`
         );
         
-        if (!response.ok) {
-          console.warn(`     ⚠️  Apollo API error for "${companyName}": ${response.status}`);
+        if (!result.success) {
+          console.warn(`     ⚠️  Apollo API error for "${companyName}": ${result.error}`);
           notFound.push(companyName);
           continue;
         }
         
-        const data = await response.json();
-        const orgs = (data.organizations || []) as ApolloOrganization[];
+        const orgs = (result.data?.organizations || []) as ApolloOrganization[];
         
         if (orgs.length > 0) {
-          // Find best match - exact or partial name match
           const exactMatch = orgs.find(o => 
             o.name.toLowerCase() === companyName.toLowerCase()
           );
@@ -338,7 +339,7 @@ export class ApolloProvider implements DiscoveryProvider {
           // Try broader search without location constraint
           console.log(`     🔄 No results in ${location}, trying without location filter...`);
           
-          const broadResponse = await fetch(
+          const broadResult = await fetchWithRetry<{ organizations: ApolloOrganization[] }>(
             'https://api.apollo.io/v1/mixed_companies/search',
             {
               method: 'POST',
@@ -352,12 +353,13 @@ export class ApolloProvider implements DiscoveryProvider {
                 page: 1,
                 per_page: 5
               })
-            }
+            },
+            LIGHT_RETRY_CONFIG,
+            `Apollo Broad Company Search (${companyName})`
           );
           
-          if (broadResponse.ok) {
-            const broadData = await broadResponse.json();
-            const broadOrgs = (broadData.organizations || []) as ApolloOrganization[];
+          if (broadResult.success) {
+            const broadOrgs = (broadResult.data?.organizations || []) as ApolloOrganization[];
             
             if (broadOrgs.length > 0) {
               const bestMatch = broadOrgs.find(o => 
@@ -1090,7 +1092,8 @@ Return JSON:
     console.log(`     Request Body:`);
     console.log(JSON.stringify(requestBody, null, 2));
 
-    const response = await fetch(
+    // BIT 2.4: Use fetchWithRetry for reliable API calls
+    const result = await fetchWithRetry<{ organizations: ApolloOrganization[]; pagination?: unknown }>(
       'https://api.apollo.io/v1/mixed_companies/search',
       {
         method: 'POST',
@@ -1100,24 +1103,24 @@ Return JSON:
           'X-Api-Key': this.apolloApiKey!
         },
         body: JSON.stringify(requestBody)
-      }
+      },
+      DEFAULT_RETRY_CONFIG,
+      'Apollo Organization Search'
     );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ APOLLO_SEARCH_FAILED: HTTP ${response.status}`);
-      console.error(`   Details: ${errorText.substring(0, 200)}`);
+    if (!result.success) {
+      console.error(`❌ APOLLO_SEARCH_FAILED after ${result.attempts} attempts`);
+      console.error(`   Details: ${result.error}`);
       console.error(`   Request filters:`, JSON.stringify(filters, null, 2).substring(0, 300));
-      throw new Error(`Apollo search failed: ${response.status}`);
+      throw new Error(`Apollo search failed: ${result.error}`);
     }
 
-    const data = await response.json();
-    const organizations = data.organizations || [];
+    const organizations = result.data?.organizations || [];
 
     // 🔍 DIAGNOSTIC: Log response received from Apollo
     console.log(`\n  📥 [Apollo API Response - DIAGNOSTIC]`);
     console.log(`     Total Results: ${organizations.length}`);
-    console.log(`     Pagination: ${data.pagination ? JSON.stringify(data.pagination) : 'N/A'}`);
+    console.log(`     Attempts: ${result.attempts}, Total Delay: ${result.totalDelayMs}ms`);
 
     if (organizations.length > 0) {
       console.log(`\n     Sample Results (first 3):`);
@@ -1460,30 +1463,34 @@ Return JSON:
     
     for (const strategy of searchStrategies) {
       try {
-        const response = await fetch('https://api.apollo.io/v1/mixed_people/search', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Api-Key': this.apolloApiKey!
+        // BIT 2.4: Use fetchWithRetry with light config for contact search (many retries per company)
+        const result = await fetchWithRetry<{ people: any[] }>(
+          'https://api.apollo.io/v1/mixed_people/search',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Api-Key': this.apolloApiKey!
+            },
+            body: JSON.stringify({
+              organization_ids: [org.id],
+              ...strategy.params,
+              reveal_personal_emails: true,
+              reveal_phone_number: true,
+              page: 1,
+              per_page: 5
+            })
           },
-          body: JSON.stringify({
-            organization_ids: [org.id],
-            ...strategy.params,
-            reveal_personal_emails: true,
-            reveal_phone_number: true,
-            // Note: contact_email_status is now in strategy.params (optional per strategy)
-            page: 1,
-            per_page: 5  // Get more candidates to find one with email
-          })
-        });
+          LIGHT_RETRY_CONFIG,
+          `Apollo People Search (${strategy.name})`
+        );
         
-        if (!response.ok) {
-          console.log(`      ⚠️ "${strategy.name}": API error ${response.status}`);
+        if (!result.success) {
+          console.log(`      ⚠️ "${strategy.name}": API error after ${result.attempts} attempts`);
           continue;
         }
         
-        const data = await response.json();
-        const peopleWithEmail = (data.people || []).filter((p: any) => p.email && p.name);
+        const peopleWithEmail = (result.data?.people || []).filter((p: any) => p.email && p.name);
         
         if (peopleWithEmail.length > 0) {
           const contact = peopleWithEmail[0];
@@ -1509,9 +1516,10 @@ Return JSON:
     context?: CourseContext
   ): Promise<DiscoveredCompany | null> {
     // Step 1: Call Organization Enrichment API to get complete data including technologies
+    // BIT 2.4: Use fetchWithRetry for reliable API calls
     let enrichedOrg = org;
     try {
-      const enrichResponse = await fetch(
+      const enrichResult = await fetchWithRetry<{ organization: ApolloOrganization }>(
         'https://api.apollo.io/v1/organizations/enrich',
         {
           method: 'POST',
@@ -1522,17 +1530,16 @@ Return JSON:
           body: JSON.stringify({
             domain: org.primary_domain
           })
-        }
+        },
+        LIGHT_RETRY_CONFIG,
+        `Apollo Org Enrichment (${org.name})`
       );
 
-      if (enrichResponse.ok) {
-        const enrichData = await enrichResponse.json();
-        if (enrichData.organization) {
-          enrichedOrg = { ...org, ...enrichData.organization };
-          console.log(`  ✓ Enriched ${org.name} with technologies: ${enrichData.organization.technology_names?.length || 0}`);
-        }
+      if (enrichResult.success && enrichResult.data?.organization) {
+        enrichedOrg = { ...org, ...enrichResult.data.organization };
+        console.log(`  ✓ Enriched ${org.name} with technologies: ${enrichResult.data.organization.technology_names?.length || 0}`);
       } else {
-        console.log(`  ⚠ Enrichment API returned ${enrichResponse.status} for ${org.name}`);
+        console.log(`  ⚠ Enrichment API failed for ${org.name}: ${enrichResult.error}`);
       }
     } catch (error) {
       console.error(`  ❌ Enrichment error for ${org.name}:`, error);
@@ -1547,9 +1554,10 @@ Return JSON:
     }
 
     // Fetch job postings using correct Apollo endpoint
+    // BIT 2.4: Use fetchWithRetry for reliable API calls
     let jobPostings: any[] = [];
     try {
-      const jobResponse = await fetch(
+      const jobResult = await fetchWithRetry<{ organization_job_postings: any[] }>(
         `https://api.apollo.io/api/v1/organizations/${org.id}/job_postings?page=1&per_page=25`,
         {
           method: 'GET',
@@ -1558,20 +1566,16 @@ Return JSON:
             'Cache-Control': 'no-cache',
             'X-Api-Key': this.apolloApiKey!
           }
-        }
+        },
+        LIGHT_RETRY_CONFIG,
+        `Apollo Job Postings (${org.name})`
       );
 
-      if (jobResponse.ok) {
-        const jobData = await jobResponse.json();
-        // CRITICAL: Apollo returns "organization_job_postings", not "job_postings"
-        if (jobData.organization_job_postings && Array.isArray(jobData.organization_job_postings)) {
-          jobPostings = jobData.organization_job_postings.slice(0, 25);
-          console.log(`  ✓ Found ${jobPostings.length} job postings for ${org.name}`);
-        } else {
-          console.log(`  ℹ No job postings found for ${org.name}`);
-        }
+      if (jobResult.success && jobResult.data?.organization_job_postings) {
+        jobPostings = jobResult.data.organization_job_postings.slice(0, 25);
+        console.log(`  ✓ Found ${jobPostings.length} job postings for ${org.name}`);
       } else {
-        console.log(`  ⚠ Job postings API returned ${jobResponse.status} for ${org.name}`);
+        console.log(`  ℹ No job postings found for ${org.name}`);
       }
     } catch (error) {
       console.error(`  ❌ Job postings fetch error for ${org.name}:`, error);
