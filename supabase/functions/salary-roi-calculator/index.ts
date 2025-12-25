@@ -7,14 +7,14 @@ const corsHeaders = {
 };
 
 /**
- * Salary ROI Calculator Edge Function
+ * Salary ROI Calculator Edge Function (Enhanced with Signal Scores)
  * 
  * Calculates the return on investment for student projects using:
- * - Lightcast salary data for occupations
+ * - Signal scores (job skills, market intel, department fit, contact quality)
  * - Project skills and learning outcomes
  * - Industry benchmarks and market data
  * 
- * Returns salary projections, skill value, and career impact metrics.
+ * Returns salary projections, skill value, signal-based insights, and career impact metrics.
  */
 
 interface SalaryData {
@@ -34,6 +34,14 @@ interface SkillPremium {
   marketValue: string;
 }
 
+interface SignalInsights {
+  partnershipReadiness: number;      // 0-100 composite from signals
+  hiringLikelihood: string;          // High/Medium/Low
+  fundingStability: string;          // Recent funding signals
+  decisionMakerAccess: string;       // Contact quality description
+  overallRecommendation: string;     // Summary for faculty
+}
+
 interface ROICalculation {
   currentSalaryEstimate: number;
   projectedSalaryWithSkills: number;
@@ -43,11 +51,12 @@ interface ROICalculation {
   careerAcceleration: string;
   skillPremiums: SkillPremium[];
   occupationData: SalaryData;
+  signalInsights: SignalInsights;    // NEW: Signal-driven insights
   confidence: number;
   calculatedAt: string;
 }
 
-// Fallback salary data by industry/occupation (when Lightcast unavailable)
+// Fallback salary data by industry/occupation
 const FALLBACK_SALARY_DATA: Record<string, SalaryData> = {
   'software_engineer': {
     occupation: 'Software Developer',
@@ -202,13 +211,11 @@ function calculateSkillPremiums(skills: string[]): SkillPremium[] {
     
     // Check for direct match or partial match
     let premiumPercent = 0;
-    let matchedSkill = '';
     
     for (const [key, value] of Object.entries(SKILL_PREMIUMS)) {
       if (lowerSkill.includes(key) || key.includes(lowerSkill)) {
         if (value > premiumPercent) {
           premiumPercent = value;
-          matchedSkill = key;
         }
       }
     }
@@ -235,69 +242,89 @@ function calculateSkillPremiums(skills: string[]): SkillPremium[] {
   return premiums.sort((a, b) => b.premiumPercent - a.premiumPercent);
 }
 
-async function fetchLightcastSalaryData(occupation: string): Promise<SalaryData | null> {
-  const apiKey = Deno.env.get('LIGHTCAST_API_KEY');
-  
-  if (!apiKey) {
-    console.log('⚠️ LIGHTCAST_API_KEY not configured - using fallback data');
-    return null;
+/**
+ * Generate signal-driven insights for faculty decision-making
+ */
+function generateSignalInsights(companyProfile: Record<string, unknown> | null): SignalInsights {
+  if (!companyProfile) {
+    return {
+      partnershipReadiness: 50,
+      hiringLikelihood: 'Unknown',
+      fundingStability: 'No data available',
+      decisionMakerAccess: 'Contact information not verified',
+      overallRecommendation: 'Limited company data available - recommend manual verification'
+    };
   }
   
-  try {
-    // Lightcast Career Coach API for salary data
-    const response = await fetch('https://emsiservices.com/titles/versions/latest/search', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        q: occupation,
-        limit: 1
-      })
-    });
-    
-    if (!response.ok) {
-      console.error(`Lightcast API error: ${response.status}`);
-      return null;
-    }
-    
-    const data = await response.json();
-    
-    if (data.data && data.data.length > 0) {
-      const titleData = data.data[0];
-      
-      // Fetch salary data for this title
-      const salaryResponse = await fetch(
-        `https://emsiservices.com/titles/versions/latest/titles/${titleData.id}/salary`,
-        {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          }
-        }
-      );
-      
-      if (salaryResponse.ok) {
-        const salaryData = await salaryResponse.json();
-        
-        return {
-          occupation: titleData.name,
-          medianSalary: salaryData.data?.median || 70000,
-          percentile25: salaryData.data?.percentile25 || 50000,
-          percentile75: salaryData.data?.percentile75 || 95000,
-          percentile90: salaryData.data?.percentile90 || 120000,
-          growthRate: salaryData.data?.projectedGrowth || 8,
-          totalJobs: salaryData.data?.totalJobs || 100000
-        };
-      }
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('Lightcast API error:', error);
-    return null;
+  // Extract signal scores from company profile
+  const skillMatchScore = (companyProfile.skill_match_score as number) || 0;
+  const marketSignalScore = (companyProfile.market_signal_score as number) || 0;
+  const departmentFitScore = (companyProfile.department_fit_score as number) || 0;
+  const contactQualityScore = (companyProfile.contact_quality_score as number) || 0;
+  const compositeScore = (companyProfile.composite_signal_score as number) || 0;
+  
+  // Calculate partnership readiness from composite or average
+  const partnershipReadiness = compositeScore > 0 
+    ? compositeScore 
+    : Math.round((skillMatchScore + marketSignalScore + departmentFitScore + contactQualityScore) / 4);
+  
+  // Determine hiring likelihood from skill match + market signals
+  let hiringLikelihood: string;
+  const hiringScore = (skillMatchScore + marketSignalScore) / 2;
+  if (hiringScore >= 60) {
+    hiringLikelihood = 'High - Active job postings match course skills';
+  } else if (hiringScore >= 40) {
+    hiringLikelihood = 'Medium - Some relevant positions available';
+  } else if (hiringScore > 0) {
+    hiringLikelihood = 'Low - Limited matching opportunities';
+  } else {
+    hiringLikelihood = 'Unknown - No job data available';
   }
+  
+  // Determine funding stability from market intel + department fit
+  let fundingStability: string;
+  const stabilityScore = (marketSignalScore + departmentFitScore) / 2;
+  if (stabilityScore >= 60) {
+    fundingStability = 'Strong - Recent funding and growing team';
+  } else if (stabilityScore >= 40) {
+    fundingStability = 'Stable - Established operations';
+  } else if (stabilityScore > 0) {
+    fundingStability = 'Moderate - Limited growth signals';
+  } else {
+    fundingStability = 'No funding data available';
+  }
+  
+  // Determine decision-maker access from contact quality
+  let decisionMakerAccess: string;
+  if (contactQualityScore >= 60) {
+    decisionMakerAccess = 'Excellent - Multiple senior contacts identified';
+  } else if (contactQualityScore >= 40) {
+    decisionMakerAccess = 'Good - Decision-makers available';
+  } else if (contactQualityScore > 0) {
+    decisionMakerAccess = 'Limited - May require outreach effort';
+  } else {
+    decisionMakerAccess = 'Unknown - Contact verification needed';
+  }
+  
+  // Generate overall recommendation
+  let overallRecommendation: string;
+  if (partnershipReadiness >= 70) {
+    overallRecommendation = '✅ Highly Recommended - Strong signals across all dimensions';
+  } else if (partnershipReadiness >= 50) {
+    overallRecommendation = '👍 Recommended - Good partnership potential with some gaps';
+  } else if (partnershipReadiness >= 30) {
+    overallRecommendation = '⚠️ Proceed with Caution - Limited data or weak signals';
+  } else {
+    overallRecommendation = '❓ Needs Review - Insufficient data for recommendation';
+  }
+  
+  return {
+    partnershipReadiness,
+    hiringLikelihood,
+    fundingStability,
+    decisionMakerAccess,
+    overallRecommendation
+  };
 }
 
 serve(async (req) => {
@@ -321,16 +348,25 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Fetch project with company profile
+    // Fetch project with company profile (including signal scores)
     const { data: project, error: projectError } = await supabase
       .from('projects')
       .select(`
         *,
-        company_profiles!projects_company_profile_id_fkey (*),
+        company_profiles!projects_company_profile_id_fkey (
+          *,
+          skill_match_score,
+          market_signal_score,
+          department_fit_score,
+          contact_quality_score,
+          composite_signal_score,
+          signal_confidence,
+          signal_data
+        ),
         course_profiles!projects_course_id_fkey (*)
       `)
       .eq('id', projectId)
-      .single();
+      .maybeSingle();
     
     if (projectError || !project) {
       console.error('Project fetch error:', projectError);
@@ -343,18 +379,33 @@ serve(async (req) => {
     console.log(`   📊 Project: ${project.title}`);
     console.log(`   🏢 Company: ${project.company_name} (${project.sector})`);
     
+    // Extract company profile for signal insights
+    const companyProfile = project.company_profiles as Record<string, unknown> | null;
+    
+    // Log signal scores if available
+    if (companyProfile?.composite_signal_score) {
+      console.log(`   📈 Signal scores available:`);
+      console.log(`      Skill Match: ${companyProfile.skill_match_score}`);
+      console.log(`      Market Intel: ${companyProfile.market_signal_score}`);
+      console.log(`      Dept Fit: ${companyProfile.department_fit_score}`);
+      console.log(`      Contact Quality: ${companyProfile.contact_quality_score}`);
+      console.log(`      Composite: ${companyProfile.composite_signal_score}`);
+    }
+    
     // Extract skills from project
     const projectSkills: string[] = [];
     if (project.skills) {
       if (Array.isArray(project.skills)) {
-        projectSkills.push(...project.skills.map((s: any) => typeof s === 'string' ? s : s.name || s.skill));
+        projectSkills.push(...project.skills.map((s: unknown) => 
+          typeof s === 'string' ? s : (s as Record<string, string>)?.name || (s as Record<string, string>)?.skill || ''
+        ).filter(Boolean));
       }
     }
     
     // Also extract from deliverables
     if (project.deliverables && Array.isArray(project.deliverables)) {
       for (const d of project.deliverables) {
-        const text = typeof d === 'string' ? d : d.title || d.name || '';
+        const text = typeof d === 'string' ? d : (d as Record<string, string>)?.title || (d as Record<string, string>)?.name || '';
         if (text.toLowerCase().includes('python')) projectSkills.push('Python');
         if (text.toLowerCase().includes('data')) projectSkills.push('Data Analysis');
         if (text.toLowerCase().includes('machine learning')) projectSkills.push('Machine Learning');
@@ -375,24 +426,30 @@ serve(async (req) => {
     );
     console.log(`   👔 Occupation category: ${occupationCategory}`);
     
-    // Try Lightcast first, fall back to static data
-    let salaryData = await fetchLightcastSalaryData(occupationCategory);
-    
-    if (!salaryData) {
-      salaryData = FALLBACK_SALARY_DATA[occupationCategory] || FALLBACK_SALARY_DATA['default'];
-      console.log(`   📈 Using fallback salary data for: ${salaryData.occupation}`);
-    } else {
-      console.log(`   📈 Lightcast salary data retrieved for: ${salaryData.occupation}`);
-    }
+    // Use fallback salary data (Lightcast deprecated)
+    const salaryData = FALLBACK_SALARY_DATA[occupationCategory] || FALLBACK_SALARY_DATA['default'];
+    console.log(`   📈 Using salary data for: ${salaryData.occupation}`);
     
     // Calculate skill premiums
     const skillPremiums = calculateSkillPremiums(uniqueSkills);
     console.log(`   💎 Skill premiums calculated: ${skillPremiums.length} skills`);
     
+    // Generate signal-driven insights for faculty
+    const signalInsights = generateSignalInsights(companyProfile);
+    console.log(`   🎯 Partnership readiness: ${signalInsights.partnershipReadiness}%`);
+    
     // Calculate total salary boost from project skills
     const totalPremiumPercent = skillPremiums.reduce((sum, sp) => sum + sp.premiumPercent, 0);
     // Apply diminishing returns for multiple skills (cap at 35%)
-    const effectiveBoost = Math.min(35, totalPremiumPercent * 0.7);
+    let effectiveBoost = Math.min(35, totalPremiumPercent * 0.7);
+    
+    // Boost salary projection if signal scores are strong (partnership likely to lead to job)
+    if (signalInsights.partnershipReadiness >= 70) {
+      effectiveBoost = Math.min(40, effectiveBoost * 1.15); // 15% boost for strong signals
+      console.log(`   ⬆️ Boosted projection due to strong signals`);
+    } else if (signalInsights.partnershipReadiness >= 50) {
+      effectiveBoost = Math.min(38, effectiveBoost * 1.08); // 8% boost for good signals
+    }
     
     // Calculate ROI
     const currentSalaryEstimate = salaryData.percentile25; // Entry-level
@@ -415,6 +472,16 @@ serve(async (req) => {
       careerAcceleration = 'Foundation - Good starting point for growth';
     }
     
+    // Calculate confidence based on data availability
+    let confidence = 0.7; // Base confidence
+    if (companyProfile?.composite_signal_score) {
+      confidence += 0.15; // Boost if we have signal data
+    }
+    if (salaryData.occupation !== 'Professional') {
+      confidence += 0.1; // Boost if we matched a specific occupation
+    }
+    confidence = Math.min(0.95, confidence);
+    
     const roiResult: ROICalculation = {
       currentSalaryEstimate,
       projectedSalaryWithSkills,
@@ -424,15 +491,17 @@ serve(async (req) => {
       careerAcceleration,
       skillPremiums: skillPremiums.slice(0, 6), // Top 6 skills
       occupationData: salaryData,
-      confidence: salaryData.occupation === 'Professional' ? 0.6 : 0.85,
+      signalInsights,
+      confidence,
       calculatedAt: new Date().toISOString()
     };
     
     console.log(`   ✅ ROI calculated:`);
     console.log(`      Current estimate: $${currentSalaryEstimate.toLocaleString()}`);
     console.log(`      Projected: $${projectedSalaryWithSkills.toLocaleString()}`);
-    console.log(`      Boost: ${effectiveBoost}%`);
+    console.log(`      Boost: ${effectiveBoost.toFixed(1)}%`);
     console.log(`      5-year gain: $${fiveYearValueGain.toLocaleString()}`);
+    console.log(`      Recommendation: ${signalInsights.overallRecommendation}`);
     
     // Store in project_metadata
     const { error: updateError } = await supabase
