@@ -24,6 +24,10 @@ verify_jwt = false
 [functions.test-apollo-news]
 verify_jwt = false
 
+# Cleanup job - called by cron, uses service role key
+[functions.cleanup-orphaned-data]
+verify_jwt = false
+
 # ==========================================
 # AUTHENTICATED ENDPOINTS (verify_jwt = true)
 # ==========================================
