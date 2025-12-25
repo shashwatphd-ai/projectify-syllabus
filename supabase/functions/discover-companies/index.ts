@@ -5,6 +5,7 @@ import { CourseContext, DiscoveredCompany } from './providers/types.ts';
 import { extractSkillsHybrid, formatSkillsForDisplay } from '../_shared/skill-extraction-service.ts';
 import { createDefaultCoordinator, formatCoordinatedResultsForDisplay } from '../_shared/occupation-coordinator.ts';
 import { rankCompaniesBySimilarity, formatSemanticFilteringForDisplay, getRecommendedThreshold, shouldSkipSemanticFiltering } from '../_shared/semantic-matching-service.ts';
+import { verifyAuth, unauthorizedResponse } from '../_shared/auth-middleware.ts';
 
 // Signal-driven discovery (Step 8 of Implementation Plan 23 Dec 2025)
 import { 
@@ -12,6 +13,7 @@ import {
   toStorableSignalData,
   type CompanyForSignal 
 } from '../_shared/signals/index.ts';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -198,6 +200,14 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Verify JWT authentication
+  const authResult = await verifyAuth(req);
+  if (!authResult.authenticated) {
+    console.warn('[discover-companies] Auth failed:', authResult.error);
+    return unauthorizedResponse(corsHeaders, authResult.error);
+  }
+  console.log(`[discover-companies] Authenticated user: ${authResult.userId}`);
 
   const startTime = Date.now();
 
