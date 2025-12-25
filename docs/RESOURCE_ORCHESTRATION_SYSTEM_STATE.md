@@ -27,38 +27,38 @@
 
 ### Live System Metrics (as of 2025-12-25)
 
-| Metric | Count | Notes |
-|--------|-------|-------|
-| **Total Projects** | 372 | Generated project proposals |
-| **AI Shell Projects** | 370 | Awaiting faculty curation |
-| **Curated Live Projects** | 0 | Available to students |
-| **Total Courses** | 238 | Uploaded syllabi |
-| **Company Profiles** | 320 | Discovered via Apollo |
-| **Generation Runs** | 292 | Total AI generation attempts |
-| **Completed Generations** | 221 | 75.7% success rate |
-| **Verified Competencies** | 34 | Student skills verified |
-| **Job Matches** | 24 | Apollo job placements |
-| **Employer Submissions** | 1 | Interest form submissions |
-| **Partnership Proposals** | 2 | Active proposals |
+| Metric                    | Count | Notes                        |
+| ------------------------- | ----- | ---------------------------- |
+| **Total Projects**        | 372   | Generated project proposals  |
+| **AI Shell Projects**     | 370   | Awaiting faculty curation    |
+| **Curated Live Projects** | 0     | Available to students        |
+| **Total Courses**         | 238   | Uploaded syllabi             |
+| **Company Profiles**      | 320   | Discovered via Apollo        |
+| **Generation Runs**       | 292   | Total AI generation attempts |
+| **Completed Generations** | 221   | 75.7% success rate           |
+| **Verified Competencies** | 34    | Student skills verified      |
+| **Job Matches**           | 24    | Apollo job placements        |
+| **Employer Submissions**  | 1     | Interest form submissions    |
+| **Partnership Proposals** | 2     | Active proposals             |
 
 ### User Role Distribution
 
-| Role | Count | % of Users |
-|------|-------|------------|
-| **Student** | 25 | 55.6% |
-| **Faculty** | 11 | 24.4% |
-| **Pending Faculty** | 8 | 17.8% |
-| **Admin** | 1 | 2.2% |
-| **Employer** | 0 | 0% |
+| Role                | Count | % of Users |
+| ------------------- | ----- | ---------- |
+| **Student**         | 25    | 55.6%      |
+| **Faculty**         | 11    | 24.4%      |
+| **Pending Faculty** | 8     | 17.8%      |
+| **Admin**           | 1     | 2.2%       |
+| **Employer**        | 0     | 0%         |
 
 ### Current State Assessment
 
-| Dimension | Status | Maturity Level | Evidence |
-|-----------|--------|----------------|----------|
-| **Security** | Module 1 Complete | 5/5 Hardened | All 8 bits complete |
-| **Technology** | Production-Ready | 4/5 Scalable | 36 edge functions |
-| **Product** | Phase 3 | 4/5 Growth | 21 pages, 15+ components |
-| **Business Model** | B2B2C Marketplace | 2/5 Early | Low employer traction |
+| Dimension          | Status            | Maturity Level | Evidence                 |
+| ------------------ | ----------------- | -------------- | ------------------------ |
+| **Security**       | Module 1 Complete | 5/5 Hardened   | All 8 bits complete      |
+| **Technology**     | Production-Ready  | 4/5 Scalable   | 36 edge functions        |
+| **Product**        | Phase 3           | 4/5 Growth     | 21 pages, 15+ components |
+| **Business Model** | B2B2C Marketplace | 2/5 Early      | Low employer traction    |
 
 ---
 
@@ -95,18 +95,18 @@ flowchart LR
 
 ### 2.2 Process Inventory
 
-| Process ID | Process Name | Automation Level | Current State | Owner |
-|------------|--------------|------------------|---------------|-------|
-| P-001 | Syllabus Parsing | 100% Automated | ✅ Working | Faculty |
-| P-002 | Company Discovery | 95% Automated | ✅ Working | System |
-| P-003 | Project Generation | 90% Automated | ⚠️ 75.7% success | System |
-| P-004 | Project Curation | 0% Automated | ❌ 0 curated | Faculty |
-| P-005 | Student Application | 100% Automated | ⏸️ No live projects | Student |
-| P-006 | Competency Extraction | 100% Automated | ✅ 34 verified | System |
-| P-007 | Job Matching | 100% Automated | ✅ 24 matches | System |
-| P-008 | Demand Aggregation | 100% Automated | ✅ Working | System |
-| P-009 | Employer Onboarding | 50% Automated | ❌ 0 employers | Admin |
-| P-010 | Portfolio Export | 100% Automated | ✅ Available | Student |
+| Process ID | Process Name          | Automation Level | Current State       | Owner   |
+| ---------- | --------------------- | ---------------- | ------------------- | ------- |
+| P-001      | Syllabus Parsing      | 100% Automated   | ✅ Working          | Faculty |
+| P-002      | Company Discovery     | 95% Automated    | ✅ Working          | System  |
+| P-003      | Project Generation    | 90% Automated    | ⚠️ 75.7% success    | System  |
+| P-004      | Project Curation      | 0% Automated     | ❌ 0 curated        | Faculty |
+| P-005      | Student Application   | 100% Automated   | ⏸️ No live projects | Student |
+| P-006      | Competency Extraction | 100% Automated   | ✅ 34 verified      | System  |
+| P-007      | Job Matching          | 100% Automated   | ✅ 24 matches       | System  |
+| P-008      | Demand Aggregation    | 100% Automated   | ✅ Working          | System  |
+| P-009      | Employer Onboarding   | 50% Automated    | ❌ 0 employers      | Admin   |
+| P-010      | Portfolio Export      | 100% Automated   | ✅ Available        | Student |
 
 ### 2.3 Critical Path Analysis
 
@@ -129,26 +129,26 @@ flowchart LR
 
 ### 2.4 Business Rules Engine
 
-| Rule ID | Business Rule | Enforcement Point | Status |
-|---------|---------------|-------------------|--------|
-| BR-001 | Faculty requires .edu email domain | `handle_new_user()` trigger | ✅ Active |
-| BR-002 | Employers cannot use .edu email | `handle_new_user()` trigger | ✅ Active |
-| BR-003 | Only employers can rate students | `rate-student-performance` RLS | ✅ Active |
-| BR-004 | Students only see curated_live projects | RLS + Query filter | ✅ Active |
-| BR-005 | Faculty can only modify own courses | RLS on `course_profiles` | ✅ Active |
-| BR-006 | Projects require LO alignment score > 0.5 | `generate-projects` logic | ✅ Active |
-| BR-007 | Company data cached for 7 days | `company_filter_cache` TTL | ✅ Active |
-| BR-008 | Max 3 generation attempts per queue item | `project_generation_queue` | ✅ Active |
+| Rule ID | Business Rule                             | Enforcement Point              | Status    |
+| ------- | ----------------------------------------- | ------------------------------ | --------- |
+| BR-001  | Faculty requires .edu email domain        | `handle_new_user()` trigger    | ✅ Active |
+| BR-002  | Employers cannot use .edu email           | `handle_new_user()` trigger    | ✅ Active |
+| BR-003  | Only employers can rate students          | `rate-student-performance` RLS | ✅ Active |
+| BR-004  | Students only see curated_live projects   | RLS + Query filter             | ✅ Active |
+| BR-005  | Faculty can only modify own courses       | RLS on `course_profiles`       | ✅ Active |
+| BR-006  | Projects require LO alignment score > 0.5 | `generate-projects` logic      | ✅ Active |
+| BR-007  | Company data cached for 7 days            | `company_filter_cache` TTL     | ✅ Active |
+| BR-008  | Max 3 generation attempts per queue item  | `project_generation_queue`     | ✅ Active |
 
 ### 2.5 Process Health Dashboard
 
-| KPI | Target | Actual | Status | Trend |
-|-----|--------|--------|--------|-------|
-| Parse Success Rate | >95% | ~98% | ✅ | Stable |
-| Discovery Yield (companies/course) | >10 | ~1.3 (320/238) | ⚠️ | Low |
-| Generation Success Rate | >90% | 75.7% | ❌ | Needs attention |
-| Curation Completion Rate | >50% | 0% | ❌ | Critical |
-| Job Match Rate | >50% | 70.6% (24/34) | ✅ | Strong |
+| KPI                                | Target | Actual         | Status | Trend           |
+| ---------------------------------- | ------ | -------------- | ------ | --------------- |
+| Parse Success Rate                 | >95%   | ~98%           | ✅     | Stable          |
+| Discovery Yield (companies/course) | >10    | ~1.3 (320/238) | ⚠️     | Low             |
+| Generation Success Rate            | >90%   | 75.7%          | ❌     | Needs attention |
+| Curation Completion Rate           | >50%   | 0%             | ❌     | Critical        |
+| Job Match Rate                     | >50%   | 70.6% (24/34)  | ✅     | Strong          |
 
 ### 2.6 Process Improvement Recommendations
 
@@ -202,40 +202,44 @@ graph TB
 ### 3.2 Edge Function Catalog
 
 #### Core Workflow Functions (7)
-| Function | Purpose | Avg Time | Auth | Rate Limit |
-|----------|---------|----------|------|------------|
-| `parse-syllabus` | Extract course data from PDF | 30s | JWT | Standard |
-| `discover-companies` | Find relevant companies | 120s | JWT | Resource-Intensive |
-| `generate-projects` | Create project proposals | 180s | JWT | Resource-Intensive |
-| `run-single-project-generation` | Regenerate single project | 60s | JWT | Standard |
-| `process-generation-queue` | Async queue processor | 5s | Service | Standard |
-| `get-project-detail` | Fetch complete project | 200ms | JWT | Public-High |
-| `detect-location` | Parse/geocode location | 500ms | Public | Standard |
+
+| Function                        | Purpose                      | Avg Time | Auth    | Rate Limit         |
+| ------------------------------- | ---------------------------- | -------- | ------- | ------------------ |
+| `parse-syllabus`                | Extract course data from PDF | 30s      | JWT     | Standard           |
+| `discover-companies`            | Find relevant companies      | 120s     | JWT     | Resource-Intensive |
+| `generate-projects`             | Create project proposals     | 180s     | JWT     | Resource-Intensive |
+| `run-single-project-generation` | Regenerate single project    | 60s      | JWT     | Standard           |
+| `process-generation-queue`      | Async queue processor        | 5s       | Service | Standard           |
+| `get-project-detail`            | Fetch complete project       | 200ms    | JWT     | Public-High        |
+| `detect-location`               | Parse/geocode location       | 500ms    | Public  | Standard           |
 
 #### Enrichment Functions (4)
-| Function | Purpose | Trigger | Status |
-|----------|---------|---------|--------|
-| `data-enrichment-pipeline` | Deep Apollo enrichment | Manual | ✅ Secured |
-| `apollo-webhook-listener` | Real-time signal capture | Webhook | Active |
-| `project-suitability-scorer` | Score signals to projects | DB trigger | Active |
-| `migrate-technology-format` | Data migration utility | One-time | Deprecated |
+
+| Function                     | Purpose                   | Trigger    | Status     |
+| ---------------------------- | ------------------------- | ---------- | ---------- |
+| `data-enrichment-pipeline`   | Deep Apollo enrichment    | Manual     | ✅ Secured |
+| `apollo-webhook-listener`    | Real-time signal capture  | Webhook    | Active     |
+| `project-suitability-scorer` | Score signals to projects | DB trigger | Active     |
+| `migrate-technology-format`  | Data migration utility    | One-time   | Deprecated |
 
 #### Intelligence Functions (5)
-| Function | Purpose | Output | Dependencies |
-|----------|---------|--------|--------------|
-| `analyze-project-value` | Calculate ROI/stakeholder value | project_metadata | Gemini |
-| `skill-gap-analyzer` | Compare skills vs jobs | Gap analysis | O*NET |
-| `career-pathway-mapper` | O*NET career trajectories | Career paths | O*NET |
-| `salary-roi-calculator` | Financial impact analysis | ROI metrics | BLS data |
-| `aggregate-demand-signals` | Aggregate marketplace data | demand_signals | Database |
+
+| Function                   | Purpose                         | Output           | Dependencies |
+| -------------------------- | ------------------------------- | ---------------- | ------------ |
+| `analyze-project-value`    | Calculate ROI/stakeholder value | project_metadata | Gemini       |
+| `skill-gap-analyzer`       | Compare skills vs jobs          | Gap analysis     | O\*NET       |
+| `career-pathway-mapper`    | O\*NET career trajectories      | Career paths     | O\*NET       |
+| `salary-roi-calculator`    | Financial impact analysis       | ROI metrics      | BLS data     |
+| `aggregate-demand-signals` | Aggregate marketplace data      | demand_signals   | Database     |
 
 #### Student Functions (4)
-| Function | Purpose | Trigger | Success Metrics |
-|----------|---------|---------|-----------------|
-| `competency-extractor` | Extract verified skills | Project completion | 34 verified |
-| `job-matcher` | Match skills to Apollo jobs | Competency insert | 24 matches |
-| `student-project-matcher` | Recommend projects | Manual | Active |
-| `portfolio-export` | Generate PDF portfolio | Manual | Available |
+
+| Function                  | Purpose                     | Trigger            | Success Metrics |
+| ------------------------- | --------------------------- | ------------------ | --------------- |
+| `competency-extractor`    | Extract verified skills     | Project completion | 34 verified     |
+| `job-matcher`             | Match skills to Apollo jobs | Competency insert  | 24 matches      |
+| `student-project-matcher` | Recommend projects          | Manual             | Active          |
+| `portfolio-export`        | Generate PDF portfolio      | Manual             | Available       |
 
 ### 3.3 Shared Services Architecture
 
@@ -313,30 +317,30 @@ erDiagram
 
 ### 3.5 Security Architecture (Module 1 Complete)
 
-| Layer | Implementation | Status | Bit |
-|-------|----------------|--------|-----|
-| **Authentication** | Supabase Auth (JWT) | ✅ | - |
-| **Authorization** | RLS + has_role() function | ✅ | - |
-| **Edge Auth** | auth-middleware.ts | ✅ | 1.1-1.4 |
-| **CORS/Headers** | Hardened cors.ts | ✅ | 1.5 |
-| **JSON Safety** | json-parser.ts | ✅ | 1.6 |
-| **Input Validation** | input-validation.ts | ✅ | 1.7 |
-| **Rate Limiting** | rate-limit-headers.ts | ✅ | 1.8 |
-| **RLS Policies** | ~50 policies active | ✅ | - |
-| **Linter Status** | No issues found | ✅ | - |
+| Layer                | Implementation            | Status | Bit     |
+| -------------------- | ------------------------- | ------ | ------- |
+| **Authentication**   | Supabase Auth (JWT)       | ✅     | -       |
+| **Authorization**    | RLS + has_role() function | ✅     | -       |
+| **Edge Auth**        | auth-middleware.ts        | ✅     | 1.1-1.4 |
+| **CORS/Headers**     | Hardened cors.ts          | ✅     | 1.5     |
+| **JSON Safety**      | json-parser.ts            | ✅     | 1.6     |
+| **Input Validation** | input-validation.ts       | ✅     | 1.7     |
+| **Rate Limiting**    | rate-limit-headers.ts     | ✅     | 1.8     |
+| **RLS Policies**     | ~50 policies active       | ✅     | -       |
+| **Linter Status**    | No issues found           | ✅     | -       |
 
 ### 3.6 Technical Debt Inventory
 
-| ID | Area | Description | Priority | Effort | Impact |
-|----|------|-------------|----------|--------|--------|
-| TD-001 | Generation | 24.3% generation failure rate | P0 | Medium | Critical |
-| TD-002 | Reliability | No atomic deletion pattern | P1 | Medium | High |
-| TD-003 | Reliability | No retry logic for external APIs | P1 | Medium | High |
-| TD-004 | Type Safety | ~30 `any` types in edge functions | P2 | Medium | Medium |
-| TD-005 | Testing | No automated test suite | P1 | High | Critical |
-| TD-006 | Caching | Cache invalidation incomplete | P2 | Low | Medium |
-| TD-007 | Logging | Debug logs in production | P3 | Low | Low |
-| TD-008 | Dead Code | Deprecated Lightcast services | P3 | Low | Low |
+| ID     | Area        | Description                       | Priority | Effort | Impact   |
+| ------ | ----------- | --------------------------------- | -------- | ------ | -------- |
+| TD-001 | Generation  | 24.3% generation failure rate     | P0       | Medium | Critical |
+| TD-002 | Reliability | No atomic deletion pattern        | P1       | Medium | High     |
+| TD-003 | Reliability | No retry logic for external APIs  | P1       | Medium | High     |
+| TD-004 | Type Safety | ~30 `any` types in edge functions | P2       | Medium | Medium   |
+| TD-005 | Testing     | No automated test suite           | P1       | High   | Critical |
+| TD-006 | Caching     | Cache invalidation incomplete     | P2       | Low    | Medium   |
+| TD-007 | Logging     | Debug logs in production          | P3       | Low    | Low      |
+| TD-008 | Dead Code   | Deprecated Lightcast services     | P3       | Low    | Low      |
 
 ---
 
@@ -344,36 +348,36 @@ erDiagram
 
 ### 4.1 User Role Matrix
 
-| Role | Primary Goal | Entry Point | Key Actions | Current Friction |
-|------|--------------|-------------|-------------|------------------|
-| **Student** | Build verified portfolio | `/projects` | Apply, Complete, Export | No live projects to apply |
-| **Faculty** | Generate industry projects | `/upload` | Upload, Configure, Curate | Curation backlog |
-| **Employer** | Access talent pipeline | `/demand-board` | Express interest, Rate | No onboarding flow |
-| **Admin** | Manage platform | `/admin-hub` | Approve roles, Analytics | Manual processes |
+| Role         | Primary Goal               | Entry Point     | Key Actions               | Current Friction          |
+| ------------ | -------------------------- | --------------- | ------------------------- | ------------------------- |
+| **Student**  | Build verified portfolio   | `/projects`     | Apply, Complete, Export   | No live projects to apply |
+| **Faculty**  | Generate industry projects | `/upload`       | Upload, Configure, Curate | Curation backlog          |
+| **Employer** | Access talent pipeline     | `/demand-board` | Express interest, Rate    | No onboarding flow        |
+| **Admin**    | Manage platform            | `/admin-hub`    | Approve roles, Analytics  | Manual processes          |
 
 ### 4.2 Page Inventory (21 Routes)
 
-| Route | Component | Access | Purpose | Health |
-|-------|-----------|--------|---------|--------|
-| `/` | Landing | Public | Marketing | ✅ |
-| `/auth` | Auth | Public | Login/Signup | ✅ |
-| `/demand-board` | DemandBoard | Public | Employer marketplace | ✅ |
-| `/upload` | Upload | Faculty | Syllabus upload | ✅ |
-| `/review-syllabus` | ReviewSyllabus | Faculty | Review parsed data | ✅ |
-| `/configure` | Configure | Faculty | Generation settings | ✅ |
-| `/projects` | Projects | Auth | Browse projects | ✅ |
-| `/projects/:id` | ProjectDetail | Auth | Detailed view (9 tabs) | ⚠️ Complex |
-| `/dashboard` | Dashboard | Auth | Role-based redirect | ✅ |
-| `/instructor/dashboard` | InstructorDashboard | Faculty | Faculty overview | ✅ |
-| `/student/dashboard` | StudentDashboard | Student | Student overview | ⏸️ |
-| `/my-opportunities` | MyOpportunities | Student | Job matches | ✅ |
-| `/my-competencies` | MyCompetencies | Student | Skills portfolio | ✅ |
-| `/employer/dashboard` | EmployerDashboard | Employer | Company view | ⏸️ |
-| `/admin-hub` | AdminHub | Admin | Admin controls | ✅ |
-| `/admin-hub/metrics` | AdminMetrics | Admin | Analytics | ✅ |
-| `/admin-hub/roles` | RoleManagement | Admin | User roles | ✅ |
-| `/admin-hub/import-universities` | AdminImportUniversities | Admin | Data import | ✅ |
-| `/admin-hub/provider-test` | AdminProviderTest | Admin | API testing | ✅ |
+| Route                            | Component               | Access   | Purpose                | Health     |
+| -------------------------------- | ----------------------- | -------- | ---------------------- | ---------- |
+| `/`                              | Landing                 | Public   | Marketing              | ✅         |
+| `/auth`                          | Auth                    | Public   | Login/Signup           | ✅         |
+| `/demand-board`                  | DemandBoard             | Public   | Employer marketplace   | ✅         |
+| `/upload`                        | Upload                  | Faculty  | Syllabus upload        | ✅         |
+| `/review-syllabus`               | ReviewSyllabus          | Faculty  | Review parsed data     | ✅         |
+| `/configure`                     | Configure               | Faculty  | Generation settings    | ✅         |
+| `/projects`                      | Projects                | Auth     | Browse projects        | ✅         |
+| `/projects/:id`                  | ProjectDetail           | Auth     | Detailed view (9 tabs) | ⚠️ Complex |
+| `/dashboard`                     | Dashboard               | Auth     | Role-based redirect    | ✅         |
+| `/instructor/dashboard`          | InstructorDashboard     | Faculty  | Faculty overview       | ✅         |
+| `/student/dashboard`             | StudentDashboard        | Student  | Student overview       | ⏸️         |
+| `/my-opportunities`              | MyOpportunities         | Student  | Job matches            | ✅         |
+| `/my-competencies`               | MyCompetencies          | Student  | Skills portfolio       | ✅         |
+| `/employer/dashboard`            | EmployerDashboard       | Employer | Company view           | ⏸️         |
+| `/admin-hub`                     | AdminHub                | Admin    | Admin controls         | ✅         |
+| `/admin-hub/metrics`             | AdminMetrics            | Admin    | Analytics              | ✅         |
+| `/admin-hub/roles`               | RoleManagement          | Admin    | User roles             | ✅         |
+| `/admin-hub/import-universities` | AdminImportUniversities | Admin    | Data import            | ✅         |
+| `/admin-hub/provider-test`       | AdminProviderTest       | Admin    | API testing            | ✅         |
 
 ### 4.3 User Journey Maps
 
@@ -399,6 +403,7 @@ journey
 </presentation-mermaid>
 
 **Pain Points:**
+
 - 8 pending faculty awaiting approval (72% of active faculty)
 - 370 projects awaiting curation (0% curated)
 - No notification when projects ready for review
@@ -424,39 +429,40 @@ journey
 </presentation-mermaid>
 
 **Pain Points:**
+
 - 0 curated projects available to browse/apply
 - Students blocked on faculty curation bottleneck
 - Journey effectively stalled at "Discovery" stage
 
 ### 4.4 UX Quality Assessment
 
-| Journey Stage | Quality | Issues | Priority |
-|---------------|---------|--------|----------|
-| Signup | ⭐⭐⭐⭐ | Pending role delays | Medium |
-| Upload | ⭐⭐⭐⭐⭐ | None | - |
-| Configure | ⭐⭐⭐ | Long wait times, unclear progress | High |
-| Projects List | ⭐⭐⭐⭐ | Filter complexity | Low |
-| Project Detail | ⭐⭐⭐ | 9 tabs overwhelming | Medium |
-| Student Matching | ⭐⭐ | No live projects | Critical |
-| Employer Portal | ⭐⭐ | Limited features, 0 users | High |
+| Journey Stage    | Quality    | Issues                            | Priority |
+| ---------------- | ---------- | --------------------------------- | -------- |
+| Signup           | ⭐⭐⭐⭐   | Pending role delays               | Medium   |
+| Upload           | ⭐⭐⭐⭐⭐ | None                              | -        |
+| Configure        | ⭐⭐⭐     | Long wait times, unclear progress | High     |
+| Projects List    | ⭐⭐⭐⭐   | Filter complexity                 | Low      |
+| Project Detail   | ⭐⭐⭐     | 9 tabs overwhelming               | Medium   |
+| Student Matching | ⭐⭐       | No live projects                  | Critical |
+| Employer Portal  | ⭐⭐       | Limited features, 0 users         | High     |
 
 ### 4.5 Feature Completeness Matrix
 
-| Feature | Status | Evidence |
-|---------|--------|----------|
-| Syllabus Parsing | ✅ Complete | 238 courses parsed |
-| Company Discovery | ✅ Complete | 320 companies found |
-| Project Generation | ✅ Complete | 372 projects created |
-| 4-Signal Scoring | ✅ Complete | Active on all projects |
-| Student Applications | ⏸️ Blocked | 0 curated projects |
-| Competency Verification | ✅ Complete | 34 competencies verified |
-| Job Matching | ✅ Complete | 24 matches created |
-| Portfolio Export | ✅ Complete | PDF available |
-| Employer Rating | ✅ Complete | Endpoint active |
-| Email Notifications | 🟡 Partial | Framework only |
-| Faculty Analytics | ❌ Not Started | No dashboard |
-| In-App Messaging | ❌ Not Started | - |
-| Multi-University | ❌ Not Started | - |
+| Feature                 | Status         | Evidence                 |
+| ----------------------- | -------------- | ------------------------ |
+| Syllabus Parsing        | ✅ Complete    | 238 courses parsed       |
+| Company Discovery       | ✅ Complete    | 320 companies found      |
+| Project Generation      | ✅ Complete    | 372 projects created     |
+| 4-Signal Scoring        | ✅ Complete    | Active on all projects   |
+| Student Applications    | ⏸️ Blocked     | 0 curated projects       |
+| Competency Verification | ✅ Complete    | 34 competencies verified |
+| Job Matching            | ✅ Complete    | 24 matches created       |
+| Portfolio Export        | ✅ Complete    | PDF available            |
+| Employer Rating         | ✅ Complete    | Endpoint active          |
+| Email Notifications     | 🟡 Partial     | Framework only           |
+| Faculty Analytics       | ❌ Not Started | No dashboard             |
+| In-App Messaging        | ❌ Not Started | -                        |
+| Multi-University        | ❌ Not Started | -                        |
 
 ---
 
@@ -465,11 +471,13 @@ journey
 ### 5.1 Platform Positioning
 
 **EduThree occupies a unique market position** at the intersection of:
+
 - **EdTech** (curriculum-to-industry alignment)
 - **HR Tech** (talent pipeline automation)
 - **Marketplace** (triple-sided matching)
 
 **Competitive Moats:**
+
 1. **Data Network Effect**: More syllabi → better matching → more employers → more syllabi
 2. **Intelligence Layer**: Proprietary 4-signal scoring system
 3. **Verified Competencies**: Employer-validated skills (not self-reported)
@@ -477,12 +485,12 @@ journey
 
 ### 5.2 Current State Reality Check
 
-| Dimension | Goal | Reality | Gap Analysis |
-|-----------|------|---------|--------------|
-| **Faculty Adoption** | Growing | 11 active, 8 pending | Need approval automation |
-| **Student Engagement** | Active applications | 0 applications possible | Blocked by curation |
-| **Employer Participation** | Pipeline building | 0 employers | No onboarding path |
-| **Project Flow** | Continuous | Stalled at curation | Manual bottleneck |
+| Dimension                  | Goal                | Reality                 | Gap Analysis             |
+| -------------------------- | ------------------- | ----------------------- | ------------------------ |
+| **Faculty Adoption**       | Growing             | 11 active, 8 pending    | Need approval automation |
+| **Student Engagement**     | Active applications | 0 applications possible | Blocked by curation      |
+| **Employer Participation** | Pipeline building   | 0 employers             | No onboarding path       |
+| **Project Flow**           | Continuous          | Stalled at curation     | Manual bottleneck        |
 
 ### 5.3 The Critical Bottleneck
 
@@ -512,73 +520,73 @@ journey
 
 #### Immediate (0-7 days) - Unblock the Pipeline
 
-| Priority | Action | Owner | Impact |
-|----------|--------|-------|--------|
-| P0 | Add "Quick Curate" button on project cards | Engineering | Unblocks students |
-| P0 | Send email to faculty when projects ready | Engineering | Awareness |
-| P0 | Approve pending 8 faculty | Admin | +72% active faculty |
-| P1 | Complete Module 2 reliability fixes | Engineering | 95%+ gen rate |
+| Priority | Action                                     | Owner       | Impact              |
+| -------- | ------------------------------------------ | ----------- | ------------------- |
+| P0       | Add "Quick Curate" button on project cards | Engineering | Unblocks students   |
+| P0       | Send email to faculty when projects ready  | Engineering | Awareness           |
+| P0       | Approve pending 8 faculty                  | Admin       | +72% active faculty |
+| P1       | Complete Module 2 reliability fixes        | Engineering | 95%+ gen rate       |
 
 #### Short-Term (7-30 days) - Enable Growth
 
-| Priority | Action | Owner | Impact |
-|----------|--------|-------|--------|
-| P1 | Faculty analytics dashboard | Engineering | Retention |
-| P1 | Batch curation interface | Engineering | Efficiency |
-| P1 | Employer self-signup flow | Engineering | New segment |
-| P2 | Simplify Project Detail (9→5 tabs) | Engineering | UX quality |
+| Priority | Action                             | Owner       | Impact      |
+| -------- | ---------------------------------- | ----------- | ----------- |
+| P1       | Faculty analytics dashboard        | Engineering | Retention   |
+| P1       | Batch curation interface           | Engineering | Efficiency  |
+| P1       | Employer self-signup flow          | Engineering | New segment |
+| P2       | Simplify Project Detail (9→5 tabs) | Engineering | UX quality  |
 
 #### Medium-Term (30-90 days) - Scale
 
-| Priority | Action | Owner | Impact |
-|----------|--------|-------|--------|
-| P1 | Automated test suite | Engineering | Reliability |
-| P2 | Auto-curation based on score threshold | Engineering | Reduce bottleneck |
-| P2 | In-app messaging | Engineering | Engagement |
-| P2 | Mobile-responsive optimization | Engineering | Accessibility |
+| Priority | Action                                 | Owner       | Impact            |
+| -------- | -------------------------------------- | ----------- | ----------------- |
+| P1       | Automated test suite                   | Engineering | Reliability       |
+| P2       | Auto-curation based on score threshold | Engineering | Reduce bottleneck |
+| P2       | In-app messaging                       | Engineering | Engagement        |
+| P2       | Mobile-responsive optimization         | Engineering | Accessibility     |
 
 ### 5.5 Resource Allocation Matrix
 
-| Resource Type | Current State | Optimization Opportunity |
-|---------------|---------------|--------------------------|
-| **Compute (36 Edge Functions)** | Well-distributed | Consolidate admin utilities |
-| **AI Credits (Gemini)** | Per-generation | Cache SOC mappings aggressively |
-| **API Credits (Apollo)** | ~$0.10/company | 7-day cache working |
-| **Storage** | Syllabi + cache | Implement cleanup cron |
-| **Human (Admin)** | Manual approvals | Add auto-approve rules |
+| Resource Type                   | Current State    | Optimization Opportunity        |
+| ------------------------------- | ---------------- | ------------------------------- |
+| **Compute (36 Edge Functions)** | Well-distributed | Consolidate admin utilities     |
+| **AI Credits (Gemini)**         | Per-generation   | Cache SOC mappings aggressively |
+| **API Credits (Apollo)**        | ~$0.10/company   | 7-day cache working             |
+| **Storage**                     | Syllabi + cache  | Implement cleanup cron          |
+| **Human (Admin)**               | Manual approvals | Add auto-approve rules          |
 
 ### 5.6 Risk Assessment
 
-| Risk | Probability | Impact | Mitigation | Status |
-|------|-------------|--------|------------|--------|
-| Curation bottleneck persists | High | Critical | Add batch curation UX | ❌ Open |
-| Generation failures increase | Medium | High | Module 2 reliability | 🟡 Planned |
-| Apollo API changes | Low | High | Provider abstraction exists | ✅ Mitigated |
-| AI cost escalation | Medium | Medium | Aggressive caching | 🟡 Partial |
-| Security breach | Low | Critical | Module 1 complete | ✅ Mitigated |
-| Faculty churn | Medium | High | Analytics + notifications | ❌ Open |
+| Risk                         | Probability | Impact   | Mitigation                  | Status       |
+| ---------------------------- | ----------- | -------- | --------------------------- | ------------ |
+| Curation bottleneck persists | High        | Critical | Add batch curation UX       | ❌ Open      |
+| Generation failures increase | Medium      | High     | Module 2 reliability        | 🟡 Planned   |
+| Apollo API changes           | Low         | High     | Provider abstraction exists | ✅ Mitigated |
+| AI cost escalation           | Medium      | Medium   | Aggressive caching          | 🟡 Partial   |
+| Security breach              | Low         | Critical | Module 1 complete           | ✅ Mitigated |
+| Faculty churn                | Medium      | High     | Analytics + notifications   | ❌ Open      |
 
 ### 5.7 Key Performance Indicators
 
 #### Business KPIs (Need Instrumentation)
 
-| KPI | Target | Current | Action Required |
-|-----|--------|---------|-----------------|
-| Faculty Activation Rate | >70% | Unknown | Add tracking |
-| Projects Curated/Week | >50 | 0 | Unblock curation |
-| Student Application Rate | >30% | 0% | Requires curated projects |
-| Employer Conversion | >10% | N/A | 0 employers |
-| Time-to-First-Job-Match | <90 days | 34 competencies → 24 matches | On track |
+| KPI                      | Target   | Current                      | Action Required           |
+| ------------------------ | -------- | ---------------------------- | ------------------------- |
+| Faculty Activation Rate  | >70%     | Unknown                      | Add tracking              |
+| Projects Curated/Week    | >50      | 0                            | Unblock curation          |
+| Student Application Rate | >30%     | 0%                           | Requires curated projects |
+| Employer Conversion      | >10%     | N/A                          | 0 employers               |
+| Time-to-First-Job-Match  | <90 days | 34 competencies → 24 matches | On track                  |
 
 #### Technical KPIs
 
-| KPI | Target | Current | Status |
-|-----|--------|---------|--------|
-| Generation Success Rate | >95% | 75.7% | ❌ Needs improvement |
-| API Response Time (p95) | <3s | ~2.5s | ✅ |
-| Security Compliance | 100% | Module 1 done | ✅ |
-| Error Rate | <1% | ~2% | ⚠️ |
-| Uptime | 99.9% | ~99.5% | ⚠️ |
+| KPI                     | Target | Current       | Status               |
+| ----------------------- | ------ | ------------- | -------------------- |
+| Generation Success Rate | >95%   | 75.7%         | ❌ Needs improvement |
+| API Response Time (p95) | <3s    | ~2.5s         | ✅                   |
+| Security Compliance     | 100%   | Module 1 done | ✅                   |
+| Error Rate              | <1%    | ~2%           | ⚠️                   |
+| Uptime                  | 99.9%  | ~99.5%        | ⚠️                   |
 
 ---
 
@@ -586,49 +594,49 @@ journey
 
 ### A. Technology Stack
 
-| Layer | Technology | Version |
-|-------|------------|---------|
-| Frontend | React | 18.3.1 |
-| Build | Vite | Latest |
-| Styling | Tailwind CSS | 3.x |
-| Components | shadcn/ui | Latest |
-| State | TanStack Query | 5.83.0 |
-| Routing | React Router | 6.30.1 |
-| Backend | Supabase Cloud | Latest |
-| Runtime | Deno Edge | Latest |
-| Database | PostgreSQL | 15 |
-| AI | Google Gemini | 2.5 |
+| Layer      | Technology     | Version |
+| ---------- | -------------- | ------- |
+| Frontend   | React          | 18.3.1  |
+| Build      | Vite           | Latest  |
+| Styling    | Tailwind CSS   | 3.x     |
+| Components | shadcn/ui      | Latest  |
+| State      | TanStack Query | 5.83.0  |
+| Routing    | React Router   | 6.30.1  |
+| Backend    | Supabase Cloud | Latest  |
+| Runtime    | Deno Edge      | Latest  |
+| Database   | PostgreSQL     | 15      |
+| AI         | Google Gemini  | 2.5     |
 
 ### B. External Dependencies
 
-| Service | Purpose | Criticality | Fallback |
-|---------|---------|-------------|----------|
-| Supabase | Platform | Critical | None |
-| Google Gemini | AI Generation | Critical | None |
-| Apollo.io | Company/Contact | High | Cached data |
-| O*NET | Occupation data | Medium | SOC mappings |
-| Resend | Email | Medium | Queue/retry |
-| Google Places | Location | Low | Manual entry |
+| Service       | Purpose         | Criticality | Fallback     |
+| ------------- | --------------- | ----------- | ------------ |
+| Supabase      | Platform        | Critical    | None         |
+| Google Gemini | AI Generation   | Critical    | None         |
+| Apollo.io     | Company/Contact | High        | Cached data  |
+| O\*NET        | Occupation data | Medium      | SOC mappings |
+| Resend        | Email           | Medium      | Queue/retry  |
+| Google Places | Location        | Low         | Manual entry |
 
 ### C. Documentation Index
 
-| Document | Purpose |
-|----------|---------|
-| `docs/COMPLETE_ARCHITECTURE_DOCUMENTATION.md` | System design |
-| `docs/architecture/SIGNAL_DRIVEN_DISCOVERY_ARCHITECTURE.md` | Discovery logic |
-| `docs/AGENT_MANAGEMENT_PROTOCOL.md` | Bug fix procedures |
-| `docs/AGENT_SESSION_STATE.md` | Current work state |
-| `docs/USER_JOURNEY_FLOWCHARTS.md` | UX flows |
-| `CHECKPOINT.md` | Phase tracking |
+| Document                                                    | Purpose            |
+| ----------------------------------------------------------- | ------------------ |
+| `docs/COMPLETE_ARCHITECTURE_DOCUMENTATION.md`               | System design      |
+| `docs/architecture/SIGNAL_DRIVEN_DISCOVERY_ARCHITECTURE.md` | Discovery logic    |
+| `docs/AGENT_MANAGEMENT_PROTOCOL.md`                         | Bug fix procedures |
+| `docs/AGENT_SESSION_STATE.md`                               | Current work state |
+| `docs/USER_JOURNEY_FLOWCHARTS.md`                           | UX flows           |
+| `CHECKPOINT.md`                                             | Phase tracking     |
 
 ### D. Security Module Status
 
-| Module | Bits | Status |
-|--------|------|--------|
-| **Module 1: Critical Security** | 8/8 | ✅ COMPLETE |
-| Module 2: Reliability | 0/8 | ⬜ Next |
-| Module 3: Code Quality | 0/8 | ⬜ Pending |
-| Module 4: Enhancements | 0/8 | ⬜ Pending |
+| Module                          | Bits | Status      |
+| ------------------------------- | ---- | ----------- |
+| **Module 1: Critical Security** | 8/8  | ✅ COMPLETE |
+| Module 2: Reliability           | 0/8  | ⬜ Next     |
+| Module 3: Code Quality          | 0/8  | ⬜ Pending  |
+| Module 4: Enhancements          | 0/8  | ⬜ Pending  |
 
 ### E. Quick Action Items for Next Session
 
