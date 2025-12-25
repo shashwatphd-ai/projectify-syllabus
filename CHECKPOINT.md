@@ -35,7 +35,11 @@
   - ✅ Edge function: `portfolio-export` (pdf-lib PDF generation)
   - ✅ Includes completed projects, verified skills, job matches
   - ✅ UI: MyCompetencies page with Export button
-- [ ] Employer Portal
+- [x] **Employer Portal** ✅ COMPLETE
+  - ✅ Page: `/employer/dashboard` with ProtectedRoute
+  - ✅ Company profile view + project listing
+  - ✅ Student applications tracking
+  - ✅ Navigation in Header for employer role
 - [ ] Student Rating System
 
 **Next P0**: Awaiting direction
