@@ -2,6 +2,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-middleware.ts';
 import { withRetry } from '../_shared/retry-utils.ts';
+import { 
+  API_TIMEOUT_MS,
+  ENRICHMENT_TIMEOUT_MS,
+  fetchWithTimeout,
+  isTimeoutError 
+} from '../_shared/timeout-config.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

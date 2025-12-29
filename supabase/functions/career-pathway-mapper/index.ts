@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { DB_TIMEOUT_MS, withTimeout } from "../_shared/timeout-config.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -113,8 +114,8 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get project data with company profile
-    const { data: project, error: projectError } = await supabase
+    // Get project data with company profile (with timeout protection)
+    const projectPromise = supabase
       .from('projects')
       .select(`
         id,
@@ -133,6 +134,13 @@ serve(async (req) => {
       `)
       .eq('id', projectId)
       .single();
+    
+    const projectResult = await withTimeout(
+      Promise.resolve(projectPromise),
+      DB_TIMEOUT_MS,
+      'Fetch project data'
+    );
+    const { data: project, error: projectError } = projectResult as { data: any; error: any };
 
     if (projectError || !project) {
       console.error('[career-pathway-mapper] Project not found:', projectError);

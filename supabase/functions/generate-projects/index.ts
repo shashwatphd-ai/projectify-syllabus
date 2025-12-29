@@ -7,6 +7,13 @@ import { extractSkillsHybrid, formatSkillsForDisplay } from '../_shared/skill-ex
 import { filterValidCompanies } from '../_shared/company-validation-service.ts';
 import { getEstimatedRateLimitHeaders } from '../_shared/rate-limit-headers.ts';
 import { withRetry } from '../_shared/retry-utils.ts';
+import { 
+  GENERATION_TIMEOUT_MS, 
+  DB_TIMEOUT_MS,
+  withTimeout,
+  isTimeoutError,
+  logTimeout 
+} from '../_shared/timeout-config.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
