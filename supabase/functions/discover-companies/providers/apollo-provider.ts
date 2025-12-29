@@ -8,6 +8,12 @@ import { mapSOCIndustriesToApollo, getApolloSearchStrategy } from './apollo-indu
 import { getTechnologiesForSOCCodes } from './apollo-technology-mapping.ts';
 import { calculateDistanceBetweenLocations, formatDistance } from '../../_shared/geo-distance.ts';
 import { fetchWithRetry, DEFAULT_RETRY_CONFIG, LIGHT_RETRY_CONFIG, createRetryConfig } from '../../_shared/retry-utils.ts';
+import { 
+  getCircuitBreaker, 
+  APOLLO_CIRCUIT_CONFIG, 
+  CircuitState,
+  type CircuitBreakerResult 
+} from '../../_shared/circuit-breaker.ts';
 
 interface ApolloSearchFilters {
   organization_locations: string[];
@@ -134,6 +140,14 @@ export class ApolloProvider implements DiscoveryProvider {
 
     if (!this.isConfigured()) {
       throw new Error('Apollo provider not configured. Missing: ' + this.getRequiredSecrets().join(', '));
+    }
+    
+    // Check circuit breaker status before proceeding
+    const circuitBreaker = getCircuitBreaker(APOLLO_CIRCUIT_CONFIG);
+    if (!circuitBreaker.isAllowed()) {
+      const stats = circuitBreaker.getStats();
+      console.warn(`[apollo-provider] 🔴 Circuit breaker OPEN - failing fast. Stats: ${JSON.stringify(stats)}`);
+      throw new Error(`Apollo API circuit breaker is OPEN. Service may be experiencing issues. Retry in ${Math.ceil(APOLLO_CIRCUIT_CONFIG.resetTimeoutMs / 1000)}s`);
     }
 
     // ========================================
@@ -1092,26 +1106,41 @@ Return JSON:
     console.log(`     Request Body:`);
     console.log(JSON.stringify(requestBody, null, 2));
 
+    // Get circuit breaker for tracking success/failure
+    const circuitBreaker = getCircuitBreaker(APOLLO_CIRCUIT_CONFIG);
+
     // BIT 2.4: Use fetchWithRetry for reliable API calls
-    const result = await fetchWithRetry<{ organizations: ApolloOrganization[]; pagination?: unknown }>(
-      'https://api.apollo.io/v1/mixed_companies/search',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache',
-          'X-Api-Key': this.apolloApiKey!
+    // BIT 2.8: Wrap with circuit breaker for failure tracking
+    const result = await circuitBreaker.execute(async () => {
+      const fetchResult = await fetchWithRetry<{ organizations: ApolloOrganization[]; pagination?: unknown }>(
+        'https://api.apollo.io/v1/mixed_companies/search',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+            'X-Api-Key': this.apolloApiKey!
+          },
+          body: JSON.stringify(requestBody)
         },
-        body: JSON.stringify(requestBody)
-      },
-      DEFAULT_RETRY_CONFIG,
-      'Apollo Organization Search'
-    );
+        DEFAULT_RETRY_CONFIG,
+        'Apollo Organization Search'
+      );
+      
+      if (!fetchResult.success) {
+        throw new Error(fetchResult.error || 'Apollo search failed');
+      }
+      
+      return fetchResult.data;
+    });
 
     if (!result.success) {
-      console.error(`❌ APOLLO_SEARCH_FAILED after ${result.attempts} attempts`);
+      console.error(`❌ APOLLO_SEARCH_FAILED - Circuit state: ${result.circuitState}`);
       console.error(`   Details: ${result.error}`);
-      console.error(`   Request filters:`, JSON.stringify(filters, null, 2).substring(0, 300));
+      console.error(`   Was short-circuited: ${result.wasShortCircuited}`);
+      if (!result.wasShortCircuited) {
+        console.error(`   Request filters:`, JSON.stringify(filters, null, 2).substring(0, 300));
+      }
       throw new Error(`Apollo search failed: ${result.error}`);
     }
 
@@ -1120,7 +1149,7 @@ Return JSON:
     // 🔍 DIAGNOSTIC: Log response received from Apollo
     console.log(`\n  📥 [Apollo API Response - DIAGNOSTIC]`);
     console.log(`     Total Results: ${organizations.length}`);
-    console.log(`     Attempts: ${result.attempts}, Total Delay: ${result.totalDelayMs}ms`);
+    console.log(`     Circuit State: ${result.circuitState}`);
 
     if (organizations.length > 0) {
       console.log(`\n     Sample Results (first 3):`);
