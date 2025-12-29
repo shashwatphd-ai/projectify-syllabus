@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { securityHeaders } from '../_shared/cors.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -139,51 +140,61 @@ serve(async (req) => {
 
     console.log(`✅ Updated ${projects.length} projects to pending_generation`);
 
-    // Step C: Asynchronously invoke run-single-project-generation for each project
+    // Step C: Invoke run-single-project-generation for each project with proper async handling
     console.log('🚀 Step C: Queueing regeneration workers...');
     const functionUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/run-single-project-generation`;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    let queuedCount = 0;
-    let failedCount = 0;
-
-    // Launch all workers asynchronously (no await - fire and forget)
-    projects.forEach((project) => {
-      fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${serviceRoleKey}`,
-        },
-        body: JSON.stringify({
-          project_id: project.id,
-          course_id: project.course_id,
-          generation_run_id: project.generation_run_id,
-        }),
-      })
-        .then(() => {
-          queuedCount++;
-          console.log(`✅ Queued project ${project.id} (${queuedCount}/${projects.length})`);
-        })
-        .catch((error) => {
-          failedCount++;
-          console.error(`❌ Failed to queue project ${project.id}:`, error.message);
+    // Use Promise.allSettled for proper async handling (no more fire-and-forget)
+    const regenerationPromises = projects.map(async (project) => {
+      try {
+        const response = await fetch(functionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${serviceRoleKey}`,
+          },
+          body: JSON.stringify({
+            project_id: project.id,
+            course_id: project.course_id,
+            generation_run_id: project.generation_run_id,
+          }),
         });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
+        console.log(`✅ Queued project ${project.id}`);
+        return { id: project.id, success: true };
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`❌ Failed to queue project ${project.id}: ${errorMsg}`);
+        return { id: project.id, success: false, error: errorMsg };
+      }
     });
 
-    // Step D: Return immediate success response
-    console.log(`✅ Successfully queued ${projects.length} projects for regeneration`);
+    // Wait for all to complete (with timeout protection)
+    const results = await Promise.allSettled(regenerationPromises);
     
+    const successCount = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+    const failedCount = projects.length - successCount;
+
+    console.log(`✅ Completed: ${successCount} succeeded, ${failedCount} failed`);
+
+    // Step D: Return detailed response
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Successfully re-queued ${projects.length} projects for regeneration with the new "wow factor" prompt. Projects will be processed asynchronously.`,
+        message: `Re-queued ${successCount}/${projects.length} projects for regeneration.`,
         count: projects.length,
+        succeeded: successCount,
+        failed: failedCount,
         projects: projects.map(p => p.id),
       }),
       {
         status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, ...securityHeaders, 'Content-Type': 'application/json' },
       }
     );
 
