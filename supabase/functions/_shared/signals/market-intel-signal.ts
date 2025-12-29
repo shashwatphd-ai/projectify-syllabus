@@ -18,6 +18,7 @@ import {
   SignalName,
   ApolloNewsArticle 
 } from '../signal-types.ts';
+import { withApolloCircuit, CircuitState } from '../circuit-breaker.ts';
 
 // ============================================================================
 // CONFIGURATION
@@ -189,32 +190,43 @@ async function fetchMarketSignals(
   const ninetyDaysAgo = new Date(today.getTime() - (NEWS_LOOKBACK_DAYS * 24 * 60 * 60 * 1000));
   
   try {
-    // Batch request (Apollo allows multiple org IDs)
-    // Include more event categories for better signal detection
-    const response = await fetch('https://api.apollo.io/v1/news_articles/search', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Api-Key': apolloApiKey
-      },
-      body: JSON.stringify({
-        organization_ids: organizationIds.slice(0, MAX_ORGS_PER_REQUEST),
-        categories: ['hires', 'investment', 'contract', 'expansion', 'launches', 'attends_event'],
-        published_at: {
-          min: ninetyDaysAgo.toISOString().split('T')[0],
-          max: today.toISOString().split('T')[0]
+    // Batch request with circuit breaker protection
+    const result = await withApolloCircuit<{ news_articles?: NewsArticle[] }>(async () => {
+      const response = await fetch('https://api.apollo.io/v1/news_articles/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': apolloApiKey
         },
-        per_page: MAX_ARTICLES
-      })
+        body: JSON.stringify({
+          organization_ids: organizationIds.slice(0, MAX_ORGS_PER_REQUEST),
+          categories: ['hires', 'investment', 'contract', 'expansion', 'launches', 'attends_event'],
+          published_at: {
+            min: ninetyDaysAgo.toISOString().split('T')[0],
+            max: today.toISOString().split('T')[0]
+          },
+          per_page: MAX_ARTICLES
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`News API returned ${response.status}`);
+      }
+      
+      return await response.json();
     });
     
-    if (!response.ok) {
-      console.warn(`     ⚠️ News API returned ${response.status}, using empty results`);
+    if (!result.success) {
+      console.warn(`     ⚠️ Circuit breaker failure for News API: ${result.error}`);
+      if (result.circuitState === CircuitState.OPEN) {
+        console.warn('     ⚡ Circuit OPEN - using empty results');
+      }
       return results;
     }
     
-    const data = await response.json();
-    const articles = (data.news_articles || []) as NewsArticle[];
+    const articles = (result.data?.news_articles || []) as NewsArticle[];
+    
+    console.log(`     📰 News API: Found ${articles.length} articles for ${organizationIds.length} companies`);
     
     console.log(`     📰 News API: Found ${articles.length} articles for ${organizationIds.length} companies`);
     

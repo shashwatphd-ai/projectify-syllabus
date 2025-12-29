@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import { withAICircuit, CircuitState } from '../_shared/circuit-breaker.ts';
+import { securityHeaders } from '../_shared/cors.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -124,188 +126,64 @@ ANALYSIS REQUIREMENTS:
 
 Return comprehensive analysis with validated insights.`;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        tools: [{
-          type: 'function',
-          function: {
-            name: 'analyze_partnership_value',
-            description: 'Analyze academic-industry partnership value for all stakeholders',
-            parameters: {
-              type: 'object',
-              properties: {
-                student_value: {
-                  type: 'object',
-                  properties: {
-                    score: { type: 'number', description: 'Overall student value score 0-100 based on real career outcomes' },
-                    career_opportunities_score: { type: 'number', description: 'Based on company hiring signals & job market alignment' },
-                    skill_development_score: { type: 'number', description: 'Based on tech stack relevance & industry demand' },
-                    portfolio_value_score: { type: 'number', description: 'Based on deliverable quality & market visibility' },
-                    networking_score: { type: 'number', description: 'Based on company growth stage & industry connections' },
-                    key_benefits: { 
-                      type: 'array', 
-                      items: { type: 'string' },
-                      description: '3-4 crisp benefits (max 12 words each). Evidence-based from job postings/tech stack.',
-                      maxItems: 4
-                    },
-                    insights: {
-                      type: 'string',
-                      description: 'Single concise statement (max 25 words) connecting project to validated career outcomes',
-                      maxLength: 150
-                    },
-                    evidence_summary: {
-                      type: 'string',
-                      description: 'One-liner (max 20 words) citing specific data points that validate the value',
-                      maxLength: 120
-                    }
-                  },
-                  required: ['score', 'career_opportunities_score', 'skill_development_score', 'portfolio_value_score', 'networking_score', 'key_benefits', 'insights', 'evidence_summary']
+    // Use circuit breaker for AI Gateway call
+    const result = await withAICircuit<{ choices?: Array<{ message?: { tool_calls?: Array<{ function: { arguments: string } }> } }> }>(async () => {
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          tools: [{
+            type: 'function',
+            function: {
+              name: 'analyze_partnership_value',
+              description: 'Analyze academic-industry partnership value for all stakeholders',
+              parameters: {
+                type: 'object',
+                properties: {
+                  student_value: { type: 'object', properties: { score: { type: 'number' }, career_opportunities_score: { type: 'number' }, skill_development_score: { type: 'number' }, portfolio_value_score: { type: 'number' }, networking_score: { type: 'number' }, key_benefits: { type: 'array', items: { type: 'string' }, maxItems: 4 }, insights: { type: 'string', maxLength: 150 }, evidence_summary: { type: 'string', maxLength: 120 } }, required: ['score', 'key_benefits', 'insights'] },
+                  university_value: { type: 'object', properties: { score: { type: 'number' }, partnership_quality_score: { type: 'number' }, placement_potential_score: { type: 'number' }, research_collaboration_score: { type: 'number' }, reputation_score: { type: 'number' }, key_benefits: { type: 'array', items: { type: 'string' }, maxItems: 4 }, insights: { type: 'string', maxLength: 150 }, evidence_summary: { type: 'string', maxLength: 120 } }, required: ['score', 'key_benefits', 'insights'] },
+                  industry_value: { type: 'object', properties: { score: { type: 'number' }, deliverable_roi_score: { type: 'number' }, talent_pipeline_score: { type: 'number' }, innovation_score: { type: 'number' }, cost_efficiency_score: { type: 'number' }, key_benefits: { type: 'array', items: { type: 'string' }, maxItems: 4 }, insights: { type: 'string', maxLength: 150 }, evidence_summary: { type: 'string', maxLength: 120 } }, required: ['score', 'key_benefits', 'insights'] },
+                  synergistic_value: { type: 'object', properties: { index: { type: 'number' }, knowledge_transfer_multiplier: { type: 'number' }, innovation_potential_score: { type: 'number' }, long_term_partnership_score: { type: 'number' }, ecosystem_impact_score: { type: 'number' }, key_synergies: { type: 'array', items: { type: 'string' } }, insights: { type: 'string' } }, required: ['index', 'key_synergies', 'insights'] },
+                  problem_validation: { type: 'object', properties: { validated_challenges: { type: 'array', items: { type: 'string' }, maxItems: 3 }, evidence_trail: { type: 'string', maxLength: 180 }, alignment_score: { type: 'number' } }, required: ['validated_challenges', 'alignment_score'] },
+                  faculty_recommendations: { type: 'array', items: { type: 'string' }, maxItems: 4 },
+                  risk_factors: { type: 'array', items: { type: 'string' }, maxItems: 3 },
+                  opportunity_highlights: { type: 'array', items: { type: 'string' }, maxItems: 4 },
+                  overall_assessment: { type: 'string', maxLength: 210 }
                 },
-                university_value: {
-                  type: 'object',
-                  properties: {
-                    score: { type: 'number', description: 'Overall university value score 0-100' },
-                    partnership_quality_score: { type: 'number', description: 'Based on company credibility & growth trajectory' },
-                    placement_potential_score: { type: 'number', description: 'Based on active hiring & job posting alignment' },
-                    research_collaboration_score: { type: 'number', description: 'Based on company tech sophistication & innovation needs' },
-                    reputation_score: { type: 'number', description: 'Based on company profile & industry standing' },
-                    key_benefits: { 
-                      type: 'array', 
-                      items: { type: 'string' },
-                      description: '3-4 crisp benefits (max 12 words each). Focus on institutional strategic value.',
-                      maxItems: 4
-                    },
-                    insights: {
-                      type: 'string',
-                      description: 'Single concise statement (max 25 words) on institutional strategic value',
-                      maxLength: 150
-                    },
-                    evidence_summary: {
-                      type: 'string',
-                      description: 'One-liner (max 20 words) citing specific validation data',
-                      maxLength: 120
-                    }
-                  },
-                  required: ['score', 'partnership_quality_score', 'placement_potential_score', 'research_collaboration_score', 'reputation_score', 'key_benefits', 'insights', 'evidence_summary']
-                },
-                industry_value: {
-                  type: 'object',
-                  properties: {
-                    score: { type: 'number', description: 'Overall industry partner value score 0-100' },
-                    deliverable_roi_score: { type: 'number', description: 'Based on deliverable-need alignment & project scope' },
-                    talent_pipeline_score: { type: 'number', description: 'Based on skill alignment with job postings' },
-                    innovation_score: { type: 'number', description: 'Based on fresh perspectives on validated challenges' },
-                    cost_efficiency_score: { type: 'number', description: 'Based on deliverable value vs. typical consulting costs' },
-                    key_benefits: { 
-                      type: 'array', 
-                      items: { type: 'string' },
-                      description: '3-4 crisp benefits (max 12 words each). Quantify business impact where possible.',
-                      maxItems: 4
-                    },
-                    insights: {
-                      type: 'string',
-                      description: 'Single concise statement (max 25 words) on validated business value',
-                      maxLength: 150
-                    },
-                    evidence_summary: {
-                      type: 'string',
-                      description: 'One-liner (max 20 words) citing how project addresses verified company needs',
-                      maxLength: 120
-                    }
-                  },
-                  required: ['score', 'deliverable_roi_score', 'talent_pipeline_score', 'innovation_score', 'cost_efficiency_score', 'key_benefits', 'insights', 'evidence_summary']
-                },
-                synergistic_value: {
-                  type: 'object',
-                  properties: {
-                    index: { type: 'number', description: 'Synergistic value index 0-100' },
-                    knowledge_transfer_multiplier: { type: 'number' },
-                    innovation_potential_score: { type: 'number' },
-                    long_term_partnership_score: { type: 'number' },
-                    ecosystem_impact_score: { type: 'number' },
-                    key_synergies: {
-                      type: 'array',
-                      items: { type: 'string' },
-                      description: 'Specific ways both parties win together'
-                    },
-                    insights: {
-                      type: 'string',
-                      description: 'Analysis of multiplicative value created through collaboration'
-                    }
-                  },
-                  required: ['index', 'knowledge_transfer_multiplier', 'innovation_potential_score', 'long_term_partnership_score', 'ecosystem_impact_score', 'key_synergies', 'insights']
-                },
-                problem_validation: {
-                  type: 'object',
-                  properties: {
-                    validated_challenges: {
-                      type: 'array',
-                      items: { type: 'string' },
-                      description: '2-3 specific company challenges this project addresses (verified via data)',
-                      maxItems: 3
-                    },
-                    evidence_trail: {
-                      type: 'string',
-                      description: 'Concise citation (max 30 words) of data points validating the challenges',
-                      maxLength: 180
-                    },
-                    alignment_score: {
-                      type: 'number',
-                      description: 'How well project deliverables match validated company needs (0-100)'
-                    }
-                  },
-                  required: ['validated_challenges', 'evidence_trail', 'alignment_score']
-                },
-                faculty_recommendations: {
-                  type: 'array',
-                  items: { type: 'string' },
-                  description: '3-4 crisp action items (max 15 words each)',
-                  maxItems: 4
-                },
-                risk_factors: {
-                  type: 'array',
-                  items: { type: 'string' },
-                  description: '2-3 key risks (max 12 words each)',
-                  maxItems: 3
-                },
-                opportunity_highlights: {
-                  type: 'array',
-                  items: { type: 'string' },
-                  description: '3-4 standout opportunities (max 12 words each)',
-                  maxItems: 4
-                },
-                overall_assessment: {
-                  type: 'string',
-                  description: 'Executive summary (max 35 words) of the partnership value',
-                  maxLength: 210
-                }
-              },
-              required: ['student_value', 'university_value', 'industry_value', 'synergistic_value', 'problem_validation', 'faculty_recommendations', 'risk_factors', 'opportunity_highlights', 'overall_assessment']
+                required: ['student_value', 'university_value', 'industry_value', 'synergistic_value', 'problem_validation', 'faculty_recommendations', 'risk_factors', 'opportunity_highlights', 'overall_assessment']
+              }
             }
-          }
-        }],
-        tool_choice: { type: 'function', function: { name: 'analyze_partnership_value' } }
-      }),
+          }],
+          tool_choice: { type: 'function', function: { name: 'analyze_partnership_value' } }
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`AI Gateway error: ${response.status} - ${errorText}`);
+      }
+
+      return await response.json();
     });
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('AI Gateway error:', aiResponse.status, errorText);
-      throw new Error(`AI analysis failed: ${aiResponse.status}`);
+    if (!result.success) {
+      console.error('❌ AI Circuit breaker failure:', result.error);
+      const statusCode = result.circuitState === CircuitState.OPEN ? 503 : 500;
+      return new Response(
+        JSON.stringify({ success: false, error: result.error, circuit_state: result.circuitState }),
+        { status: statusCode, headers: { ...corsHeaders, ...securityHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const aiData = await aiResponse.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+    const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
     
     if (!toolCall) {
       throw new Error('No tool call in AI response');
