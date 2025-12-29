@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { getDocument } from 'https://esm.sh/pdfjs-serverless@0.3.2';
+import { 
+  AI_GATEWAY_TIMEOUT_MS, 
+  fetchWithTimeout,
+  isTimeoutError 
+} from "../_shared/timeout-config.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -60,14 +65,16 @@ async function extractTextWithAI(pdfText: string): Promise<ParsedCourse> {
   }
   
   try {
-    // Use AI to intelligently extract course information
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    // Use AI to intelligently extract course information with timeout protection
+    const response = await fetchWithTimeout(
+      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
           {
@@ -127,9 +134,12 @@ async function extractTextWithAI(pdfText: string): Promise<ParsedCourse> {
             }
           }
         ],
-        tool_choice: { type: "function", function: { name: "extract_course_info" } }
-      })
-    });
+          tool_choice: { type: "function", function: { name: "extract_course_info" } }
+        })
+      },
+      AI_GATEWAY_TIMEOUT_MS,
+      'AI Syllabus Parsing'
+    );
     
     if (!response.ok) {
       console.error("AI extraction failed:", response.status, await response.text());
@@ -161,7 +171,11 @@ async function extractTextWithAI(pdfText: string): Promise<ParsedCourse> {
       schedule: extracted.schedule || []
     };
   } catch (error) {
-    console.error("Error in AI extraction:", error);
+    if (isTimeoutError(error)) {
+      console.warn("AI extraction timed out, using fallback:", error);
+    } else {
+      console.error("Error in AI extraction:", error);
+    }
     return fallbackExtract();
   }
 }

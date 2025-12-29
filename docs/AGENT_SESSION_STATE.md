@@ -1,13 +1,13 @@
 # Agent Session State
 
-**Last Updated:** 2025-12-25T15:00:00Z  
+**Last Updated:** 2025-12-29T21:50:00Z  
 **Current Agent:** Agent-002  
 **Protocol Version:** 1.0
 
 ## Current Status
 
 ### Active Module: Module 2 - High Priority Reliability Fixes (P1)
-### Active Bit: Bit 2.7 - Timeout Configuration (NEXT)
+### Active Bit: Bit 2.8 - Circuit Breaker Pattern (NEXT)
 
 ## Module Progress
 
@@ -32,8 +32,8 @@
 | 2.4 | API Retry Logic Part 1 | ✅ DONE | Agent-002 | Created retry-utils.ts, integrated into Apollo provider (5 API call sites) |
 | 2.5 | API Retry Logic Part 2 | ✅ DONE | Agent-002 | Added withRetry to job-matcher, data-enrichment-pipeline, generate-projects |
 | 2.6 | Error Classification System | ✅ DONE | Agent-002 | Enhanced error-handler.ts with ErrorCategory enum, ErrorCode enum, classifyError(), pattern matching |
-| 2.7 | Timeout Configuration | 🔄 NEXT | | |
-| 2.8 | Circuit Breaker Pattern | ⬜ TODO | | |
+| 2.7 | Timeout Configuration | ✅ DONE | Agent-002 | Created timeout-config.ts with centralized timeouts, withTimeout(), fetchWithTimeout(), TimeoutError class |
+| 2.8 | Circuit Breaker Pattern | 🔄 NEXT | | |
 
 ### Module 3: Medium Priority Code Quality (P2)
 | Bit | Description | Status |
@@ -61,7 +61,47 @@
 
 ## Session History
 
-### Session 9 (Current) - Agent-002
+### Session 12 (Current) - Agent-002
+- **Started:** 2025-12-29T21:45:00Z
+- **Task:** Bit 2.7 - Timeout Configuration
+- **Actions Completed:**
+  1. Created `supabase/functions/_shared/timeout-config.ts`:
+     - Centralized timeout constants for all operation types (API, AI, DB, Health, Email, etc.)
+     - Operation-specific TimeoutConfig objects
+     - `withTimeout()` function supporting Promise and PromiseLike
+     - `fetchWithTimeout()` wrapper for fetch with AbortSignal.timeout
+     - `TimeoutError` class for typed error handling
+     - `isTimeoutError()` helper for error detection
+     - Timing utilities for logging and measurement
+  2. Updated `parse-syllabus/index.ts`:
+     - Added AI_GATEWAY_TIMEOUT_MS for AI extraction calls
+     - Used fetchWithTimeout for AI Gateway calls
+     - Added timeout-specific error handling
+  3. Updated `career-pathway-mapper/index.ts`:
+     - Added DB_TIMEOUT_MS for database queries
+     - Wrapped project query with withTimeout
+  4. Updated `generate-projects/index.ts`:
+     - Imported timeout configuration (GENERATION_TIMEOUT_MS, DB_TIMEOUT_MS)
+  5. Updated `data-enrichment-pipeline/index.ts`:
+     - Imported timeout configuration (API_TIMEOUT_MS, ENRICHMENT_TIMEOUT_MS)
+- **Files Modified:**
+  - supabase/functions/_shared/timeout-config.ts (created)
+  - supabase/functions/parse-syllabus/index.ts
+  - supabase/functions/career-pathway-mapper/index.ts
+  - supabase/functions/generate-projects/index.ts
+  - supabase/functions/data-enrichment-pipeline/index.ts
+  - docs/AGENT_SESSION_STATE.md
+- **Verification:** Timeout utilities now available for consistent timeout handling across edge functions
+
+### Session 11 - Agent-002
+- **Task:** Bit 2.6 - Error Classification System
+- **Actions:** Created comprehensive error classification with ErrorCategory, ErrorCode, classifyError()
+
+### Session 10 - Agent-002
+- **Task:** Bits 2.4, 2.5 - API Retry Logic
+- **Actions:** Created retry-utils.ts, integrated into Apollo provider, job-matcher, data-enrichment-pipeline
+
+### Session 9 - Agent-002
 - **Started:** 2025-12-25T16:00:00Z
 - **Task:** Bit 2.1 - Atomic Deletion Pattern
 - **Actions Completed:**
