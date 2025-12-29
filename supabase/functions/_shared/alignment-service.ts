@@ -8,6 +8,8 @@
  * EXTRACTED from generate-projects/index.ts to eliminate "ghost logic" and intermittency.
  */
 
+import { withAICircuit, withGoogleCircuit } from './circuit-breaker.ts';
+
 /**
  * Calculate Learning Outcomes Alignment Score
  * 
@@ -52,28 +54,38 @@ Return ONLY a JSON object with:
   "gaps": ["Brief explanation of any gaps"]
 }`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.3,
-      }),
+    // Use circuit breaker for AI Gateway call
+    const result = await withAICircuit(async () => {
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.3,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`AI Gateway error: ${response.status}`);
+      }
+
+      return response.json();
     });
 
-    if (!response.ok) {
-      console.error('AI scoring error:', response.status);
+    // Handle circuit breaker open or failure
+    if (!result.success) {
+      console.warn(`⚠️ AI circuit breaker: ${result.error} - using fallback lo_score: 0.7`);
       return 0.7;
     }
 
-    const data = await response.json();
+    const data = result.data;
     const content = data.choices?.[0]?.message?.content;
 
     const jsonMatch = content?.match(/\{[\s\S]*\}/);
@@ -82,8 +94,8 @@ Return ONLY a JSON object with:
       return 0.7;
     }
 
-    const result = JSON.parse(jsonMatch[0]);
-    const coverage = result.coverage_percentage;
+    const parsed = JSON.parse(jsonMatch[0]);
+    const coverage = parsed.coverage_percentage;
 
     // Validate coverage is a valid number
     if (typeof coverage !== 'number' || isNaN(coverage) || coverage < 0 || coverage > 100) {
@@ -161,30 +173,40 @@ Return ONLY valid JSON matching this exact structure:
   ]
 }`;
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: `${systemPrompt}\n\n${prompt}`
-        }]
-      }],
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 4096,
-      }
-    }),
+  // Use circuit breaker for direct Gemini API call
+  const result = await withGoogleCircuit(async () => {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: `${systemPrompt}\n\n${prompt}`
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 4096,
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini API error: ${response.status}`);
+    }
+
+    return response.json();
   });
 
-  if (!response.ok) {
-    console.error('LO alignment detail generation error:', response.status);
+  // Handle circuit breaker open or failure
+  if (!result.success) {
+    console.error(`❌ Gemini circuit breaker: ${result.error}`);
     return null;
   }
 
-  const data = await response.json();
+  const data = result.data;
   const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
   
   try {
@@ -197,7 +219,7 @@ Return ONLY valid JSON matching this exact structure:
     const parsed = JSON.parse(jsonMatch[0]);
     
     console.log('📄 Raw LO alignment response (first 300 chars):', content.substring(0, 300));
-    console.log('✓ Successfully parsed LO alignment');
+    console.log('✅ Successfully parsed LO alignment');
     
     return parsed;
   } catch (error) {

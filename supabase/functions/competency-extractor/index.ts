@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.78.0";
+import { withAICircuit } from "../_shared/circuit-breaker.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,7 +28,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log(`Starting competency extraction for project: ${project_id}`);
+    console.log(`🔍 Starting competency extraction for project: ${project_id}`);
 
     // Step A: Fetch project data with course information
     const { data: project, error: projectError } = await supabase
@@ -75,9 +76,9 @@ serve(async (req) => {
     }
 
     const studentId = course.owner_id;
-    console.log(`Processing project for student: ${studentId}`);
+    console.log(`👤 Processing project for student: ${studentId}`);
 
-    // Step B: Analyze project content with Lovable AI
+    // Step B: Analyze project content with Lovable AI (with circuit breaker)
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
@@ -110,70 +111,73 @@ Return 5-7 specific, concrete skills. Use industry-standard terminology (e.g., "
 
 Do NOT include soft skills like "communication" or "teamwork". Only include measurable, verifiable technical competencies.`;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Analyze this completed project and extract the technical skills:\n\n${projectContext}` }
-        ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'extract_skills',
-              description: 'Extract a list of specific technical and business skills from a project',
-              parameters: {
-                type: 'object',
-                properties: {
-                  skills: {
-                    type: 'array',
-                    items: {
-                      type: 'string',
-                      description: 'A specific, verifiable technical or business skill'
-                    },
-                    minItems: 5,
-                    maxItems: 7
-                  }
-                },
-                required: ['skills'],
-                additionalProperties: false
+    // Use circuit breaker for AI Gateway call
+    const aiResult = await withAICircuit(async () => {
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Analyze this completed project and extract the technical skills:\n\n${projectContext}` }
+          ],
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: 'extract_skills',
+                description: 'Extract a list of specific technical and business skills from a project',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    skills: {
+                      type: 'array',
+                      items: {
+                        type: 'string',
+                        description: 'A specific, verifiable technical or business skill'
+                      },
+                      minItems: 5,
+                      maxItems: 7
+                    }
+                  },
+                  required: ['skills'],
+                  additionalProperties: false
+                }
               }
             }
-          }
-        ],
-        tool_choice: { type: 'function', function: { name: 'extract_skills' } }
-      }),
+          ],
+          tool_choice: { type: 'function', function: { name: 'extract_skills' } }
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        const error = new Error(`AI Gateway error: ${response.status} - ${errorText}`);
+        (error as any).status = response.status;
+        throw error;
+      }
+
+      return response.json();
     });
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('Lovable AI error:', aiResponse.status, errorText);
-      
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Payment required. Please add credits to your Lovable AI workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      throw new Error(`AI analysis failed: ${errorText}`);
+    // Handle circuit breaker open state
+    if (!aiResult.success) {
+      console.error(`❌ AI circuit breaker: ${aiResult.error}`);
+      return new Response(
+        JSON.stringify({ 
+          error: 'AI service temporarily unavailable. Please try again later.',
+          retryable: true
+        }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const aiData = await aiResponse.json();
-    console.log('AI response:', JSON.stringify(aiData, null, 2));
+    const aiData = aiResult.data;
+    console.log('🤖 AI response received');
 
     // Extract skills from tool call response
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
@@ -184,7 +188,7 @@ Do NOT include soft skills like "communication" or "teamwork". Only include meas
     const skillsData = JSON.parse(toolCall.function.arguments);
     const extractedSkills: string[] = skillsData.skills;
     
-    console.log(`Extracted ${extractedSkills.length} skills:`, extractedSkills);
+    console.log(`🎯 Extracted ${extractedSkills.length} skills:`, extractedSkills);
 
     // Step C: Insert skills into verified_competencies table
     const competenciesToInsert = extractedSkills.map(skill => ({
@@ -206,7 +210,7 @@ Do NOT include soft skills like "communication" or "teamwork". Only include meas
       
       // If error is due to duplicate entries, that's ok - return partial success
       if (insertError.code === '23505') {
-        console.log('Some competencies already exist for this project - skipping duplicates');
+        console.log('ℹ️ Some competencies already exist for this project - skipping duplicates');
         return new Response(
           JSON.stringify({ 
             success: true,
@@ -221,7 +225,7 @@ Do NOT include soft skills like "communication" or "teamwork". Only include meas
       throw insertError;
     }
 
-    console.log(`Successfully inserted ${insertedCompetencies?.length || 0} competencies`);
+    console.log(`✅ Successfully inserted ${insertedCompetencies?.length || 0} competencies`);
 
     // === TASK 4.6: CHAIN THE NEXT FUNCTION ===
     // Now that we have the skills, asynchronously call the job-matcher
@@ -229,7 +233,7 @@ Do NOT include soft skills like "communication" or "teamwork". Only include meas
     // Get the new competency IDs to pass to the matcher
     const competencyIds = (insertedCompetencies || []).map(c => c.id);
 
-    console.log(`Invoking job-matcher for student ${studentId}...`);
+    console.log(`🔗 Invoking job-matcher for student ${studentId}...`);
     
     // We use 'supabase' (service role) which we already have in this function
     const { error: invokeError } = await supabase.functions.invoke('job-matcher', {
@@ -245,9 +249,9 @@ Do NOT include soft skills like "communication" or "teamwork". Only include meas
       // CRITICAL: Do NOT fail the whole step.
       // The skills were extracted, that was a success.
       // Log the error but still return a 200.
-      console.error('Failed to invoke job-matcher:', invokeError);
+      console.error('⚠️ Failed to invoke job-matcher:', invokeError);
     } else {
-      console.log('Successfully invoked job-matcher.');
+      console.log('✅ Successfully invoked job-matcher.');
     }
     // ======================================
 
@@ -265,7 +269,7 @@ Do NOT include soft skills like "communication" or "teamwork". Only include meas
     );
 
   } catch (error) {
-    console.error('Competency extraction error:', error);
+    console.error('❌ Competency extraction error:', error);
     // Return generic error message to prevent information leakage
     return new Response(
       JSON.stringify({ 

@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { withApolloCircuit } from '../_shared/circuit-breaker.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,29 +19,49 @@ serve(async (req) => {
       throw new Error('APOLLO_API_KEY not configured');
     }
 
-    console.log(`Searching Apollo for: ${companyName}`);
+    console.log(`🔍 Searching Apollo for: ${companyName}`);
 
-    // Call Apollo's organization search API
-    const response = await fetch('https://api.apollo.io/v1/mixed_companies/search', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-        'X-Api-Key': APOLLO_API_KEY
-      },
-      body: JSON.stringify({
-        q_organization_name: companyName,
-        page: 1,
-        per_page: 1
-      })
+    // Call Apollo's organization search API with circuit breaker protection
+    const result = await withApolloCircuit(async () => {
+      const response = await fetch('https://api.apollo.io/v1/mixed_companies/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          'X-Api-Key': APOLLO_API_KEY
+        },
+        body: JSON.stringify({
+          q_organization_name: companyName,
+          page: 1,
+          per_page: 1
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Apollo API error: ${response.status} - ${error}`);
+      }
+
+      return response.json();
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Apollo API error: ${response.status} - ${error}`);
+    // Handle circuit breaker open state
+    if (!result.success) {
+      console.warn(`⚠️ Apollo circuit breaker: ${result.error}`);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Apollo API temporarily unavailable',
+          retryable: true
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 503
+        }
+      );
     }
 
-    const data = await response.json();
+    const data = result.data;
     
     if (!data.organizations || data.organizations.length === 0) {
       return new Response(
@@ -50,6 +71,7 @@ serve(async (req) => {
     }
 
     const org = data.organizations[0];
+    console.log(`✅ Found Apollo org: ${org.name} (${org.id})`);
 
     return new Response(
       JSON.stringify({
@@ -64,7 +86,7 @@ serve(async (req) => {
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error fetching Apollo org ID:', error);
+    console.error('❌ Error fetching Apollo org ID:', error);
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }

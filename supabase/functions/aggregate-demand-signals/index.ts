@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { withGoogleCircuit } from "../_shared/circuit-breaker.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,7 +9,6 @@ const corsHeaders = {
 
 // Google Cloud API Configuration
 const GOOGLE_API_KEY = Deno.env.get("GOOGLE_PLACES_API_KEY");
-const GOOGLE_NLP_ENDPOINT = "https://language.googleapis.com/v1/documents:classifyText";
 const GOOGLE_GEOCODING_ENDPOINT = "https://maps.googleapis.com/maps/api/geocode/json";
 
 interface ProjectWithCourse {
@@ -60,7 +60,7 @@ function deriveProjectCategory(sector: string, title: string): string {
 }
 
 /**
- * Derive standardized geographic region using Google Geocoding API
+ * Derive standardized geographic region using Google Geocoding API with circuit breaker
  */
 async function deriveGeographicRegion(cityZip: string): Promise<string> {
   if (!GOOGLE_API_KEY) {
@@ -72,51 +72,56 @@ async function deriveGeographicRegion(cityZip: string): Promise<string> {
     return "Unknown Region";
   }
 
-  try {
+  // Use circuit breaker for Google Geocoding API
+  const result = await withGoogleCircuit(async () => {
     const response = await fetch(
       `${GOOGLE_GEOCODING_ENDPOINT}?address=${encodeURIComponent(cityZip)}&key=${GOOGLE_API_KEY}`
     );
 
     if (!response.ok) {
-      console.error("Google Geocoding API error:", response.status);
-      return cityZip; // Fallback to raw input
+      throw new Error(`Google Geocoding API error: ${response.status}`);
     }
 
-    const data = await response.json();
+    return response.json();
+  });
 
-    if (data.status !== 'OK' || !data.results || data.results.length === 0) {
-      console.warn(`Geocoding failed for "${cityZip}": ${data.status}`);
-      return cityZip;
-    }
-
-    // Extract structured location data
-    const result = data.results[0];
-    const components = result.address_components;
-
-    let locality = '';
-    let adminArea = '';
-    let country = '';
-
-    for (const component of components) {
-      if (component.types.includes('locality')) {
-        locality = component.long_name;
-      } else if (component.types.includes('administrative_area_level_1')) {
-        adminArea = component.short_name; // e.g., "CA" instead of "California"
-      } else if (component.types.includes('country')) {
-        country = component.short_name; // e.g., "US" instead of "United States"
-      }
-    }
-
-    // Build standardized region string
-    const parts = [locality, adminArea, country].filter(p => p);
-    const region = parts.join(', ');
-    
-    console.log(`Geocoded "${cityZip}" -> "${region}"`);
-    return region || cityZip;
-  } catch (error) {
-    console.error("Error calling Google Geocoding API:", error);
+  // Handle circuit breaker open or failure
+  if (!result.success) {
+    console.warn(`⚠️ Google Geocoding circuit breaker: ${result.error} - falling back to raw input`);
     return cityZip;
   }
+
+  const data = result.data;
+
+  if (data.status !== 'OK' || !data.results || data.results.length === 0) {
+    console.warn(`Geocoding failed for "${cityZip}": ${data.status}`);
+    return cityZip;
+  }
+
+  // Extract structured location data
+  const addressResult = data.results[0];
+  const components = addressResult.address_components;
+
+  let locality = '';
+  let adminArea = '';
+  let country = '';
+
+  for (const component of components) {
+    if (component.types.includes('locality')) {
+      locality = component.long_name;
+    } else if (component.types.includes('administrative_area_level_1')) {
+      adminArea = component.short_name; // e.g., "CA" instead of "California"
+    } else if (component.types.includes('country')) {
+      country = component.short_name; // e.g., "US" instead of "United States"
+    }
+  }
+
+  // Build standardized region string
+  const parts = [locality, adminArea, country].filter(p => p);
+  const region = parts.join(', ');
+  
+  console.log(`📍 Geocoded "${cityZip}" -> "${region}"`);
+  return region || cityZip;
 }
 
 /**
@@ -256,7 +261,7 @@ function extractRequiredSkills(tasks: any, deliverables: any): string[] {
     }
 
     const extractedSkills = Array.from(skills);
-    console.log(`Extracted ${extractedSkills.length} specific skills:`, extractedSkills);
+    console.log(`🎯 Extracted ${extractedSkills.length} specific skills:`, extractedSkills);
     return extractedSkills.slice(0, 30); // Top 30 specific skills
   } catch (error) {
     console.error("Error extracting skills:", error);
@@ -268,7 +273,7 @@ function extractRequiredSkills(tasks: any, deliverables: any): string[] {
  * Main aggregation logic - NOW READS FROM PROJECTS TABLE
  */
 async function aggregateDemandSignals(supabaseClient: any) {
-  console.log("Starting demand signals aggregation from PROJECTS table...");
+  console.log("🔄 Starting demand signals aggregation from PROJECTS table...");
 
   // Fetch all AI-generated and curated projects with course profile data
   const { data: projects, error: projectsError } = await supabaseClient
@@ -299,7 +304,7 @@ async function aggregateDemandSignals(supabaseClient: any) {
     return { aggregated: 0 };
   }
 
-  console.log(`Found ${projects.length} projects to aggregate`);
+  console.log(`📊 Found ${projects.length} projects to aggregate`);
 
   // Group projects by ACTUAL sector and region (no derivation/guessing)
   const signalGroups = new Map<string, ProjectWithCourse[]>();
@@ -318,7 +323,7 @@ async function aggregateDemandSignals(supabaseClient: any) {
     signalGroups.get(key)!.push(project);
   }
 
-  console.log(`Grouped into ${signalGroups.size} demand signals`);
+  console.log(`📦 Grouped into ${signalGroups.size} demand signals`);
 
   // Deactivate all existing signals (we're rebuilding fresh)
   const { error: deactivateError } = await supabaseClient
@@ -419,7 +424,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error("Error in aggregate-demand-signals:", error);
+    console.error("❌ Error in aggregate-demand-signals:", error);
     // Return generic error message to prevent information leakage
     return new Response(
       JSON.stringify({
