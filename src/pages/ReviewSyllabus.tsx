@@ -7,12 +7,25 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import type { Tables } from "@/integrations/supabase/types";
+
+type CourseProfile = Tables<"course_profiles">;
+
+interface ParsedSyllabusData {
+  title: string;
+  level: string;
+  weeks: number;
+  hrs_per_week: number;
+  outcomes: string[];
+  artifacts: string[];
+  schedule: string[];
+}
 
 export default function ReviewSyllabus() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [course, setCourse] = useState<any>(null);
-  const [parsedData, setParsedData] = useState<any>(null);
+  const [course, setCourse] = useState<CourseProfile | null>(null);
+  const [parsedData, setParsedData] = useState<ParsedSyllabusData | null>(null);
   const [rawText, setRawText] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,18 +67,18 @@ export default function ReviewSyllabus() {
             level: data.level,
             weeks: data.weeks,
             hrs_per_week: data.hrs_per_week,
-            outcomes: data.outcomes,
-            artifacts: data.artifacts,
-            schedule: data.schedule || []
+            outcomes: Array.isArray(data.outcomes) ? data.outcomes as string[] : [],
+            artifacts: Array.isArray(data.artifacts) ? data.artifacts as string[] : [],
+            schedule: Array.isArray(data.schedule) ? data.schedule as string[] : []
           });
         }
 
         if (rawTextParam) {
           setRawText(decodeURIComponent(rawTextParam));
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error loading course:', error);
-        const errorMessage = error.message || 'Failed to load course data';
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load course data';
         setError(errorMessage);
         
         // Only navigate away if it's a critical error after retries

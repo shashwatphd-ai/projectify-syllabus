@@ -6,18 +6,21 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { normalizeLocationForApollo, validateLocationFormat } from "@/utils/locationValidation";
 import { Loader2, Settings } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
+type CourseProfile = Tables<"course_profiles">;
+
 const Configure = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
   const [searchParams] = useSearchParams();
   const courseId = searchParams.get('courseId');
   const autoGenerate = searchParams.get('autoGenerate') === 'true';
-  const [courseData, setCourseData] = useState<any>(null);
+  const [courseData, setCourseData] = useState<CourseProfile | null>(null);
   const [industries, setIndustries] = useState("");
   const [companies, setCompanies] = useState("");
   const [numTeams, setNumTeams] = useState("4");
@@ -369,9 +372,9 @@ const Configure = () => {
       setLoading(false);
 
       toast.info("Project generation started. This may take a few minutes...", { duration: 3000 });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Generation error:', error);
-      const errorMsg = error.message || "Failed to generate projects";
+      const errorMsg = error instanceof Error ? error.message : "Failed to generate projects";
       if (errorMsg.includes('rate') || errorMsg.includes('429')) {
         toast.error("AI rate limit reached. Please wait 2-3 minutes and try again.", { duration: 6000 });
       } else {
@@ -463,7 +466,7 @@ const Configure = () => {
               <div><strong>Title:</strong> {courseData.title}</div>
               <div><strong>Duration:</strong> {courseData.weeks} weeks</div>
               <div><strong>Hours/Week:</strong> {courseData.hrs_per_week}</div>
-              <div><strong>Learning Outcomes:</strong> {courseData.outcomes?.length || 0} identified</div>
+              <div><strong>Learning Outcomes:</strong> {Array.isArray(courseData.outcomes) ? courseData.outcomes.length : 0} identified</div>
             </CardContent>
           </Card>
         )}
