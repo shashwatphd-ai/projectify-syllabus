@@ -1,14 +1,10 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { withApolloCircuit } from '../_shared/circuit-breaker.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, createErrorResponse, createJsonResponse, createPreflightResponse } from '../_shared/cors.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return createPreflightResponse(req);
   }
 
   try {
@@ -48,48 +44,29 @@ serve(async (req) => {
     // Handle circuit breaker open state
     if (!result.success) {
       console.warn(`⚠️ Apollo circuit breaker: ${result.error}`);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Apollo API temporarily unavailable',
-          retryable: true
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 503
-        }
-      );
+      return createErrorResponse('Apollo API temporarily unavailable', 503, req);
     }
 
     const data = result.data;
     
     if (!data.organizations || data.organizations.length === 0) {
-      return new Response(
-        JSON.stringify({ success: false, message: 'Company not found in Apollo' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return createJsonResponse({ success: false, message: 'Company not found in Apollo' }, 200, req);
     }
 
     const org = data.organizations[0];
     console.log(`✅ Found Apollo org: ${org.name} (${org.id})`);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        company_name: org.name,
-        apollo_organization_id: org.id,
-        website: org.website_url || org.primary_domain,
-        full_data: org
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return createJsonResponse({
+      success: true,
+      company_name: org.name,
+      apollo_organization_id: org.id,
+      website: org.website_url || org.primary_domain,
+      full_data: org
+    }, 200, req);
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('❌ Error fetching Apollo org ID:', error);
-    return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
+    return createErrorResponse(errorMessage, 500, req);
   }
 });

@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, createErrorResponse, createJsonResponse, createPreflightResponse } from '../_shared/cors.ts';
 
 interface UniversityRow {
   'Company Name': string;
@@ -146,17 +142,14 @@ function transformRow(row: UniversityRow) {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return createPreflightResponse(req);
   }
 
   try {
     const { rows } = await req.json() as { rows: UniversityRow[] };
 
     if (!rows || !Array.isArray(rows)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid request: rows array required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return createErrorResponse('Invalid request: rows array required', 400, req);
     }
 
     console.log(`📥 Received ${rows.length} rows for import`);
@@ -211,32 +204,20 @@ serve(async (req) => {
 
     console.log(`✅ Import complete: ${successCount} success, ${errorCount} errors`);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        totalReceived: rows.length,
-        totalTransformed: transformedRows.length,
-        totalDeduplicated: deduplicatedRows.length,
-        successCount,
-        errorCount,
-        errors: errors.slice(0, 10)
-      }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return createJsonResponse({
+      success: true,
+      totalReceived: rows.length,
+      totalTransformed: transformedRows.length,
+      totalDeduplicated: deduplicatedRows.length,
+      successCount,
+      errorCount,
+      errors: errors.slice(0, 10)
+    }, 200, req);
 
   } catch (error) {
     console.error('❌ Import error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     
-    return new Response(
-      JSON.stringify({ error: `Import failed: ${message}` }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return createErrorResponse(`Import failed: ${message}`, 500, req);
   }
 });

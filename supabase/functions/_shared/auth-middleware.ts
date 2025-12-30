@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createErrorResponse } from './cors.ts';
 
 export interface AuthResult {
   authenticated: boolean;
@@ -54,14 +55,8 @@ export async function verifyAuth(req: Request): Promise<AuthResult> {
 }
 
 /**
- * Creates an unauthorized response with proper CORS headers
+ * Creates an unauthorized response with proper CORS and security headers
  */
-export function unauthorizedResponse(corsHeaders: Record<string, string>, message = 'Unauthorized'): Response {
-  return new Response(
-    JSON.stringify({ error: message }),
-    { 
-      status: 401, 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-    }
-  );
+export function unauthorizedResponse(corsHeaders: Record<string, string>, message = 'Unauthorized', req?: Request): Response {
+  return createErrorResponse(message, 401, req);
 }

@@ -1,9 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, createErrorResponse, createJsonResponse, createPreflightResponse } from '../_shared/cors.ts';
 
 interface CleanupResult {
   orphaned_projects_cleaned: number;
@@ -19,7 +15,7 @@ interface CleanupResult {
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return createPreflightResponse(req);
   }
 
   const startTime = Date.now();
@@ -195,33 +191,17 @@ Deno.serve(async (req) => {
     const duration = Date.now() - startTime;
     console.log(`[cleanup-orphaned-data] Completed in ${duration}ms. Total cleaned: ${result.total_cleaned}`);
 
-    return new Response(
-      JSON.stringify({
-        success: result.errors.length === 0,
-        result,
-        duration_ms: duration,
-        timestamp: new Date().toISOString(),
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    );
+    return createJsonResponse({
+      success: result.errors.length === 0,
+      result,
+      duration_ms: duration,
+      timestamp: new Date().toISOString(),
+    }, 200, req);
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[cleanup-orphaned-data] Fatal error:', error);
     
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: errorMessage,
-        timestamp: new Date().toISOString(),
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
-    );
+    return createErrorResponse(errorMessage, 500, req);
   }
 });
