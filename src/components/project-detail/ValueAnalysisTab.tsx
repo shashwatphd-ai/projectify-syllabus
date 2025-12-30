@@ -9,6 +9,49 @@ import { SkillGapAnalysisCard } from "./SkillGapAnalysisCard";
 import { CareerPathwayCard } from "./CareerPathwayCard";
 import { Progress } from "@/components/ui/progress";
 
+// Local types for value analysis data structures
+interface StakeholderValue {
+  score?: number;
+  career_opportunities_score?: number;
+  skill_development_score?: number;
+  portfolio_value_score?: number;
+  networking_score?: number;
+  partnership_quality_score?: number;
+  placement_potential_score?: number;
+  research_collaboration_score?: number;
+  reputation_score?: number;
+  deliverable_roi_score?: number;
+  talent_pipeline_score?: number;
+  innovation_score?: number;
+  cost_efficiency_score?: number;
+  insights?: string;
+  evidence_summary?: string;
+  key_benefits?: string[];
+}
+
+interface ProblemValidation {
+  alignment_score: number;
+  evidence_trail: string;
+  validated_challenges: string[];
+}
+
+interface ValueAnalysisData {
+  student_value?: StakeholderValue;
+  university_value?: StakeholderValue;
+  industry_value?: StakeholderValue;
+  problem_validation?: ProblemValidation;
+  salary_roi?: Record<string, unknown>;
+  skill_gap_analysis?: Record<string, unknown>;
+  career_pathway?: Record<string, unknown>;
+  generated_at?: string;
+}
+
+interface StakeholderInsights {
+  overall_assessment?: string;
+  recommendations?: string[];
+  risks?: string[];
+}
+
 // Props receive complex nested data from get-project-detail endpoint
 // Using 'any' is intentional here due to the dynamic nature of the data
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
