@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { RealtimeNotificationListener } from "@/components/notifications/RealtimeNotificationListener";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Upload from "./pages/Upload";
@@ -37,103 +38,135 @@ const App = () => (
         <AuthProvider>
           <NotificationProvider>
             <RealtimeNotificationListener />
-            <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/landing" element={<Landing />} />
-            <Route path="/auth" element={<Auth />} />
-            
-            {/* Protected Routes - Require Authentication */}
-            <Route path="/upload" element={
-              <ProtectedRoute>
-                <Upload />
-              </ProtectedRoute>
-            } />
-            <Route path="/review-syllabus" element={
-              <ProtectedRoute>
-                <ReviewSyllabus />
-              </ProtectedRoute>
-            } />
-            <Route path="/configure" element={
-              <ProtectedRoute>
-                <Configure />
-              </ProtectedRoute>
-            } />
-            <Route path="/projects" element={
-              <ProtectedRoute>
-                <Projects />
-              </ProtectedRoute>
-            } />
-            <Route path="/projects/:id" element={
-              <ProtectedRoute>
-                <ProjectDetail />
-              </ProtectedRoute>
-            } />
-            
-            {/* Protected Route - Requires Authentication */}
-            <Route path="/demand-board" element={
-              <ProtectedRoute>
-                <DemandBoard />
-              </ProtectedRoute>
-            } />
-            
-            {/* Unified Dashboard Route */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
-            
-            {/* Admin Only Routes */}
-            <Route path="/admin-hub" element={
-              <ProtectedRoute requiredRole="admin">
-                <AdminHub />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin-hub/metrics" element={
-              <ProtectedRoute requiredRole="admin">
-                <AdminMetrics />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin-hub/roles" element={
-              <ProtectedRoute requiredRole="admin">
-                <RoleManagement />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin-hub/import-universities" element={
-              <ProtectedRoute requiredRole="admin">
-                <AdminImportUniversities />
-              </ProtectedRoute>
-            } />
-            
-            {/* Student Routes */}
-            <Route path="/my-opportunities" element={
-              <ProtectedRoute requiredRole="student">
-                <MyOpportunities />
-              </ProtectedRoute>
-            } />
-            <Route path="/my-competencies" element={
-              <ProtectedRoute requiredRole="student">
-                <MyCompetencies />
-              </ProtectedRoute>
-            } />
-            
-            {/* Employer Routes */}
-            <Route path="/employer/dashboard" element={
-              <ProtectedRoute requiredRole="employer">
-                <EmployerDashboard />
-              </ProtectedRoute>
-            } />
-            
-            {/* Faculty Routes */}
-            <Route path="/instructor/dashboard" element={
-              <ProtectedRoute requiredRole="faculty">
-                <InstructorDashboard />
-              </ProtectedRoute>
-            } />
-            
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-            </Routes>
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route path="/landing" element={<Landing />} />
+                <Route path="/auth" element={<Auth />} />
+                
+                {/* Protected Routes - Require Authentication */}
+                <Route path="/upload" element={
+                  <ProtectedRoute>
+                    <ErrorBoundary>
+                      <Upload />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                } />
+                <Route path="/review-syllabus" element={
+                  <ProtectedRoute>
+                    <ErrorBoundary>
+                      <ReviewSyllabus />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                } />
+                <Route path="/configure" element={
+                  <ProtectedRoute>
+                    <ErrorBoundary>
+                      <Configure />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                } />
+                <Route path="/projects" element={
+                  <ProtectedRoute>
+                    <ErrorBoundary>
+                      <Projects />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                } />
+                <Route path="/projects/:id" element={
+                  <ProtectedRoute>
+                    <ErrorBoundary>
+                      <ProjectDetail />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                } />
+                
+                {/* Protected Route - Requires Authentication */}
+                <Route path="/demand-board" element={
+                  <ProtectedRoute>
+                    <ErrorBoundary>
+                      <DemandBoard />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                } />
+                
+                {/* Unified Dashboard Route */}
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <ErrorBoundary>
+                      <Dashboard />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                } />
+                
+                {/* Admin Only Routes */}
+                <Route path="/admin-hub" element={
+                  <ProtectedRoute requiredRole="admin">
+                    <ErrorBoundary>
+                      <AdminHub />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin-hub/metrics" element={
+                  <ProtectedRoute requiredRole="admin">
+                    <ErrorBoundary>
+                      <AdminMetrics />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin-hub/roles" element={
+                  <ProtectedRoute requiredRole="admin">
+                    <ErrorBoundary>
+                      <RoleManagement />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin-hub/import-universities" element={
+                  <ProtectedRoute requiredRole="admin">
+                    <ErrorBoundary>
+                      <AdminImportUniversities />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                } />
+                
+                {/* Student Routes */}
+                <Route path="/my-opportunities" element={
+                  <ProtectedRoute requiredRole="student">
+                    <ErrorBoundary>
+                      <MyOpportunities />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                } />
+                <Route path="/my-competencies" element={
+                  <ProtectedRoute requiredRole="student">
+                    <ErrorBoundary>
+                      <MyCompetencies />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                } />
+                
+                {/* Employer Routes */}
+                <Route path="/employer/dashboard" element={
+                  <ProtectedRoute requiredRole="employer">
+                    <ErrorBoundary>
+                      <EmployerDashboard />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                } />
+                
+                {/* Faculty Routes */}
+                <Route path="/instructor/dashboard" element={
+                  <ProtectedRoute requiredRole="faculty">
+                    <ErrorBoundary>
+                      <InstructorDashboard />
+                    </ErrorBoundary>
+                  </ProtectedRoute>
+                } />
+                
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </ErrorBoundary>
           </NotificationProvider>
         </AuthProvider>
       </BrowserRouter>

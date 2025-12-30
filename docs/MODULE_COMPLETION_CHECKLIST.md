@@ -170,9 +170,9 @@
 
 | Item | File/Location | Done Criteria | Status | Verified |
 |------|---------------|---------------|--------|----------|
-| 3.4.1 | `src/components/ErrorBoundary.tsx` | ErrorBoundary component created | ⬜ | No |
-| 3.4.2 | Main app routes | Wrapped in ErrorBoundary | ⬜ | No |
-| 3.4.3 | Dashboard components | Wrapped in ErrorBoundary | ⬜ | No |
+| 3.4.1 | `src/components/ErrorBoundary.tsx` | ErrorBoundary component created | ✅ | Yes |
+| 3.4.2 | Main app routes | Wrapped in ErrorBoundary | ✅ | Yes |
+| 3.4.3 | Dashboard components | Wrapped in ErrorBoundary | ✅ | Yes |
 
 ### 3.5 Null Safety Patterns
 **Objective**: Consistent null/undefined handling
