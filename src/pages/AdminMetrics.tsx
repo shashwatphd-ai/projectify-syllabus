@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, Database, Building2, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -173,8 +174,50 @@ const AdminMetrics = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto py-8 px-4">
+          <div className="mb-8 flex items-start justify-between">
+            <div>
+              <Skeleton className="h-9 w-72 mb-2" />
+              <Skeleton className="h-5 w-96" />
+            </div>
+            <div className="flex gap-3">
+              <Skeleton className="h-10 w-48" />
+              <Skeleton className="h-10 w-48" />
+            </div>
+          </div>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Card key={i}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-4" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-8 w-16 mb-1" />
+                  <Skeleton className="h-3 w-40" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <div className="mt-8">
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-6 w-48 mb-2" />
+                <Skeleton className="h-4 w-64" />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i}>
+                    <Skeleton className="h-5 w-40 mb-2" />
+                    <Skeleton className="h-4 w-full" />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </main>
       </div>
     );
   }
