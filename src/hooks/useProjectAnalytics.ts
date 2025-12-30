@@ -1,5 +1,13 @@
 import { useEffect } from 'react';
 
+interface CompanyProfileForAnalytics {
+  name: string;
+  enrichment_status?: {
+    level?: string;
+    completeness_score?: number;
+  };
+}
+
 interface ProjectAnalyticsData {
   projectId: string;
   projectTitle: string;
@@ -9,10 +17,14 @@ interface ProjectAnalyticsData {
   timestamp: string;
 }
 
+interface EnrichmentLevelCounts {
+  [level: string]: number;
+}
+
 export const useProjectAnalytics = (
   projectId: string,
   projectTitle: string,
-  companyProfile?: any
+  companyProfile?: CompanyProfileForAnalytics | null
 ) => {
   useEffect(() => {
     if (!projectId || !companyProfile) return;
@@ -36,7 +48,7 @@ export const useProjectAnalytics = (
     });
 
     // Store in localStorage for session tracking
-    const recentViews = JSON.parse(localStorage.getItem('recentProjectViews') || '[]');
+    const recentViews: ProjectAnalyticsData[] = JSON.parse(localStorage.getItem('recentProjectViews') || '[]');
     recentViews.unshift(analyticsData);
     
     // Keep only last 10 views
@@ -47,7 +59,7 @@ export const useProjectAnalytics = (
     localStorage.setItem('recentProjectViews', JSON.stringify(recentViews));
 
     // Calculate aggregate metrics
-    const enrichmentLevels = recentViews.reduce((acc: any, view: ProjectAnalyticsData) => {
+    const enrichmentLevels = recentViews.reduce((acc: EnrichmentLevelCounts, view: ProjectAnalyticsData) => {
       acc[view.enrichmentLevel] = (acc[view.enrichmentLevel] || 0) + 1;
       return acc;
     }, {});
@@ -66,7 +78,7 @@ export const useProjectAnalytics = (
 
   return {
     // Could return analytics data or methods here if needed
-    trackEvent: (eventName: string, data?: any) => {
+    trackEvent: (eventName: string, data?: Record<string, unknown>) => {
       console.log(`🎯 Event: ${eventName}`, data);
     }
   };
