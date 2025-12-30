@@ -9,6 +9,9 @@ import { SkillGapAnalysisCard } from "./SkillGapAnalysisCard";
 import { CareerPathwayCard } from "./CareerPathwayCard";
 import { Progress } from "@/components/ui/progress";
 
+// Props receive complex nested data from get-project-detail endpoint
+// Using 'any' is intentional here due to the dynamic nature of the data
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface ValueAnalysisTabProps {
   valueAnalysis: any;
   stakeholderInsights: any;
@@ -132,11 +135,11 @@ export const ValueAnalysisTab = ({
 
   // Status: 'complete' → Extract data from valueAnalysis.data
   // Legacy fallback: If no status field, assume data is directly in valueAnalysis
-  const actualData = analysisData || valueAnalysis;
-  const { student_value, university_value, industry_value, problem_validation } = actualData;
+  const actualData = analysisData || (valueAnalysis as unknown as ValueAnalysisData);
+  const { student_value, university_value, industry_value, problem_validation } = actualData as ValueAnalysisData;
   
   // Also extract stakeholder data from status wrapper if present
-  const actualStakeholderInsights = stakeholderInsights?.data || stakeholderInsights;
+  const actualStakeholderInsights = (stakeholderInsights?.data || stakeholderInsights) as StakeholderInsights | null;
 
   return (
     <div className="space-y-5">

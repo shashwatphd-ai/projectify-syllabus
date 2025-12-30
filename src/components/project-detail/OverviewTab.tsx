@@ -2,6 +2,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Target, Package, Lightbulb, DollarSign } from "lucide-react";
 
+// Props receive complex nested data from get-project-detail endpoint
+// Using 'any' is intentional here due to the dynamic nature of the data
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface OverviewTabProps {
   project: any;
   forms: any;
