@@ -24,6 +24,8 @@ import { DiscoveryQualityTab } from "@/components/project-detail/DiscoveryQualit
 import { PremiumInsightsTab } from "@/components/project-detail/PremiumInsightsTab";
 import { Header } from "@/components/Header";
 import { useProjectAnalytics } from "@/hooks/useProjectAnalytics";
+import type { ProjectDetailData, ProjectDetailResponse, ProjectDetailPendingResponse } from "@/types/project-detail";
+import { isCompletedProject, isPendingProject } from "@/types/project-detail";
 
 const ProjectDetail = () => {
   const { id } = useParams();
@@ -37,7 +39,7 @@ const ProjectDetail = () => {
   // ============================================================================
   // UNIFIED STATE: Single source of truth from get-project-detail endpoint
   // ============================================================================
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<ProjectDetailData | null>(null);
   const [loading, setLoading] = useState(true);
 
   // ============================================================================
@@ -134,7 +136,7 @@ const ProjectDetail = () => {
 
       setData(response);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[ProjectDetail] Load error:', error);
       setData(null);
     } finally {
@@ -155,8 +157,9 @@ const ProjectDetail = () => {
       );
     }
 
-    // Pending generation state
-    if (data?.generation_status === 'pending' || data?.generation_status === 'processing') {
+    // Pending generation state - use type guard for proper narrowing
+    if (data && isPendingProject(data)) {
+      const pendingData = data; // Now properly typed as ProjectDetailPendingResponse
       return (
         <div className="min-h-screen bg-background">
           <Header />
@@ -177,22 +180,22 @@ const ProjectDetail = () => {
               <CardContent className="space-y-4">
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    <strong>Project ID:</strong> {data.project?.id}
+                    <strong>Project ID:</strong> {pendingData.project?.id}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    <strong>Company:</strong> {data.project?.company_name || 'Unknown'}
+                    <strong>Company:</strong> {pendingData.project?.company_name || 'Unknown'}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    <strong>Status:</strong> {data.generation_status}
+                    <strong>Status:</strong> {pendingData.generation_status}
                   </p>
-                  {data.queue_position && (
+                  {pendingData.queue_position && (
                     <p className="text-sm text-muted-foreground">
-                      <strong>Queued at:</strong> {new Date(data.queue_position).toLocaleString()}
+                      <strong>Queued at:</strong> {new Date(pendingData.queue_position).toLocaleString()}
                     </p>
                   )}
-                  {data.attempts > 0 && (
+                  {pendingData.attempts > 0 && (
                     <p className="text-sm text-muted-foreground">
-                      <strong>Attempts:</strong> {data.attempts}
+                      <strong>Attempts:</strong> {pendingData.attempts}
                     </p>
                   )}
                 </div>
@@ -212,8 +215,8 @@ const ProjectDetail = () => {
       );
     }
 
-    // Not found state
-    if (!data || !data.project || !data.forms) {
+    // Not found state - use type guard for proper narrowing
+    if (!data || !isCompletedProject(data)) {
       return (
         <div className="min-h-screen bg-background flex items-center justify-center">
           <Card>
@@ -226,7 +229,7 @@ const ProjectDetail = () => {
       );
     }
 
-    // Full project view
+    // Full project view - data is now properly typed as ProjectDetailResponse
     const { project, forms, course, metadata, company, contact_info } = data;
 
     return (
@@ -283,7 +286,7 @@ const ProjectDetail = () => {
               projectSkills={Array.isArray(project.skills) ? project.skills : []}
               location={course?.location_city || course?.location_formatted}
               sector={project.sector}
-              courseOutcomes={Array.isArray(course?.outcomes) ? course.outcomes : []}
+              courseOutcomes={Array.isArray(course?.outcomes) ? (course.outcomes as string[]) : []}
             />
           </TabsContent>
 
