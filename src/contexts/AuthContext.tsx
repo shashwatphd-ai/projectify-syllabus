@@ -119,12 +119,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           
           // Show toast notification based on the event type
           if (payload.eventType === 'INSERT') {
-            const role = (payload.new as any).role;
+            const newRecord = payload.new as { role?: string };
+            const role = newRecord.role;
             toast.success(`New role assigned: ${role}`, {
               description: 'Your permissions have been updated.',
             });
           } else if (payload.eventType === 'DELETE') {
-            const role = (payload.old as any).role;
+            const oldRecord = payload.old as { role?: string };
+            const role = oldRecord.role;
             toast.info(`Role removed: ${role}`, {
               description: 'Your permissions have been updated.',
             });
