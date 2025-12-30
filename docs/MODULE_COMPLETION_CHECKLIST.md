@@ -29,9 +29,9 @@
 | 1.1.1 | `_shared/auth-middleware.ts` | Exports `requireAuth()` function | ✅ | Yes |
 | 1.1.2 | `career-pathway-mapper/index.ts` | Uses `requireAuth()` from shared middleware | ✅ | Yes |
 | 1.1.3 | `skill-gap-analyzer/index.ts` | Uses `requireAuth()` from shared middleware | ✅ | Yes |
-| 1.1.4 | `analyze-project-value/index.ts` | Uses `requireAuth()` from shared middleware | ⬜ | No |
-| 1.1.5 | `salary-roi-calculator/index.ts` | Uses `requireAuth()` from shared middleware | ⬜ | No |
-| 1.1.6 | `student-project-matcher/index.ts` | Uses `requireAuth()` from shared middleware | ⬜ | No |
+| 1.1.4 | `analyze-project-value/index.ts` | Uses `requireAuth()` from shared middleware | ✅ | Yes |
+| 1.1.5 | `salary-roi-calculator/index.ts` | Uses `requireAuth()` from shared middleware | ✅ | Yes |
+| 1.1.6 | `student-project-matcher/index.ts` | Uses `requireAuth()` from shared middleware | ✅ | Yes |
 
 **Verification Command**: Search all edge functions for inline `supabase.auth.getUser()` calls - should only exist in `auth-middleware.ts`
 

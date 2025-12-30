@@ -1,10 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.78.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { verifyAuth, unauthorizedResponse } from "../_shared/auth-middleware.ts";
+import { corsHeaders } from "../_shared/cors.ts";
 
 interface ProjectRecommendation {
   project_id: string;
@@ -25,43 +22,26 @@ serve(async (req) => {
   }
 
   try {
-    // Get authorization header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Authorization header required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Verify authentication using shared middleware
+    const authResult = await verifyAuth(req);
+    if (!authResult.authenticated) {
+      console.warn(`[student-project-matcher] Unauthorized request: ${authResult.error}`);
+      return unauthorizedResponse(corsHeaders, authResult.error || 'Unauthorized', req);
     }
-
-    // Initialize Supabase client with user's token
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     
-    // Use anon key client to verify user
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-    
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid or expired token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`Starting project matching for student: ${user.id}`);
+    const userId = authResult.userId!;
+    console.log(`Starting project matching for student: ${userId}`);
 
     // Use service role client for database operations
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Step 1: Get student's verified competencies
     const { data: competencies, error: compError } = await supabase
       .from('verified_competencies')
       .select('skill_name, employer_rating')
-      .eq('student_id', user.id);
+      .eq('student_id', userId);
 
     if (compError) {
       console.error('Error fetching competencies:', compError);
@@ -116,7 +96,7 @@ serve(async (req) => {
     const { data: applications, error: appError } = await supabase
       .from('project_applications')
       .select('project_id')
-      .eq('student_id', user.id);
+      .eq('student_id', userId);
 
     if (appError) {
       console.error('Error fetching applications:', appError);
