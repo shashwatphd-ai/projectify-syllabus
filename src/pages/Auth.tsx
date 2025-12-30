@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authService } from "@/lib/supabase";
+import { signUpSchema, signInSchema, resetPasswordSchema } from "@/lib/validation-schemas";
 import { GraduationCap, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -18,45 +19,69 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(mode !== "signin");
   const [isForgotPassword, setIsForgotPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState("student");
+  const [selectedRole, setSelectedRole] = useState<"student" | "faculty" | "employer">("student");
   const navigate = useNavigate();
+  
   useEffect(() => {
     check();
   }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Password reset flow
     if (isForgotPassword) {
+      const validation = resetPasswordSchema.safeParse({ email: email.trim() });
+      if (!validation.success) {
+        toast.error(validation.error.errors[0]?.message || "Invalid email");
+        return;
+      }
+
       setLoading(true);
       try {
-        const { error } = await authService.resetPassword(email);
+        const { error } = await authService.resetPassword(validation.data.email);
         if (error) throw error;
         toast.success("Password reset email sent! Check your inbox.");
         setIsForgotPassword(false);
-      } catch (error: any) {
-        toast.error(error.message || "Failed to send reset email");
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Failed to send reset email";
+        toast.error(errorMessage);
       } finally {
         setLoading(false);
       }
       return;
     }
 
-    // Role-specific email validation
-    if (selectedRole === "employer" && (email.endsWith(".edu") || email.endsWith(".ac.uk") || email.endsWith(".edu.au"))) {
-      toast.error("Employers should use a company email address, not an educational institution domain");
-      return;
-    }
-
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters");
-      return;
+    // Sign up validation
+    if (isSignUp) {
+      const validation = signUpSchema.safeParse({ 
+        email: email.trim(), 
+        password, 
+        role: selectedRole 
+      });
+      
+      if (!validation.success) {
+        toast.error(validation.error.errors[0]?.message || "Invalid input");
+        return;
+      }
+    } else {
+      // Sign in validation
+      const validation = signInSchema.safeParse({ 
+        email: email.trim(), 
+        password 
+      });
+      
+      if (!validation.success) {
+        toast.error(validation.error.errors[0]?.message || "Invalid input");
+        return;
+      }
     }
 
     setLoading(true);
 
     try {
       if (isSignUp) {
-        const { error } = await authService.signUp(email, password, {
+        const { error } = await authService.signUp(email.trim(), password, {
           data: {
             chosen_role: selectedRole
           }
@@ -70,15 +95,15 @@ const Auth = () => {
         } else if (selectedRole === "employer") {
           toast.success("Account created! Please complete your company profile to request access.");
         }
-        // Let Supabase's emailRedirectTo handle navigation to avoid double-redirect
       } else {
-        const { error } = await authService.signIn(email, password);
+        const { error } = await authService.signIn(email.trim(), password);
         if (error) throw error;
         toast.success("Welcome back!");
         navigate("/upload");
       }
-    } catch (error: any) {
-      toast.error(error.message || "Authentication failed");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Authentication failed";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

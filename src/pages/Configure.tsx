@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { normalizeLocationForApollo, validateLocationFormat } from "@/utils/locationValidation";
+import { configureProjectSchema } from "@/lib/validation-schemas";
 import { Loader2, Settings } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -166,6 +167,19 @@ const Configure = () => {
     if (!courseId) {
       toast.error("Course data not found. Please upload a syllabus first.");
       navigate("/upload");
+      return;
+    }
+
+    // Validate form inputs
+    const numTeamsValue = parseInt(numTeams);
+    const validation = configureProjectSchema.safeParse({
+      industries: industries.trim() || undefined,
+      companies: companies.trim() || undefined,
+      numTeams: isNaN(numTeamsValue) ? 1 : numTeamsValue
+    });
+
+    if (!validation.success) {
+      toast.error(validation.error.errors[0]?.message || "Invalid configuration");
       return;
     }
 

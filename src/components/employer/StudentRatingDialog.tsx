@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Star, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { studentRatingSchema } from "@/lib/validation-schemas";
 
 interface StudentRatingDialogProps {
   open: boolean;
@@ -37,8 +38,11 @@ export function StudentRatingDialog({
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (rating === 0) {
-      toast.error("Please select a rating");
+    // Validate rating using zod schema
+    const validation = studentRatingSchema.safeParse({ rating });
+    
+    if (!validation.success) {
+      toast.error(validation.error.errors[0]?.message || "Please select a rating");
       return;
     }
 
@@ -49,7 +53,7 @@ export function StudentRatingDialog({
         body: {
           student_id: studentId,
           project_id: projectId,
-          rating,
+          rating: validation.data.rating,
         },
         headers: {
           Authorization: `Bearer ${session.data.session?.access_token}`,
@@ -58,13 +62,14 @@ export function StudentRatingDialog({
 
       if (error) throw error;
 
-      toast.success(`Student rated ${rating}/5 successfully`);
+      toast.success(`Student rated ${validation.data.rating}/5 successfully`);
       onOpenChange(false);
       setRating(0);
       onRated?.();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error rating student:", error);
-      toast.error(error.message || "Failed to submit rating");
+      const errorMessage = error instanceof Error ? error.message : "Failed to submit rating";
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
