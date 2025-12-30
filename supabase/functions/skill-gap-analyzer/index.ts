@@ -1,10 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.78.0";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { verifyAuth, unauthorizedResponse } from "../_shared/auth-middleware.ts";
+import { corsHeaders } from "../_shared/cors.ts";
 
 /**
  * Skill Gap Analyzer Edge Function
@@ -92,50 +89,6 @@ function calculateImportance(jobMentions: number, totalJobs: number): 'critical'
   return 'nice_to_have';
 }
 
-/**
- * Verifies the JWT token from the Authorization header
- */
-async function verifyAuth(req: Request): Promise<{ authenticated: boolean; userId?: string; error?: string }> {
-  const authHeader = req.headers.get('Authorization');
-  
-  if (!authHeader) {
-    return { authenticated: false, error: 'Missing Authorization header' };
-  }
-  
-  const token = authHeader.replace('Bearer ', '');
-  
-  if (!token) {
-    return { authenticated: false, error: 'Invalid Authorization header format' };
-  }
-  
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('[skill-gap-analyzer] Missing Supabase environment variables');
-    return { authenticated: false, error: 'Server configuration error' };
-  }
-  
-  try {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: { Authorization: `Bearer ${token}` }
-      }
-    });
-    
-    const { data: { user }, error } = await supabase.auth.getUser();
-    
-    if (error || !user) {
-      console.warn('[skill-gap-analyzer] Token verification failed:', error?.message);
-      return { authenticated: false, error: 'Invalid or expired token' };
-    }
-    
-    return { authenticated: true, userId: user.id };
-  } catch (err) {
-    console.error('[skill-gap-analyzer] Auth error:', err);
-    return { authenticated: false, error: 'Authentication failed' };
-  }
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -143,14 +96,11 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication
+    // Verify authentication using shared middleware
     const authResult = await verifyAuth(req);
     if (!authResult.authenticated) {
       console.warn(`[skill-gap-analyzer] Unauthorized request: ${authResult.error}`);
-      return new Response(
-        JSON.stringify({ error: authResult.error || 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return unauthorizedResponse(corsHeaders, authResult.error || 'Unauthorized', req);
     }
     
     console.log(`[skill-gap-analyzer] Authenticated user: ${authResult.userId}`);
