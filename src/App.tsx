@@ -69,8 +69,12 @@ const App = () => (
               </ProtectedRoute>
             } />
             
-            {/* Public Route */}
-            <Route path="/demand-board" element={<DemandBoard />} />
+            {/* Protected Route - Requires Authentication */}
+            <Route path="/demand-board" element={
+              <ProtectedRoute>
+                <DemandBoard />
+              </ProtectedRoute>
+            } />
             
             {/* Unified Dashboard Route */}
             <Route path="/dashboard" element={
