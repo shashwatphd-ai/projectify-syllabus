@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { withAICircuit, CircuitState } from '../_shared/circuit-breaker.ts';
 import { corsHeaders, securityHeaders, createErrorResponse, createJsonResponse, createPreflightResponse } from '../_shared/cors.ts';
+import { verifyAuth, unauthorizedResponse } from '../_shared/auth-middleware.ts';
 
 interface ValueAnalysisRequest {
   projectId: string;
@@ -16,6 +17,14 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication using shared middleware
+    const authResult = await verifyAuth(req);
+    if (!authResult.authenticated) {
+      console.warn(`[analyze-project-value] Unauthorized request: ${authResult.error}`);
+      return unauthorizedResponse(corsHeaders, authResult.error || 'Unauthorized', req);
+    }
+    console.log(`[analyze-project-value] Authenticated user: ${authResult.userId}`);
+
     const { projectId, companyProfile, projectData, courseProfile }: ValueAnalysisRequest = await req.json();
     
     console.log(`📊 Analyzing value for project: ${projectId}`);
