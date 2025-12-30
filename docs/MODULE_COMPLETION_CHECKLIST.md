@@ -40,7 +40,7 @@
 
 | Item | Route/Component | Done Criteria | Status | Verified |
 |------|-----------------|---------------|--------|----------|
-| 1.2.1 | `/demand-board` | Wrapped in `<ProtectedRoute>` | ⬜ | No |
+| 1.2.1 | `/demand-board` | Wrapped in `<ProtectedRoute>` | ✅ | Yes |
 | 1.2.2 | `/instructor-dashboard` | Wrapped in `<ProtectedRoute>` | ✅ | Yes |
 | 1.2.3 | `/admin/*` routes | Wrapped in `<ProtectedRoute>` with admin check | ✅ | Yes |
 | 1.2.4 | `/employer-dashboard` | Wrapped in `<ProtectedRoute>` | ✅ | Yes |
