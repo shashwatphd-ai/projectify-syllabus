@@ -1,11 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { withApolloCircuit, CircuitState, getCircuitHealth } from '../_shared/circuit-breaker.ts';
-import { securityHeaders } from '../_shared/cors.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, securityHeaders, createErrorResponse, createJsonResponse, createPreflightResponse } from '../_shared/cors.ts';
 
 interface JobPosting {
   id: string;
@@ -20,7 +15,7 @@ interface JobsResponse {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return createPreflightResponse(req);
   }
 
   try {
@@ -98,23 +93,17 @@ serve(async (req) => {
     // Get circuit health for diagnostics
     const circuitHealth = getCircuitHealth();
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        companies_checked: companies.length,
-        companies_with_jobs: results.length,
-        circuit_health: circuitHealth,
-        results
-      }),
-      { headers: { ...corsHeaders, ...securityHeaders, 'Content-Type': 'application/json' } }
-    );
+    return createJsonResponse({
+      success: true,
+      companies_checked: companies.length,
+      companies_with_jobs: results.length,
+      circuit_health: circuitHealth,
+      results
+    }, 200, req);
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('❌ Investigation error:', error);
-    return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      { headers: { ...corsHeaders, ...securityHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
+    return createErrorResponse(errorMessage, 500, req);
   }
 });

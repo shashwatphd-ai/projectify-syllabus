@@ -6,11 +6,7 @@
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, createErrorResponse, createJsonResponse, createPreflightResponse } from '../_shared/cors.ts';
 
 interface LiveDemandRequest {
   skills: string[];
@@ -229,7 +225,7 @@ function generateMockDemandData(skills: string[]): LiveDemandResponse {
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return createPreflightResponse(req);
   }
 
   try {
@@ -240,24 +236,15 @@ serve(async (req) => {
     const demandData = await fetchJobPostings(skills, location, occupation);
 
     if (!demandData) {
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch demand data' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return createErrorResponse('Failed to fetch demand data', 500, req);
     }
 
     console.log(`✅ [LiveDemand] Found ${demandData.totalJobPostings} job postings`);
 
-    return new Response(
-      JSON.stringify(demandData),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return createJsonResponse(demandData, 200, req);
   } catch (error) {
     console.error('❌ [LiveDemand] Error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return createErrorResponse(message, 500, req);
   }
 });

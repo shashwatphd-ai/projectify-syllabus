@@ -1,9 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, createErrorResponse, createJsonResponse, createPreflightResponse } from '../_shared/cors.ts';
 
 interface ScoringRequest {
   signal_id: string;
@@ -27,7 +23,7 @@ interface CompanyProfile {
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return createPreflightResponse(req);
   }
 
   console.log('Project suitability scorer invoked');
@@ -47,10 +43,7 @@ Deno.serve(async (req) => {
     const { signal_id }: ScoringRequest = await req.json();
     
     if (!signal_id) {
-      return new Response(
-        JSON.stringify({ error: 'Missing signal_id' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return createErrorResponse('Missing signal_id', 400, req);
     }
 
     console.log('Processing signal:', signal_id);
@@ -180,33 +173,18 @@ Deno.serve(async (req) => {
 
     console.log('Signal successfully scored and updated');
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        signal_id,
-        score,
-        message: 'Signal scored successfully'
-      }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return createJsonResponse({ 
+      success: true, 
+      signal_id,
+      score,
+      message: 'Signal scored successfully'
+    }, 200, req);
 
   } catch (error) {
     console.error('Error in project-suitability-scorer:', error);
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: errorMessage
-      }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return createErrorResponse(errorMessage, 500, req);
   }
 });

@@ -13,11 +13,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-middleware.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, securityHeaders, createErrorResponse, createJsonResponse, createPreflightResponse } from '../_shared/cors.ts';
 
 interface FirecrawlScrapeRequest {
   url: string;
@@ -322,14 +318,14 @@ function processNewsData(
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return createPreflightResponse(req);
   }
 
   // Verify JWT authentication
   const authResult = await verifyAuth(req);
   if (!authResult.authenticated) {
     console.warn('[firecrawl-scrape] Auth failed:', authResult.error);
-    return unauthorizedResponse(corsHeaders, authResult.error);
+    return unauthorizedResponse(corsHeaders, authResult.error, req);
   }
   console.log('[firecrawl-scrape] Authenticated user:', authResult.userId);
 
@@ -340,25 +336,13 @@ serve(async (req) => {
     
     if (!apiKey) {
       console.error('❌ FIRECRAWL_API_KEY not configured');
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Firecrawl API key not configured' 
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      return createErrorResponse('Firecrawl API key not configured', 500, req);
     }
 
     const { url, extractType = 'full', companyId }: FirecrawlScrapeRequest = await req.json();
 
     if (!url) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'URL is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return createErrorResponse('URL is required', 400, req);
     }
 
     console.log(`🔥 [Firecrawl] Starting ${extractType} scrape for: ${url}`);
@@ -367,15 +351,7 @@ serve(async (req) => {
     const firecrawlResult = await scrapeWithFirecrawl(url, apiKey, extractType);
 
     if (!firecrawlResult.success) {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          url,
-          extractType,
-          error: firecrawlResult.error || 'Scraping failed'
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return createErrorResponse(firecrawlResult.error || 'Scraping failed', 500, req);
     }
 
     // Process based on extract type
@@ -433,21 +409,14 @@ serve(async (req) => {
 
     console.log(`✅ [Firecrawl] Scrape complete in ${processingTimeMs}ms`);
 
-    return new Response(
-      JSON.stringify(result),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return createJsonResponse(result, 200, req);
 
   } catch (error) {
     console.error('❌ [Firecrawl] Error:', error);
-    
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        processingTimeMs: Date.now() - startTime
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    return createErrorResponse(
+      error instanceof Error ? error.message : 'Unknown error',
+      500,
+      req
     );
   }
 });

@@ -1,14 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { withEmailCircuit, CircuitState } from '../_shared/circuit-breaker.ts';
 import { safeParseRequestBody } from '../_shared/json-parser.ts';
-import { securityHeaders } from '../_shared/cors.ts';
+import { corsHeaders, securityHeaders, createErrorResponse, createJsonResponse, createPreflightResponse } from '../_shared/cors.ts';
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 interface ApprovalEmailRequest {
   email: string;
@@ -22,25 +17,19 @@ interface ResendResponse {
 
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return createPreflightResponse(req);
   }
 
   try {
     const parseResult = await safeParseRequestBody<ApprovalEmailRequest>(req);
     if (!parseResult.success) {
-      return new Response(
-        JSON.stringify({ success: false, error: parseResult.error }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return createErrorResponse(parseResult.error || 'Invalid request body', 400, req);
     }
 
     const { email, name } = parseResult.data;
 
     if (!email) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Email address is required' }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      return createErrorResponse('Email address is required', 400, req);
     }
 
     console.log("📧 Sending faculty approval email to:", email);
@@ -134,32 +123,16 @@ const handler = async (req: Request): Promise<Response> => {
     if (!result.success) {
       console.error("❌ Email service failure:", result.error);
       const statusCode = result.circuitState === CircuitState.OPEN ? 503 : 500;
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: result.error || 'Email service failed',
-          circuit_state: result.circuitState 
-        }),
-        { status: statusCode, headers: { "Content-Type": "application/json", ...corsHeaders, ...securityHeaders } }
-      );
+      return createErrorResponse(result.error || 'Email service failed', statusCode, req);
     }
 
     console.log("✅ Faculty approval email sent successfully:", result.data);
 
-    return new Response(JSON.stringify({ success: true, data: result.data }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders, ...securityHeaders },
-    });
+    return createJsonResponse({ success: true, data: result.data }, 200, req);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error("❌ Error sending faculty approval email:", errorMessage);
-    return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders, ...securityHeaders },
-      }
-    );
+    return createErrorResponse(errorMessage, 500, req);
   }
 };
 

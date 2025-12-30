@@ -1,12 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { withAICircuit, CircuitState } from '../_shared/circuit-breaker.ts';
-import { securityHeaders } from '../_shared/cors.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, securityHeaders, createErrorResponse, createJsonResponse, createPreflightResponse } from '../_shared/cors.ts';
 
 interface ValueAnalysisRequest {
   projectId: string;
@@ -17,7 +12,7 @@ interface ValueAnalysisRequest {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return createPreflightResponse(req);
   }
 
   try {
@@ -177,10 +172,7 @@ Return comprehensive analysis with validated insights.`;
     if (!result.success) {
       console.error('❌ AI Circuit breaker failure:', result.error);
       const statusCode = result.circuitState === CircuitState.OPEN ? 503 : 500;
-      return new Response(
-        JSON.stringify({ success: false, error: result.error, circuit_state: result.circuitState }),
-        { status: statusCode, headers: { ...corsHeaders, ...securityHeaders, 'Content-Type': 'application/json' } }
-      );
+      return createErrorResponse(result.error || 'AI service unavailable', statusCode, req);
     }
 
     const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
@@ -224,29 +216,14 @@ Return comprehensive analysis with validated insights.`;
       throw updateError;
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        analysis: valueAnalysis
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    );
+    return createJsonResponse({
+      success: true,
+      analysis: valueAnalysis
+    }, 200, req);
 
   } catch (error: any) {
     console.error('Error in analyze-project-value:', error);
     // Return generic error message to prevent information leakage
-    return new Response(
-      JSON.stringify({ 
-        success: false,
-        error: 'Failed to analyze project value. Please try again later.'
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
-    );
+    return createErrorResponse('Failed to analyze project value. Please try again later.', 500, req);
   }
 });
