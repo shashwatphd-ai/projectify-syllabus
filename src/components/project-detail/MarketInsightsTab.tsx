@@ -13,13 +13,39 @@ interface MarketInsightsTabProps {
   courseProfile?: any;
 }
 
-export const MarketInsightsTab = ({ companyProfile, projectMetadata, project, courseProfile }: MarketInsightsTabProps) => {
-  const pricingBreakdown = projectMetadata?.pricing_breakdown || {};
-  const estimatedROI = projectMetadata?.estimated_roi || {};
-  const marketAlignment = projectMetadata?.market_alignment_score || 0;
-  const marketSignals = projectMetadata?.market_signals_used || {};
+// Local types for market insights data structures
+interface PricingMultiplier {
+  factor: string;
+  multiplier: number;
+  level?: string;
+  stage?: string;
+  rationale: string;
+}
 
-  const hasLegacyPricing = !pricingBreakdown.base_calculation;
+interface JobPosting {
+  title: string;
+  posted_date?: string;
+  posted_at?: string;
+  department?: string;
+  location?: string;
+  city?: string;
+  state?: string;
+  url?: string;
+  skills?: string[];
+  skills_needed?: string[];
+}
+
+interface BuyingIntentSignal {
+  topic?: string;
+  signal_type?: string;
+  score?: number | string;
+  confidence?: string;
+  category?: string;
+  details?: string;
+  timing?: string;
+}
+
+export const MarketInsightsTab = ({ companyProfile, projectMetadata, project, courseProfile }: MarketInsightsTabProps) => {
   const pricingBreakdown = projectMetadata?.pricing_breakdown || {};
   const estimatedROI = projectMetadata?.estimated_roi || {};
   const marketAlignment = projectMetadata?.market_alignment_score || 0;
