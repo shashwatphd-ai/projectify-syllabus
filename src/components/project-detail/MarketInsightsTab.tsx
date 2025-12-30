@@ -3,6 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { TrendingUp, DollarSign, Target, Briefcase, Code2, AlertCircle } from "lucide-react";
 
+// Props receive complex nested data from get-project-detail endpoint
+// Using 'any' is intentional here due to the dynamic nature of the data
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface MarketInsightsTabProps {
   companyProfile: any;
   projectMetadata: any;
@@ -11,6 +14,12 @@ interface MarketInsightsTabProps {
 }
 
 export const MarketInsightsTab = ({ companyProfile, projectMetadata, project, courseProfile }: MarketInsightsTabProps) => {
+  const pricingBreakdown = projectMetadata?.pricing_breakdown || {};
+  const estimatedROI = projectMetadata?.estimated_roi || {};
+  const marketAlignment = projectMetadata?.market_alignment_score || 0;
+  const marketSignals = projectMetadata?.market_signals_used || {};
+
+  const hasLegacyPricing = !pricingBreakdown.base_calculation;
   const pricingBreakdown = projectMetadata?.pricing_breakdown || {};
   const estimatedROI = projectMetadata?.estimated_roi || {};
   const marketAlignment = projectMetadata?.market_alignment_score || 0;
@@ -72,7 +81,7 @@ export const MarketInsightsTab = ({ companyProfile, projectMetadata, project, co
                 {pricingBreakdown.multipliers_applied?.length > 0 && (
                   <div className="space-y-3">
                     <p className="text-sm font-medium">Market Intelligence Adjustments</p>
-                    {pricingBreakdown.multipliers_applied.map((multiplier: any, idx: number) => (
+                    {pricingBreakdown.multipliers_applied.map((multiplier: PricingMultiplier, idx: number) => (
                       <div key={idx} className="rounded-lg border p-3 space-y-1">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">{multiplier.factor}</span>
@@ -377,7 +386,7 @@ export const MarketInsightsTab = ({ companyProfile, projectMetadata, project, co
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {companyProfile.job_postings.slice(0, 5).map((job: any, i: number) => (
+                  {companyProfile.job_postings.slice(0, 5).map((job: JobPosting, i: number) => (
                     <div key={i} className="rounded-lg border border-border p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
@@ -496,7 +505,7 @@ export const MarketInsightsTab = ({ companyProfile, projectMetadata, project, co
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {companyProfile.buying_intent_signals.map((signal: any, idx: number) => (
+                  {companyProfile.buying_intent_signals.map((signal: BuyingIntentSignal, idx: number) => (
                     <div key={idx} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
                       <Badge variant={signal.confidence === 'high' ? 'default' : 'secondary'}>
                         {signal.confidence}
