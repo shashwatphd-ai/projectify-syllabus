@@ -16,9 +16,12 @@ interface ProposePartnershipDialogProps {
   projectTitle: string;
 }
 
+// Use extended schema with additional pitch types specific to this dialog
 const proposalSchema = z.object({
-  message: z.string().trim().min(10, "Message must be at least 10 characters").max(1000, "Message must be less than 1000 characters"),
-  pitchType: z.enum(['email', 'linkedin', 'anonymous'])
+  message: z.string().trim().min(10, "Message must be at least 10 characters").max(2000, "Message must be less than 2000 characters"),
+  pitchType: z.enum(['email', 'linkedin', 'anonymous'], {
+    errorMap: () => ({ message: 'Please select how you want to reach out' })
+  })
 });
 
 export const ProposePartnershipDialog = ({ 
@@ -87,9 +90,10 @@ Best regards`);
 
       setOpen(false);
       setMessage('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Submit proposal error:', error);
-      toast.error("Failed to save proposal");
+      const errorMessage = error instanceof Error ? error.message : "Failed to save proposal";
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }

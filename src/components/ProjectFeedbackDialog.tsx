@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { projectRatingSchema } from "@/lib/validation-schemas";
 
 interface ProjectFeedbackDialogProps {
   open: boolean;
@@ -52,20 +53,29 @@ export function ProjectFeedbackDialog({
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (rating === 0) {
-      toast.error("Please select a rating");
+    // Validate input using zod schema
+    const validation = projectRatingSchema.safeParse({
+      rating,
+      feedback: feedback.trim() || undefined,
+      tags: selectedTags.length > 0 ? selectedTags : undefined
+    });
+
+    if (!validation.success) {
+      toast.error(validation.error.errors[0]?.message || "Invalid input");
       return;
     }
 
     setSubmitting(true);
 
     try {
+      const validData = validation.data;
+      
       const { error } = await supabase
         .from('projects')
         .update({
-          faculty_rating: rating,
-          faculty_feedback: feedback.trim() || null,
-          rating_tags: selectedTags.length > 0 ? selectedTags : null,
+          faculty_rating: validData.rating,
+          faculty_feedback: validData.feedback || null,
+          rating_tags: validData.tags || null,
           rated_at: new Date().toISOString()
         })
         .eq('id', projectId);
@@ -80,7 +90,7 @@ export function ProjectFeedbackDialog({
       setRating(0);
       setFeedback("");
       setSelectedTags([]);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error submitting feedback:', error);
       toast.error('Failed to submit feedback');
     } finally {
