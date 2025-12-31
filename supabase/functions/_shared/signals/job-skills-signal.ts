@@ -118,15 +118,19 @@ async function calculateSemanticMatch(
 ): Promise<SignalResult> {
   const startTime = Date.now();
   
+  // Null safety: ensure arrays before processing
+  const safeJobs = Array.isArray(jobs) ? jobs : [];
+  const safeSkills = Array.isArray(skills) ? skills : [];
+  
   // Limit processing for efficiency
-  const limitedJobs = jobs.slice(0, MAX_JOBS_TO_PROCESS);
-  const limitedSkills = skills.slice(0, MAX_SKILLS_TO_PROCESS);
+  const limitedJobs = safeJobs.slice(0, MAX_JOBS_TO_PROCESS);
+  const limitedSkills = safeSkills.slice(0, MAX_SKILLS_TO_PROCESS);
   
   // Prepare texts for embedding
   const jobTexts = limitedJobs.map(j => 
-    `${j.title}${j.description ? '. ' + j.description.substring(0, 200) : ''}`
+    `${j?.title ?? 'Unknown Role'}${j?.description ? '. ' + j.description.substring(0, 200) : ''}`
   );
-  const skillTexts = limitedSkills.map(s => `Professional skill: ${s}`);
+  const skillTexts = limitedSkills.map(s => `Professional skill: ${s ?? ''}`);
   
   // Get all embeddings in one batch call
   const allTexts = [...jobTexts, ...skillTexts];
@@ -225,11 +229,15 @@ function calculateKeywordFallback(
   jobs: JobPosting[],
   skills: string[]
 ): SignalResult {
-  console.log(`     🔄 Using keyword fallback matching`);
-  console.log(`     📋 Jobs: ${jobs.length}, Skills: ${skills.length}`);
+  // Null safety: ensure arrays before processing
+  const safeJobs = Array.isArray(jobs) ? jobs : [];
+  const safeSkills = Array.isArray(skills) ? skills : [];
   
-  const limitedJobs = jobs.slice(0, MAX_JOBS_TO_PROCESS);
-  const limitedSkills = skills.slice(0, MAX_SKILLS_TO_PROCESS);
+  console.log(`     🔄 Using keyword fallback matching`);
+  console.log(`     📋 Jobs: ${safeJobs.length}, Skills: ${safeSkills.length}`);
+  
+  const limitedJobs = safeJobs.slice(0, MAX_JOBS_TO_PROCESS);
+  const limitedSkills = safeSkills.slice(0, MAX_SKILLS_TO_PROCESS);
   
   // Tokenize skills into keywords
   const skillKeywords = new Map<string, Set<string>>();

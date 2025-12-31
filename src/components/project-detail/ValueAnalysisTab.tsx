@@ -178,11 +178,14 @@ export const ValueAnalysisTab = ({
 
   // Status: 'complete' → Extract data from valueAnalysis.data
   // Legacy fallback: If no status field, assume data is directly in valueAnalysis
-  const actualData = analysisData || (valueAnalysis as unknown as ValueAnalysisData);
-  const { student_value, university_value, industry_value, problem_validation } = actualData as ValueAnalysisData;
+  const actualData = (analysisData ?? valueAnalysis ?? {}) as ValueAnalysisData;
+  const student_value = actualData?.student_value ?? {} as StakeholderValue;
+  const university_value = actualData?.university_value ?? {} as StakeholderValue;
+  const industry_value = actualData?.industry_value ?? {} as StakeholderValue;
+  const problem_validation = actualData?.problem_validation ?? null;
   
   // Also extract stakeholder data from status wrapper if present
-  const actualStakeholderInsights = (stakeholderInsights?.data || stakeholderInsights) as StakeholderInsights | null;
+  const actualStakeholderInsights = (stakeholderInsights?.data ?? stakeholderInsights ?? null) as StakeholderInsights | null;
 
   return (
     <div className="space-y-5">
@@ -232,7 +235,7 @@ export const ValueAnalysisTab = ({
               </p>
             </div>
             <div className="grid gap-2">
-              {problem_validation.validated_challenges.map((challenge: string, i: number) => (
+              {(problem_validation.validated_challenges ?? []).map((challenge: string, i: number) => (
                 <div key={i} className="flex items-start gap-2 bg-background/50 rounded-lg p-2.5 border border-border/50">
                   <Target className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                   <p className="text-sm leading-relaxed">{challenge}</p>
@@ -309,7 +312,7 @@ export const ValueAnalysisTab = ({
       <div className="grid gap-4 lg:grid-cols-2">
         <SalaryROICard 
           projectId={projectId} 
-          existingData={actualData?.salary_roi || null}
+          existingData={(actualData?.salary_roi ?? null) as unknown as Parameters<typeof SalaryROICard>[0]['existingData']}
           onCalculate={onAnalysisComplete}
         />
         
@@ -317,7 +320,7 @@ export const ValueAnalysisTab = ({
           projectId={projectId}
           projectSkills={Array.isArray(project?.skills) ? project.skills : []}
           courseOutcomes={Array.isArray(courseProfile?.outcomes) ? courseProfile.outcomes : []}
-          existingData={actualData?.skill_gap_analysis || null}
+          existingData={(actualData?.skill_gap_analysis ?? null) as unknown as Parameters<typeof SkillGapAnalysisCard>[0]['existingData']}
           onAnalyze={onAnalysisComplete}
         />
       </div>
@@ -327,7 +330,7 @@ export const ValueAnalysisTab = ({
         projectId={projectId}
         projectSkills={Array.isArray(project?.skills) ? project.skills : []}
         sector={project?.sector || 'Technology'}
-        existingData={actualData?.career_pathway || null}
+        existingData={(actualData?.career_pathway ?? null) as unknown as Parameters<typeof CareerPathwayCard>[0]['existingData']}
         onAnalyze={onAnalysisComplete}
       />
 
