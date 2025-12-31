@@ -7,10 +7,7 @@ import {
   isTimeoutError 
 } from "../_shared/timeout-config.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, securityHeaders } from '../_shared/cors.ts';
 
 interface ParsedCourse {
   title: string;

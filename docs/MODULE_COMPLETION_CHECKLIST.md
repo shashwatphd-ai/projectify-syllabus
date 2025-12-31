@@ -54,8 +54,8 @@
 |------|---------------|---------------|--------|----------|
 | 1.3.1 | `_shared/input-validation.ts` | Exports validation functions | ✅ | Yes |
 | 1.3.2 | `_shared/json-parser.ts` | Safe JSON parsing with size limits | ✅ | Yes |
-| 1.3.3 | `generate-projects/index.ts` | Uses input validation | ⬜ | No |
-| 1.3.4 | `discover-companies/index.ts` | Uses input validation | ⬜ | No |
+| 1.3.3 | `generate-projects/index.ts` | Uses input validation | ✅ | Yes |
+| 1.3.4 | `discover-companies/index.ts` | Uses input validation | ✅ | Yes |
 
 ### 1.4 CORS Configuration
 **Objective**: Proper CORS headers on all edge functions
@@ -63,7 +63,7 @@
 | Item | File/Location | Done Criteria | Status | Verified |
 |------|---------------|---------------|--------|----------|
 | 1.4.1 | `_shared/cors.ts` | Centralized CORS config | ✅ | Yes |
-| 1.4.2 | All edge functions | Import and use shared CORS | ⬜ | No |
+| 1.4.2 | All edge functions | Import and use shared CORS | ✅ | Yes |
 
 ### 1.5 Rate Limiting Headers
 **Objective**: Rate limit information exposed to clients

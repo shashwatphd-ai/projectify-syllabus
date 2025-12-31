@@ -3,10 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.78.0";
 import { getEstimatedRateLimitHeaders } from '../_shared/rate-limit-headers.ts';
 import { withRetry, isRetryableError } from '../_shared/retry-utils.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, securityHeaders } from '../_shared/cors.ts';
 
 // Rate limit headers for job matching (resource-intensive)
 const getResponseHeaders = () => ({
