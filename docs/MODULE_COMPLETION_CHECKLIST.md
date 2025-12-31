@@ -181,8 +181,8 @@
 
 | Item | File/Location | Done Criteria | Status | Verified |
 |------|---------------|---------------|--------|----------|
-| 3.5.1 | API response handlers | Use optional chaining | ⬜ | No |
-| 3.5.2 | Component props | Default values provided | ⬜ | No |
+| 3.5.1 | API response handlers | Use optional chaining | ✅ | Yes |
+| 3.5.2 | Component props | Default values provided | ✅ | Yes |
 
 ### Module 3 Completion Criteria
 - [ ] All items above marked ✅

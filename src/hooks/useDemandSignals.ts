@@ -58,11 +58,11 @@ export const useDemandSignals = (filters?: DemandSignalFilters) => {
       }
 
       // Client-side skill filtering (since skills is an array)
-      let results = data as DemandSignal[];
+      let results = (data ?? []) as DemandSignal[];
       if (filters?.skills && filters.skills.length > 0) {
         results = results.filter((signal) =>
           filters.skills!.some((skill) =>
-            signal.required_skills.some((s) =>
+            (signal.required_skills ?? []).some((s) =>
               s.toLowerCase().includes(skill.toLowerCase())
             )
           )
@@ -87,7 +87,7 @@ export const useDemandCategories = () => {
 
       if (error) throw error;
 
-      const categories = [...new Set(data.map((d) => d.project_category))];
+      const categories = [...new Set((data ?? []).map((d) => d.project_category))];
       return categories.sort();
     },
     staleTime: 1000 * 60 * 10, // 10 minutes
@@ -106,8 +106,8 @@ export const useDemandRegions = () => {
 
       if (error) throw error;
 
-      const regions = [...new Set(data.map((d) => d.geographic_region))];
-      return regions.sort();
+      const regions = [...new Set((data ?? []).map((d) => d.geographic_region).filter(Boolean))];
+      return (regions as string[]).sort();
     },
     staleTime: 1000 * 60 * 10, // 10 minutes
   });

@@ -145,17 +145,19 @@ export function ProfessionalSignalDashboard({
     { label: "Title relevance", present: componentScores.contactQuality > 30, source: DATA_SOURCE_INFO.contact.source }
   ];
 
-  // Calculate validation percentage from actual signals
-  const totalEvidencePoints = skillMatchEvidence.length + marketIntelEvidence.length + 
-    departmentFitEvidence.length + contactQualityEvidence.length;
-  const presentEvidence = [
-    ...skillMatchEvidence, ...marketIntelEvidence, 
-    ...departmentFitEvidence, ...contactQualityEvidence
-  ].filter(e => e.present).length;
+  // Calculate validation percentage from actual signals with null safety
+  const allEvidence = [
+    ...(skillMatchEvidence ?? []), 
+    ...(marketIntelEvidence ?? []), 
+    ...(departmentFitEvidence ?? []), 
+    ...(contactQualityEvidence ?? [])
+  ];
+  const totalEvidencePoints = allEvidence.length || 1; // Prevent division by zero
+  const presentEvidence = allEvidence.filter(e => e?.present).length;
   const validationPercentage = Math.round((presentEvidence / totalEvidencePoints) * 100);
 
-  const enrichmentInfo = ENRICHMENT_LABELS[enrichmentLevel] || ENRICHMENT_LABELS.basic;
-  const isBasicEnrichment = enrichmentLevel === 'basic';
+  const enrichmentInfo = ENRICHMENT_LABELS[enrichmentLevel ?? 'basic'] ?? ENRICHMENT_LABELS.basic;
+  const isBasicEnrichment = enrichmentLevel === 'basic' || !enrichmentLevel;
 
   const getConfidenceColor = (conf: string) => {
     switch (conf) {
