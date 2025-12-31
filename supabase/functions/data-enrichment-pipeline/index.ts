@@ -5,9 +5,11 @@ import { withRetry } from '../_shared/retry-utils.ts';
 import { 
   API_TIMEOUT_MS,
   ENRICHMENT_TIMEOUT_MS,
+  AI_GATEWAY_TIMEOUT_MS,
   fetchWithTimeout,
   isTimeoutError 
 } from '../_shared/timeout-config.ts';
+import { withAICircuit } from '../_shared/circuit-breaker.ts';
 
 import { corsHeaders, securityHeaders } from '../_shared/cors.ts';
 
@@ -691,27 +693,41 @@ Return ONLY raw JSON (no markdown, no code blocks, no backticks):
 {"needs": ["specific need 1", "specific need 2", "specific need 3"]}`;
 
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: 'You are a business analyst. Return ONLY valid JSON with no markdown formatting.' },
-          { role: 'user', content: prompt }
-        ],
-      }),
+    // Use circuit breaker and timeout for AI Gateway resilience
+    const circuitResult = await withAICircuit(async () => {
+      const response = await fetchWithTimeout(
+        'https://ai.gateway.lovable.dev/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: 'You are a business analyst. Return ONLY valid JSON with no markdown formatting.' },
+              { role: 'user', content: prompt }
+            ],
+          }),
+        },
+        AI_GATEWAY_TIMEOUT_MS,
+        'AI Company Needs Analysis'
+      );
+
+      if (!response.ok) {
+        throw new Error(`AI API error: ${response.status}`);
+      }
+
+      return response.json();
     });
 
-    if (!response.ok) {
-      throw new Error(`AI API error: ${response.status}`);
+    if (!circuitResult.success) {
+      throw new Error(circuitResult.error || 'AI Gateway circuit breaker open');
     }
 
-    const data = await response.json();
-    let content = data.choices[0].message.content;
+    const data = circuitResult.data;
+    let content = data?.choices?.[0]?.message?.content || '';
     
     // Log raw response for debugging
     console.log(`Raw AI response for ${enrichedCompany.name} (first 200 chars): ${content.substring(0, 200)}`);
