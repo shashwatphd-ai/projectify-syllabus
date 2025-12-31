@@ -7,6 +7,14 @@ import { createDefaultCoordinator, formatCoordinatedResultsForDisplay } from '..
 import { rankCompaniesBySimilarity, formatSemanticFilteringForDisplay, getRecommendedThreshold, shouldSkipSemanticFiltering } from '../_shared/semantic-matching-service.ts';
 import { verifyAuth, unauthorizedResponse } from '../_shared/auth-middleware.ts';
 import { getEstimatedRateLimitHeaders, RATE_LIMIT_CONFIGS } from '../_shared/rate-limit-headers.ts';
+import { 
+  isValidUUID, 
+  isPositiveInteger,
+  createValidationErrorResponse,
+  sanitizeString,
+  type ValidationError 
+} from '../_shared/input-validation.ts';
+import { corsHeaders, securityHeaders } from '../_shared/cors.ts';
 
 // Signal-driven discovery (Step 8 of Implementation Plan 23 Dec 2025)
 import { 
@@ -14,11 +22,6 @@ import {
   toStorableSignalData,
   type CompanyForSignal 
 } from '../_shared/signals/index.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // Rate limit headers for this resource-intensive endpoint
 const getRateLimitedCorsHeaders = () => ({
@@ -229,6 +232,101 @@ serve(async (req) => {
     );
 
     const { courseId, location, industries = [], count = 4, targetCompanies = [], targetIndustries = [] } = await req.json();
+    
+    // ========================================
+    // INPUT VALIDATION
+    // ========================================
+    const validationErrors: ValidationError[] = [];
+
+    // Validate courseId (required UUID)
+    if (!courseId) {
+      validationErrors.push({
+        field: 'courseId',
+        message: 'courseId is required',
+        code: 'REQUIRED_FIELD'
+      });
+    } else if (!isValidUUID(courseId)) {
+      validationErrors.push({
+        field: 'courseId',
+        message: 'Invalid courseId format. Expected a valid UUID.',
+        code: 'INVALID_UUID'
+      });
+    }
+
+    // Validate count (optional positive integer, max 50)
+    if (count !== undefined && count !== null) {
+      if (!isPositiveInteger(count, 50)) {
+        validationErrors.push({
+          field: 'count',
+          message: 'count must be a positive integer between 1 and 50',
+          code: 'INVALID_RANGE'
+        });
+      }
+    }
+
+    // Validate location (optional string, max 200 chars)
+    if (location !== undefined && location !== null && typeof location === 'string') {
+      if (location.length > 200) {
+        validationErrors.push({
+          field: 'location',
+          message: 'location must not exceed 200 characters',
+          code: 'LIMIT_EXCEEDED'
+        });
+      }
+    }
+
+    // Validate industries array
+    if (industries !== undefined && !Array.isArray(industries)) {
+      validationErrors.push({
+        field: 'industries',
+        message: 'industries must be an array',
+        code: 'INVALID_TYPE'
+      });
+    } else if (Array.isArray(industries) && industries.length > 10) {
+      validationErrors.push({
+        field: 'industries',
+        message: 'industries array cannot exceed 10 items',
+        code: 'LIMIT_EXCEEDED'
+      });
+    }
+
+    // Validate targetCompanies array
+    if (targetCompanies !== undefined && !Array.isArray(targetCompanies)) {
+      validationErrors.push({
+        field: 'targetCompanies',
+        message: 'targetCompanies must be an array',
+        code: 'INVALID_TYPE'
+      });
+    } else if (Array.isArray(targetCompanies) && targetCompanies.length > 20) {
+      validationErrors.push({
+        field: 'targetCompanies',
+        message: 'targetCompanies array cannot exceed 20 items',
+        code: 'LIMIT_EXCEEDED'
+      });
+    }
+
+    // Validate targetIndustries array
+    if (targetIndustries !== undefined && !Array.isArray(targetIndustries)) {
+      validationErrors.push({
+        field: 'targetIndustries',
+        message: 'targetIndustries must be an array',
+        code: 'INVALID_TYPE'
+      });
+    } else if (Array.isArray(targetIndustries) && targetIndustries.length > 10) {
+      validationErrors.push({
+        field: 'targetIndustries',
+        message: 'targetIndustries array cannot exceed 10 items',
+        code: 'LIMIT_EXCEEDED'
+      });
+    }
+
+    // Return validation errors if any
+    if (validationErrors.length > 0) {
+      console.warn('[discover-companies] Validation failed:', validationErrors);
+      return createValidationErrorResponse(validationErrors);
+    }
+
+    console.log('[discover-companies] Input validation passed');
     
     // ========================================
     // DIAGNOSTIC: Log all Configure page inputs

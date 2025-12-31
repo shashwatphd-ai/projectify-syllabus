@@ -14,11 +14,17 @@ import {
   isTimeoutError,
   logTimeout 
 } from '../_shared/timeout-config.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { verifyAuth, unauthorizedResponse } from '../_shared/auth-middleware.ts';
+import { 
+  isValidUUID, 
+  isPositiveInteger,
+  createValidationErrorResponse,
+  createMissingFieldResponse,
+  createInvalidUUIDResponse,
+  sanitizeString,
+  type ValidationError 
+} from '../_shared/input-validation.ts';
+import { corsHeaders, securityHeaders } from '../_shared/cors.ts';
 
 // Rate limit headers for resource-intensive project generation
 const getRateLimitedCorsHeaders = () => ({
@@ -454,13 +460,20 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Missing authorization header');
+    // ========================================
+    // AUTHENTICATION (using shared middleware)
+    // ========================================
+    const authResult = await verifyAuth(req);
+    if (!authResult.authenticated) {
+      console.warn('[generate-projects] Auth failed:', authResult.error);
+      return unauthorizedResponse(corsHeaders, authResult.error);
     }
+    
+    const userId = authResult.userId!;
+    console.log(`[generate-projects] Authenticated user: ${userId}`);
 
-    const token = authHeader.replace('Bearer ', '');
-
+    // Create authenticated client with user context
+    const authHeader = req.headers.get('Authorization')!;
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -473,26 +486,89 @@ serve(async (req) => {
       }
     );
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
-    
-    if (userError || !user) {
-      console.error('Auth error:', userError);
-      throw new Error('Unauthorized');
-    }
-
     const serviceRoleClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // ========================================
+    // INPUT VALIDATION
+    // ========================================
     const requestBody = await req.json();
     const { courseId, industries, numTeams, generation_run_id } = requestBody;
 
+    const validationErrors: ValidationError[] = [];
+
+    // Validate courseId (required UUID)
+    if (!courseId) {
+      validationErrors.push({
+        field: 'courseId',
+        message: 'courseId is required',
+        code: 'REQUIRED_FIELD'
+      });
+    } else if (!isValidUUID(courseId)) {
+      validationErrors.push({
+        field: 'courseId',
+        message: 'Invalid courseId format. Expected a valid UUID.',
+        code: 'INVALID_UUID'
+      });
+    }
+
+    // Validate numTeams (optional positive integer, max 20)
+    if (numTeams !== undefined && numTeams !== null) {
+      if (!isPositiveInteger(numTeams, 20)) {
+        validationErrors.push({
+          field: 'numTeams',
+          message: 'numTeams must be a positive integer between 1 and 20',
+          code: 'INVALID_RANGE'
+        });
+      }
+    }
+
+    // Validate generation_run_id (optional UUID)
+    if (generation_run_id !== undefined && generation_run_id !== null) {
+      if (!isValidUUID(generation_run_id)) {
+        validationErrors.push({
+          field: 'generation_run_id',
+          message: 'Invalid generation_run_id format. Expected a valid UUID.',
+          code: 'INVALID_UUID'
+        });
+      }
+    }
+
+    // Validate industries (optional array of strings)
+    if (industries !== undefined && industries !== null) {
+      if (!Array.isArray(industries)) {
+        validationErrors.push({
+          field: 'industries',
+          message: 'industries must be an array',
+          code: 'INVALID_TYPE'
+        });
+      } else if (industries.length > 10) {
+        validationErrors.push({
+          field: 'industries',
+          message: 'industries array cannot exceed 10 items',
+          code: 'LIMIT_EXCEEDED'
+        });
+      }
+    }
+
+    // Return validation errors if any
+    if (validationErrors.length > 0) {
+      console.warn('[generate-projects] Validation failed:', validationErrors);
+      return createValidationErrorResponse(validationErrors);
+    }
+
+    console.log('[generate-projects] Input validation passed');
+
+    // ========================================
+    // FETCH COURSE (with ownership check)
+    // ========================================
     const { data: course, error: courseError } = await supabaseClient
       .from('course_profiles')
       .select('*')
       .eq('id', courseId)
-      .eq('owner_id', user.id)
+      .eq('owner_id', userId)
       .single();
 
     if (courseError || !course) {

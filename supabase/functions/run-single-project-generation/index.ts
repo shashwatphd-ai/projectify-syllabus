@@ -4,10 +4,7 @@ import { calculateApolloEnrichedPricing, calculateApolloEnrichedROI } from '../_
 import { generateProjectProposal } from '../_shared/generation-service.ts';
 import { calculateLOAlignment, calculateMarketAlignmentScore, generateLOAlignmentDetail } from '../_shared/alignment-service.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, securityHeaders } from '../_shared/cors.ts';
 
 interface CompanyInfo {
   id?: string;
