@@ -5,6 +5,9 @@
  * This prevents force-fitting projects with irrelevant companies.
  */
 
+import { withAICircuit } from './circuit-breaker.ts';
+import { AI_GATEWAY_TIMEOUT_MS, fetchWithTimeout } from './timeout-config.ts';
+
 interface CompanyValidationInput {
   companyName: string;
   companyDescription: string;
@@ -100,37 +103,52 @@ Respond with ONLY valid JSON (no markdown):
   try {
     console.log(`  🔍 Validating company-course match for ${input.companyName}...`);
     
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-pro', // Use stronger model for validation decisions
-        messages: [
-          { role: 'user', content: prompt }
-        ],
-        // Note: temperature removed - some models don't support it
-      }),
+    // Use circuit breaker and timeout for AI Gateway resilience
+    const circuitResult = await withAICircuit(async () => {
+      const response = await fetchWithTimeout(
+        'https://ai.gateway.lovable.dev/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-pro', // Use stronger model for validation decisions
+            messages: [
+              { role: 'user', content: prompt }
+            ],
+            // Note: temperature removed - some models don't support it
+          }),
+        },
+        AI_GATEWAY_TIMEOUT_MS,
+        'AI Company Validation'
+      );
+
+      if (!response.ok) {
+        console.error(`  ❌ Validation API error: ${response.status}`);
+        throw new Error(`Validation API error: ${response.status}`);
+      }
+
+      return response.json();
     });
 
-    if (!response.ok) {
-      console.error(`  ❌ Validation API error: ${response.status}`);
-      // Default to accepting on API error to avoid blocking
+    if (!circuitResult.success) {
+      console.warn(`  ⚠️ AI circuit breaker open or timeout: ${circuitResult.error}`);
+      // Default to accepting on circuit breaker/timeout to avoid blocking
       return {
         isValid: true,
         confidence: 0.5,
-        reason: 'Validation API error - defaulting to accept',
+        reason: 'AI validation unavailable - defaulting to accept',
         skillsOverlap: []
       };
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '';
+    const validationData = circuitResult.data;
+    const validationContent = validationData?.choices?.[0]?.message?.content || '';
     
     // Parse JSON response
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    const jsonMatch = validationContent.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.warn('  ⚠️ Could not parse validation response');
       return {

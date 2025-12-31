@@ -6,6 +6,9 @@
  * EXTRACTED from generate-projects/index.ts to eliminate "ghost logic" and intermittency.
  */
 
+import { withAICircuit } from './circuit-breaker.ts';
+import { AI_GATEWAY_TIMEOUT_MS, fetchWithTimeout } from './timeout-config.ts';
+
 interface CompanyInfo {
   id?: string;
   name: string;
@@ -443,40 +446,54 @@ Return ONLY valid JSON (no markdown code blocks):
   "publication_opportunity": "Answer 'Yes' if project could generate publishable research insights, 'No' if purely applied consulting"
 }`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.4,  // Lower temperature for more consistent, rule-following output
-    }),
+  // Use circuit breaker and timeout for AI Gateway resilience
+  const circuitResult = await withAICircuit(async () => {
+    const response = await fetchWithTimeout(
+      'https://ai.gateway.lovable.dev/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.4,  // Lower temperature for more consistent, rule-following output
+        }),
+      },
+      AI_GATEWAY_TIMEOUT_MS,
+      'AI Project Proposal Generation'
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('AI proposal error:', response.status, error);
+      
+      if (response.status === 429) {
+        throw new Error('Rate limit exceeded. Please wait a moment and try again.');
+      }
+      if (response.status === 402) {
+        throw new Error('AI credits exhausted. Please add credits to your Lovable workspace.');
+      }
+      
+      throw new Error(`AI API error: ${response.status} - ${error}`);
+    }
+
+    return response.json();
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('AI proposal error:', response.status, error);
-    
-    if (response.status === 429) {
-      throw new Error('Rate limit exceeded. Please wait a moment and try again.');
-    }
-    if (response.status === 402) {
-      throw new Error('AI credits exhausted. Please add credits to your Lovable workspace.');
-    }
-    
-    throw new Error(`AI API error: ${response.status} - ${error}`);
+  if (!circuitResult.success) {
+    throw new Error(circuitResult.error || 'AI Gateway circuit breaker open');
   }
 
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
+  const data = circuitResult.data;
+  const content = data?.choices?.[0]?.message?.content;
   
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  const jsonMatch = content?.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error('No valid JSON in response');
   
   const proposal = JSON.parse(jsonMatch[0]);
