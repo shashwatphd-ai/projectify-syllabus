@@ -6,7 +6,7 @@ import { Header } from "@/components/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { StudentDashboardSkeleton } from "@/components/skeletons/DashboardSkeleton";
 import { 
   GraduationCap, 
   Briefcase, 
@@ -102,14 +102,7 @@ export default function StudentDashboard() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="container mx-auto px-4 py-8">
-          <Skeleton className="h-10 w-64 mb-8" />
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Skeleton key={i} className="h-32" />
-            ))}
-          </div>
-        </div>
+        <StudentDashboardSkeleton />
       </div>
     );
   }
