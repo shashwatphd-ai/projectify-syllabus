@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Briefcase, TrendingUp, Loader2, AlertTriangle, Download, CheckCircle, Star, ChevronRight, Home } from "lucide-react";
+import { Briefcase, TrendingUp, AlertTriangle, Download, CheckCircle, Star, ChevronRight, Home, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
@@ -26,6 +26,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { LiveDemandBadge } from "@/components/premium/LiveDemandBadge";
+import { ProjectsPageSkeleton } from "@/components/skeletons/DashboardSkeleton";
 
 const getQualityBorder = (similarity: number) => {
   if (similarity >= 0.80) return 'border-l-4 border-l-green-500';
@@ -265,12 +266,10 @@ const Projects = () => {
 
   if (authLoading || loading) {
     return (
-      <>
+      <div className="min-h-screen bg-background">
         <Header />
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </>
+        <ProjectsPageSkeleton />
+      </div>
     );
   }
 

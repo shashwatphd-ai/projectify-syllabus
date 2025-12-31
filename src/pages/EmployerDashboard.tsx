@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Building2, Mail, Globe, MapPin, Briefcase, ExternalLink, Star } from "lucide-react";
+import { EmployerDashboardSkeleton } from "@/components/skeletons/DashboardSkeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StudentRatingDialog } from "@/components/employer/StudentRatingDialog";
 
@@ -266,22 +267,7 @@ export default function EmployerDashboard() {
     return (
       <>
         <Header />
-        <main className="container mx-auto px-4 py-8">
-          <Skeleton className="h-12 w-64 mb-8" />
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-8 w-48 mb-2" />
-              <Skeleton className="h-4 w-96" />
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-20 w-full" />
-              </div>
-            </CardContent>
-          </Card>
-        </main>
+        <EmployerDashboardSkeleton />
       </>
     );
   }
