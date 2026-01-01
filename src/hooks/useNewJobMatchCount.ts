@@ -24,6 +24,9 @@ export const useNewJobMatchCount = () => {
       return count || 0;
     },
     enabled: !!user?.id,
-    refetchInterval: 60000, // Refetch every minute
+    // Cache for 30 seconds to prevent excessive API calls
+    staleTime: 1000 * 30,
+    // Refetch every minute for near-realtime updates
+    refetchInterval: 60000,
   });
 };

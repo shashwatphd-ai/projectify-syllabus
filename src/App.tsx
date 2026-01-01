@@ -27,7 +27,28 @@ import InstructorDashboard from "./pages/InstructorDashboard";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Optimized React Query configuration for reduced API calls and better UX
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Data is fresh for 2 minutes - prevents immediate refetches
+      staleTime: 1000 * 60 * 2,
+      // Keep unused data in cache for 5 minutes
+      gcTime: 1000 * 60 * 5,
+      // Retry failed requests up to 2 times with exponential backoff
+      retry: 2,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      // Don't refetch on window focus by default (reduces API pressure)
+      refetchOnWindowFocus: false,
+      // Don't refetch on reconnect by default
+      refetchOnReconnect: false,
+    },
+    mutations: {
+      // Retry mutations once on failure
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
