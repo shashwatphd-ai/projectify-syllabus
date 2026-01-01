@@ -24,20 +24,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
-
-const submissionSchema = z.object({
-  companyName: z.string().trim().min(1, "Company name is required").max(255),
-  contactEmail: z.string().trim().email("Invalid email address").max(255),
-  contactName: z.string().trim().max(255).optional(),
-  companyDomain: z.string().trim().max(255).optional(),
-  proposedProjectTitle: z.string().trim().min(1, "Project title is required").max(255),
-  projectDescription: z.string().trim().min(10, "Description must be at least 10 characters").max(5000),
-  preferredTimeline: z.string().trim().max(100).optional(),
-  referralSource: z.string().trim().max(100).optional(),
-});
-
-type SubmissionFormData = z.infer<typeof submissionSchema>;
+import { employerInterestSchema, type EmployerInterestFormData } from "@/lib/validation-schemas";
 
 interface EmployerCTAModalProps {
   open: boolean;
@@ -55,8 +42,8 @@ export const EmployerCTAModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  const form = useForm<SubmissionFormData>({
-    resolver: zodResolver(submissionSchema),
+  const form = useForm<EmployerInterestFormData>({
+    resolver: zodResolver(employerInterestSchema),
     defaultValues: {
       companyName: "",
       contactEmail: "",
@@ -69,7 +56,7 @@ export const EmployerCTAModal = ({
     },
   });
 
-  const onSubmit = async (data: SubmissionFormData) => {
+  const onSubmit = async (data: EmployerInterestFormData) => {
     setIsSubmitting(true);
 
     try {

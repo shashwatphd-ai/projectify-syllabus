@@ -143,9 +143,9 @@
 | Item | File/Location | Done Criteria | Status | Verified |
 |------|---------------|---------------|--------|----------|
 | 3.1.1 | `src/lib/validation-schemas.ts` | Central validation file | ✅ | Yes |
-| 3.1.2 | Auth forms | Use centralized schemas | ⬜ | No |
-| 3.1.3 | Project forms | Use centralized schemas | ⬜ | No |
-| 3.1.4 | Feedback forms | Use centralized schemas | ⬜ | No |
+| 3.1.2 | Auth forms | Use centralized schemas | ✅ | Yes |
+| 3.1.3 | Project forms | Use centralized schemas | ✅ | Yes |
+| 3.1.4 | Feedback forms | Use centralized schemas | ✅ | Yes |
 
 ### 3.2 Type Definitions
 **Objective**: Proper TypeScript types for all components
