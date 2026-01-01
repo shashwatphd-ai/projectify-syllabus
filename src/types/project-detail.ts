@@ -22,6 +22,7 @@ export interface ProjectDetailProject {
   course_id: string | null;
   generation_run_id: string | null;
   company_profile_id: string | null;
+  company_logo_url?: string | null;
   status?: string;
 }
 
@@ -57,11 +58,21 @@ export interface ProjectDetailForms {
     scope?: string;
     location?: string;
     ip?: string;
+    equipment_provided?: string;
+    equipment_needed?: string;
+    software?: string;
+    past_experience?: string;
+    follow_up?: string;
   } | null;
   form6: {
     category?: string;
     year?: string;
     hours_per_week?: number;
+    difficulty?: string;
+    majors?: string | string[];
+    faculty_expertise?: string;
+    universities?: string;
+    publication?: string;
   } | null;
   milestones?: Array<{
     title?: string;
@@ -85,6 +96,25 @@ export interface ProjectDetailCourse {
   location_formatted?: string | null;
 }
 
+// Raw metadata from database - uses Json for flexible fields
+export interface ProjectDetailMetadataRaw {
+  algorithm_version: string | null;
+  ai_model_version: string | null;
+  generation_timestamp: string | null;
+  lo_alignment_detail: Json | null;
+  lo_mapping_tasks: Json | null;
+  lo_mapping_deliverables: Json | null;
+  scoring_rationale: Json | null;
+  companies_considered: Json | null;
+  selection_criteria: Json | null;
+  pricing_breakdown: Json | null;
+  value_analysis: Json | null;
+  stakeholder_insights: Json | null;
+  synergistic_value_index?: number | null;
+  partnership_quality_score?: number | null;
+}
+
+// Processed metadata with structured fields
 export interface ProjectDetailMetadata {
   algorithm_version: string;
   ai_model_version: string;
@@ -94,6 +124,10 @@ export interface ProjectDetailMetadata {
   lo_mapping_deliverables: Json | null;
   scoring_rationale: Json | null;
   companies_considered: Json | null;
+  selection_criteria?: {
+    location?: string;
+    industries?: string[];
+  } | null;
   pricing_breakdown: {
     status: 'complete' | 'legacy';
     data?: Json;

@@ -89,7 +89,7 @@ const ProjectFeedback = ({ projectId, onSubmitted }: ProjectFeedbackProps) => {
       setAlignment("");
       setFeasibility("");
       setComments("");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Submit feedback error:', error);
       toast.error("Failed to submit feedback");
     } finally {
