@@ -8,6 +8,7 @@ import { Handshake, Mail, Linkedin, UserCheck, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { z } from "zod";
+import { proposalSchema as baseProposalSchema } from "@/lib/validation-schemas";
 
 interface ProposePartnershipDialogProps {
   projectId: string;
@@ -16,9 +17,8 @@ interface ProposePartnershipDialogProps {
   projectTitle: string;
 }
 
-// Use extended schema with additional pitch types specific to this dialog
-const proposalSchema = z.object({
-  message: z.string().trim().min(10, "Message must be at least 10 characters").max(2000, "Message must be less than 2000 characters"),
+// Extend base proposal schema with additional pitch types specific to this dialog
+const proposalSchema = baseProposalSchema.extend({
   pitchType: z.enum(['email', 'linkedin', 'anonymous'], {
     errorMap: () => ({ message: 'Please select how you want to reach out' })
   })
