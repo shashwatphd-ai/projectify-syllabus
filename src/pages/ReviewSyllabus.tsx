@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Tables, Json } from "@/integrations/supabase/types";
 
-type CourseProfile = Tables<"course_profiles">;
+// Optimized type with only needed columns
+type CourseProfileData = Pick<Tables<"course_profiles">, 
+  'id' | 'title' | 'level' | 'weeks' | 'hrs_per_week' | 'outcomes' | 'artifacts' | 'schedule'
+>;
 
 interface ParsedSyllabusData {
   title: string;
@@ -24,7 +27,7 @@ interface ParsedSyllabusData {
 export default function ReviewSyllabus() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [course, setCourse] = useState<CourseProfile | null>(null);
+  const [course, setCourse] = useState<CourseProfileData | null>(null);
   const [parsedData, setParsedData] = useState<ParsedSyllabusData | null>(null);
   const [rawText, setRawText] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -46,7 +49,7 @@ export default function ReviewSyllabus() {
         setError(null);
         const { data, error } = await supabase
           .from('course_profiles')
-          .select('*')
+          .select('id, title, level, weeks, hrs_per_week, outcomes, artifacts, schedule')
           .eq('id', courseId)
           .single();
 

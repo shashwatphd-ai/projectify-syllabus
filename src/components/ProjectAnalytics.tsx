@@ -33,7 +33,7 @@ export function ProjectAnalytics({ courseId }: { courseId?: string }) {
       setLoading(true);
       let query = supabase
         .from('project_feedback_analytics')
-        .select('*')
+        .select('generation_run_id, course_id, course_title, total_projects, rated_projects, avg_rating, avg_lo_score, avg_final_score, high_rated_count, low_rated_count, needs_review_count, all_rating_tags')
         .order('generation_run_id', { ascending: false });
 
       if (courseId) {
