@@ -1,32 +1,38 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Upload } from "lucide-react";
+import { Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { SyllabusManagement } from "@/components/syllabus/SyllabusManagement";
-import type { Json } from "@/integrations/supabase/types";
-
-interface Course {
-  id: string;
-  title: string;
-  level: string;
-  weeks: number;
-  hrs_per_week: number;
-  location_formatted?: string;
-  created_at: string;
-  outcomes?: Json;
-}
+import { usePaginatedCourses, type Course } from "@/hooks/usePaginatedCourses";
 
 export default function InstructorDashboard() {
   const navigate = useNavigate();
   const { user, loading, isFaculty } = useAuth();
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [coursesLoading, setCoursesLoading] = useState(true);
+
+  // Paginated courses query
+  const {
+    data: coursesData,
+    isLoading: coursesLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch: refetchCourses,
+  } = usePaginatedCourses({
+    userId: user?.id,
+    enabled: isFaculty && !!user,
+  });
+
+  // Flatten paginated courses
+  const courses = useMemo(() => {
+    return coursesData?.pages.flatMap((page) => page.courses) ?? [];
+  }, [coursesData]);
+
+  const totalCount = coursesData?.pages[0]?.totalCount ?? 0;
 
   // Handle auth and faculty access
   useEffect(() => {
@@ -42,34 +48,6 @@ export default function InstructorDashboard() {
       }
     }
   }, [user, loading, isFaculty, navigate]);
-
-  // Fetch courses when faculty status is confirmed
-  useEffect(() => {
-    if (isFaculty && user) {
-      fetchCourses();
-    }
-  }, [isFaculty, user]);
-
-  const fetchCourses = async () => {
-    try {
-      setCoursesLoading(true);
-
-      const { data: coursesData, error: coursesError } = await supabase
-        .from('course_profiles')
-        .select('id, title, level, weeks, hrs_per_week, location_formatted, created_at, outcomes')
-        .eq('owner_id', user!.id)
-        .order('created_at', { ascending: false });
-
-      if (coursesError) throw coursesError;
-
-      setCourses(coursesData || []);
-    } catch (error) {
-      console.error('Error fetching courses:', error);
-      toast.error("Failed to load courses");
-    } finally {
-      setCoursesLoading(false);
-    }
-  };
 
   if (loading || !isFaculty || !user) {
     return (
@@ -133,7 +111,29 @@ export default function InstructorDashboard() {
             ))}
           </div>
         ) : (
-          <SyllabusManagement courses={courses} onRefresh={fetchCourses} />
+          <>
+            <SyllabusManagement courses={courses} onRefresh={() => { refetchCourses(); }} />
+            
+            {/* Load More Button */}
+            {hasNextPage && (
+              <div className="flex justify-center mt-8">
+                <Button
+                  variant="outline"
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                >
+                  {isFetchingNextPage ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    `Load More Syllabi (${courses.length} of ${totalCount})`
+                  )}
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </>

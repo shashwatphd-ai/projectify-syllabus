@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { LiveDemandBadge } from "@/components/premium/LiveDemandBadge";
 import { ProjectsPageSkeleton } from "@/components/skeletons/DashboardSkeleton";
+import { usePaginatedProjects, type ProjectWithCourse } from "@/hooks/usePaginatedProjects";
 
 const getQualityBorder = (similarity: number) => {
   if (similarity >= 0.80) return 'border-l-4 border-l-green-500';
@@ -50,25 +51,6 @@ const Projects = () => {
   const initialCourseId = searchParams.get('course') || searchParams.get('courseId') || location.state?.courseId;
   const [selectedCourseId, setSelectedCourseId] = useState<string | undefined>(initialCourseId);
   const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);
-  const [projects, setProjects] = useState<Array<{
-    id: string;
-    title: string;
-    company_name: string;
-    sector: string;
-    final_score: number;
-    lo_score: number;
-    duration_weeks: number;
-    team_size: number;
-    pricing_usd: number;
-    status: string | null;
-    course_id: string;
-    needs_review: boolean | null;
-    faculty_rating: number | null;
-    faculty_feedback: string | null;
-    rating_tags: string[] | null;
-    course_profiles?: { owner_id: string; title: string };
-  }>>([]);
-  const [loading, setLoading] = useState(true);
   const [downloadingCourseId, setDownloadingCourseId] = useState<string | null>(null);
   const [appliedProjects, setAppliedProjects] = useState<Set<string>>(new Set());
   const [applyingProjectId, setApplyingProjectId] = useState<string | null>(null);
@@ -80,6 +62,30 @@ const Projects = () => {
     faculty_feedback?: string | null;
     rating_tags?: string[] | null;
   } | null>(null);
+
+  // Paginated projects query
+  const {
+    data: projectsData,
+    isLoading: projectsLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch: refetchProjects,
+  } = usePaginatedProjects({
+    userId: user?.id,
+    selectedCourseId,
+    isStudent,
+    isFaculty,
+    isAdmin,
+    isEmployer,
+  });
+
+  // Flatten paginated projects
+  const projects = useMemo(() => {
+    return projectsData?.pages.flatMap((page) => page.projects) ?? [];
+  }, [projectsData]);
+
+  const totalCount = projectsData?.pages[0]?.totalCount ?? 0;
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -96,13 +102,10 @@ const Projects = () => {
   }, [user, authLoading, isFaculty, isAdmin]);
 
   useEffect(() => {
-    if (user && !authLoading) {
-      loadProjects();
-      if (isStudent) {
-        loadStudentApplications();
-      }
+    if (user && !authLoading && isStudent) {
+      loadStudentApplications();
     }
-  }, [user, authLoading, isStudent, isFaculty, isAdmin, isEmployer, selectedCourseId]);
+  }, [user, authLoading, isStudent]);
 
   const loadCourses = async () => {
     if (!user) return;
@@ -130,83 +133,7 @@ const Projects = () => {
     }
   };
 
-  const loadProjects = async () => {
-    if (!user) return;
-
-    try {
-      setLoading(true);
-
-      if (isStudent) {
-        // Students see only curated_live projects
-        const { data, error } = await supabase
-          .from('projects')
-          .select('*, course_profiles(owner_id, title)')
-        // .eq('status', 'curated_live')
-        // .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        setProjects(data || []);
-
-      } else if (isFaculty && !isAdmin) {
-        // Faculty see all projects from courses they own (all statuses)
-        let query = supabase
-          .from('projects')
-          .select('*, course_profiles!inner(owner_id, title)')
-          .eq('course_profiles.owner_id', user.id);
-
-        if (selectedCourseId) {
-          query = query.eq('course_id', selectedCourseId);
-        }
-
-        const { data, error } = await query.order('created_at', { ascending: false });
-
-        if (error) throw error;
-        setProjects(data || []);
-
-      } else if (isAdmin) {
-        // Admins see all projects (all statuses)
-        let query = supabase
-          .from('projects')
-          .select('*, course_profiles(owner_id, title)');
-
-        if (selectedCourseId) {
-          query = query.eq('course_id', selectedCourseId);
-        }
-
-        const { data, error } = await query.order('created_at', { ascending: false });
-
-        if (error) throw error;
-        setProjects(data || []);
-
-      } else if (isEmployer) {
-        // Employers see only their company's live projects
-        const { data: companyData } = await supabase
-          .from('company_profiles')
-          .select('id')
-          .eq('owner_user_id', user.id)
-          .maybeSingle();
-
-        if (companyData) {
-          const { data, error } = await supabase
-            .from('projects')
-            .select('*, course_profiles(owner_id, title)')
-            .eq('company_profile_id', companyData.id)
-            .in('status', ['curated_live', 'in_progress', 'completed'])
-            .order('created_at', { ascending: false });
-
-          if (error) throw error;
-          setProjects(data || []);
-        } else {
-          setProjects([]);
-        }
-      }
-    } catch (error: any) {
-      console.error('Load projects error:', error);
-      toast.error('Failed to load projects');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // loadProjects is now handled by usePaginatedProjects hook
 
   const loadStudentApplications = async () => {
     if (!user) return;
@@ -284,10 +211,10 @@ const Projects = () => {
   };
 
   const handleFeedbackSuccess = () => {
-    loadProjects(); // Reload to show updated rating
+    refetchProjects(); // Reload to show updated rating
   };
 
-  if (authLoading || loading) {
+  if (authLoading || projectsLoading) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -296,7 +223,7 @@ const Projects = () => {
     );
   }
 
-  if (projects.length === 0) {
+  if (projects.length === 0 && !projectsLoading) {
     return (
       <>
         <Header />
@@ -363,7 +290,7 @@ const Projects = () => {
               {selectedCourseName ? `${selectedCourseName} Projects` : "Generated Projects"}
             </h1>
             <p className="text-muted-foreground">
-              {projects.length} project{projects.length !== 1 ? "s" : ""} generated based on your course outcomes
+              Showing {projects.length} of {totalCount} project{totalCount !== 1 ? "s" : ""}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -396,7 +323,7 @@ const Projects = () => {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-          {projects.map((project: any) => (
+          {projects.map((project) => (
             <Card
               key={project.id}
               className={`shadow-[var(--shadow-card)] hover:shadow-lg transition-shadow cursor-pointer ${project.similarity_score ? getQualityBorder(project.similarity_score) : ''}`}
@@ -542,6 +469,26 @@ const Projects = () => {
             </Card>
           ))}
         </div>
+
+        {/* Load More Button */}
+        {hasNextPage && (
+          <div className="flex justify-center mt-8">
+            <Button
+              variant="outline"
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+            >
+              {isFetchingNextPage ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                `Load More (${projects.length} of ${totalCount})`
+              )}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* PHASE 2: Feedback Dialog */}
