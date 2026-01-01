@@ -11,8 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Briefcase, ExternalLink, Loader2, Search, X } from "lucide-react";
 import type { Json } from "@/integrations/supabase/types";
 
+// Interface matching the columns we fetch
 interface JobMatch {
   id: string;
+  apollo_job_id: string;
   apollo_job_title: string | null;
   apollo_company_name: string | null;
   apollo_job_url: string | null;
@@ -66,7 +68,7 @@ export default function MyOpportunities() {
       setLoading(true);
       let query = supabase
         .from("job_matches")
-        .select("*")
+        .select("id, apollo_job_id, apollo_job_title, apollo_company_name, apollo_job_url, apollo_job_payload, status, created_at")
         .eq("student_id", user.id);
 
       // Apply status filter

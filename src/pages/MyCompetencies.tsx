@@ -36,7 +36,7 @@ export default function MyCompetencies() {
     try {
       const { data, error } = await supabase
         .from("verified_competencies")
-        .select("*")
+        .select("id, skill_name, verification_source, employer_rating, created_at")
         .eq("student_id", user!.id)
         .order("created_at", { ascending: false });
 

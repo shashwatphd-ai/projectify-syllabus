@@ -14,14 +14,18 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
-type CourseProfile = Tables<"course_profiles">;
+// Optimized type with only needed columns
+type CourseProfileData = Pick<Tables<"course_profiles">, 
+  'id' | 'owner_id' | 'title' | 'level' | 'weeks' | 'hrs_per_week' | 'outcomes' | 'artifacts' | 'schedule' | 
+  'location_city' | 'location_state' | 'location_zip' | 'location_country' | 'location_formatted' | 'search_location' | 'city_zip' | 'created_at'
+>;
 
 const Configure = () => {
   const { user, loading: authLoading, requireAuth } = useAuth();
   const [searchParams] = useSearchParams();
   const courseId = searchParams.get('courseId');
   const autoGenerate = searchParams.get('autoGenerate') === 'true';
-  const [courseData, setCourseData] = useState<CourseProfile | null>(null);
+  const [courseData, setCourseData] = useState<CourseProfileData | null>(null);
   const [industries, setIndustries] = useState("");
   const [companies, setCompanies] = useState("");
   const [numTeams, setNumTeams] = useState("4");
@@ -51,7 +55,7 @@ const Configure = () => {
       try {
         const { data, error } = await supabase
           .from('course_profiles')
-          .select('*')
+          .select('id, owner_id, title, level, weeks, hrs_per_week, outcomes, artifacts, schedule, location_city, location_state, location_zip, location_country, location_formatted, search_location, city_zip, created_at')
           .eq('id', courseId)
           .single();
 
