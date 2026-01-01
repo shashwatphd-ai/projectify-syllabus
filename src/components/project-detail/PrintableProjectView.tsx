@@ -9,9 +9,10 @@ import { LearningOutcomeAlignment } from "./LearningOutcomeAlignment";
 import { VerificationTab } from "./VerificationTab";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import type { ProjectDetailResponse } from "@/types/project-detail";
 
 interface PrintableProjectViewProps {
-  data: any;
+  data: ProjectDetailResponse;
 }
 
 export const PrintableProjectView = ({ data }: PrintableProjectViewProps) => {

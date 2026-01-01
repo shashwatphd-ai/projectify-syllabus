@@ -9,19 +9,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Briefcase, ExternalLink, Loader2, Search, X } from "lucide-react";
+import type { Json } from "@/integrations/supabase/types";
 
 interface JobMatch {
   id: string;
-  apollo_job_title: string;
-  apollo_company_name: string;
-  apollo_job_url: string;
-  apollo_job_payload: any;
-  created_at: string;
-  status: string;
+  apollo_job_title: string | null;
+  apollo_company_name: string | null;
+  apollo_job_url: string | null;
+  apollo_job_payload: Json | null;
+  created_at: string | null;
+  status: string | null;
+}
+
+interface AuthUser {
+  id: string;
+  email?: string;
 }
 
 export default function MyOpportunities() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [jobMatches, setJobMatches] = useState<JobMatch[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -183,17 +189,17 @@ export default function MyOpportunities() {
                 </CardHeader>
                 
                 <CardContent className="space-y-4">
-                  {match.apollo_job_payload?.location && (
+                  {match.apollo_job_payload && typeof match.apollo_job_payload === 'object' && !Array.isArray(match.apollo_job_payload) && 'location' in match.apollo_job_payload && (
                     <div className="text-sm text-muted-foreground">
-                      📍 {match.apollo_job_payload.location}
+                      📍 {String(match.apollo_job_payload.location)}
                     </div>
                   )}
                   
-                  {match.apollo_job_payload?.matched_skills && match.apollo_job_payload.matched_skills.length > 0 && (
+                  {match.apollo_job_payload && typeof match.apollo_job_payload === 'object' && !Array.isArray(match.apollo_job_payload) && 'matched_skills' in match.apollo_job_payload && Array.isArray(match.apollo_job_payload.matched_skills) && match.apollo_job_payload.matched_skills.length > 0 && (
                     <div>
                       <p className="text-sm font-medium mb-2">Matched Skills:</p>
                       <div className="flex flex-wrap gap-2">
-                        {match.apollo_job_payload.matched_skills.map((skill: string, idx: number) => (
+                        {(match.apollo_job_payload.matched_skills as string[]).map((skill: string, idx: number) => (
                           <Badge key={idx} variant="outline" className="bg-primary/5">
                             {skill}
                           </Badge>

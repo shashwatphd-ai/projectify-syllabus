@@ -21,7 +21,7 @@ interface CareerPathwayCardProps {
   projectId: string;
   projectSkills: string[];
   sector: string;
-  existingData?: any;
+  existingData?: CareerPathwayData | null;
   onAnalyze?: () => void;
 }
 

@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Upload } from "lucide-react";
 import { toast } from "sonner";
 import { SyllabusManagement } from "@/components/syllabus/SyllabusManagement";
+import type { Json } from "@/integrations/supabase/types";
 
 interface Course {
   id: string;
@@ -18,7 +19,7 @@ interface Course {
   hrs_per_week: number;
   location_formatted?: string;
   created_at: string;
-  outcomes?: any;
+  outcomes?: Json;
 }
 
 export default function InstructorDashboard() {

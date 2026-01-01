@@ -121,7 +121,7 @@ Best regards`);
         <div className="space-y-6 py-4">
           <div className="space-y-3">
             <Label>How would you like to reach out?</Label>
-            <RadioGroup value={pitchType} onValueChange={(value) => setPitchType(value as any)}>
+            <RadioGroup value={pitchType} onValueChange={(value) => setPitchType(value as 'email' | 'linkedin' | 'anonymous')}>
               <div className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors cursor-pointer">
                 <RadioGroupItem value="email" id="email" className="mt-1" />
                 <Label htmlFor="email" className="cursor-pointer flex-1">

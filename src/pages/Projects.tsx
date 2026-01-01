@@ -50,13 +50,36 @@ const Projects = () => {
   const initialCourseId = searchParams.get('course') || searchParams.get('courseId') || location.state?.courseId;
   const [selectedCourseId, setSelectedCourseId] = useState<string | undefined>(initialCourseId);
   const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Array<{
+    id: string;
+    title: string;
+    company_name: string;
+    sector: string;
+    final_score: number;
+    lo_score: number;
+    duration_weeks: number;
+    team_size: number;
+    pricing_usd: number;
+    status: string | null;
+    course_id: string;
+    needs_review: boolean | null;
+    faculty_rating: number | null;
+    faculty_feedback: string | null;
+    rating_tags: string[] | null;
+    course_profiles?: { owner_id: string; title: string };
+  }>>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingCourseId, setDownloadingCourseId] = useState<string | null>(null);
   const [appliedProjects, setAppliedProjects] = useState<Set<string>>(new Set());
   const [applyingProjectId, setApplyingProjectId] = useState<string | null>(null);
   const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
-  const [selectedProjectForFeedback, setSelectedProjectForFeedback] = useState<any>(null);
+  const [selectedProjectForFeedback, setSelectedProjectForFeedback] = useState<{
+    id: string;
+    title: string;
+    faculty_rating?: number | null;
+    faculty_feedback?: string | null;
+    rating_tags?: string[] | null;
+  } | null>(null);
 
   // Redirect if not authenticated
   useEffect(() => {

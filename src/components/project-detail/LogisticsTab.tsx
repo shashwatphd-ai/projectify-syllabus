@@ -1,9 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Wrench, Monitor, Shield, History, TrendingUp } from "lucide-react";
+import type { ProjectDetailForms } from "@/types/project-detail";
 
 interface LogisticsTabProps {
-  forms: any;
+  forms: ProjectDetailForms;
 }
 
 export const LogisticsTab = ({ forms }: LogisticsTabProps) => {

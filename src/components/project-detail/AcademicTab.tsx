@@ -1,9 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { GraduationCap, Clock, BookOpen, Users, Award } from "lucide-react";
+import type { ProjectDetailForms } from "@/types/project-detail";
 
 interface AcademicTabProps {
-  forms: any;
+  forms: ProjectDetailForms;
 }
 
 export const AcademicTab = ({ forms }: AcademicTabProps) => {

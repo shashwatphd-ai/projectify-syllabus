@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Building2, Target, DollarSign, Calendar, Users, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import type { ProjectDetailProject } from "@/types/project-detail";
 
 const getMatchQuality = (similarity: number) => {
   if (similarity >= 0.85) return { grade: 'A+', label: 'EXCELLENT MATCH', color: 'hsl(var(--quality-excellent))' };
@@ -13,7 +14,7 @@ const getMatchQuality = (similarity: number) => {
 };
 
 interface ProjectHeaderProps {
-  project: any;
+  project: ProjectDetailProject & { similarity_score?: number; pricing_usd: number };
   courseIdFilter?: string;
 }
 
