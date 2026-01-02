@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Briefcase, TrendingUp, Loader2, AlertTriangle, Flame, ArrowUpDown, Link as LinkIcon, BarChart3, Shield } from "lucide-react";
+import { Briefcase, TrendingUp, Loader2, AlertTriangle, Flame, ArrowUpDown, Link as LinkIcon, BarChart3, Shield, FlaskConical } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
@@ -355,6 +355,14 @@ const AdminHub = () => {
               >
                 <Shield className="h-4 w-4" />
                 Role Management
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/admin-hub/tests')}
+                className="gap-2"
+              >
+                <FlaskConical className="h-4 w-4" />
+                Test Dashboard
               </Button>
               <Button
                 variant="outline"
