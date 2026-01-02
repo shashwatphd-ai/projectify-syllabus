@@ -23,6 +23,7 @@ const DemandBoard = lazy(() => import("./pages/DemandBoard"));
 const AdminHub = lazy(() => import("./pages/AdminHub"));
 const AdminMetrics = lazy(() => import("./pages/AdminMetrics"));
 const AdminImportUniversities = lazy(() => import("./pages/AdminImportUniversities"));
+const AdminTestDashboard = lazy(() => import("./pages/AdminTestDashboard"));
 const RoleManagement = lazy(() => import("./pages/RoleManagement"));
 const MyOpportunities = lazy(() => import("./pages/MyOpportunities"));
 const MyCompetencies = lazy(() => import("./pages/MyCompetencies"));
@@ -161,7 +162,13 @@ const App = () => (
                       </ErrorBoundary>
                     </ProtectedRoute>
                   } />
-                  
+                  <Route path="/admin-hub/tests" element={
+                    <ProtectedRoute requiredRole="admin">
+                      <ErrorBoundary>
+                        <AdminTestDashboard />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  } />
                   {/* Student Routes */}
                   <Route path="/my-opportunities" element={
                     <ProtectedRoute requiredRole="student">
