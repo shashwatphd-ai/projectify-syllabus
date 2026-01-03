@@ -266,6 +266,35 @@ export class ApolloProvider implements DiscoveryProvider {
 
     const processingTime = (Date.now() - startTime) / 1000;
 
+    // Calculate hiring stats from enriched companies
+    let companiesWithJobs = 0;
+    let companiesWithoutJobs = 0;
+    let totalJobPostings = 0;
+    
+    for (const company of companies) {
+      const jobCount = company.jobPostings?.length || 0;
+      if (jobCount > 0) {
+        companiesWithJobs++;
+        totalJobPostings += jobCount;
+      } else {
+        companiesWithoutJobs++;
+      }
+    }
+    
+    const hiringStats = {
+      companiesWithJobs,
+      companiesWithoutJobs,
+      totalJobPostings,
+      averageJobsPerCompany: companiesWithJobs > 0 
+        ? Math.round(totalJobPostings / companiesWithJobs * 10) / 10 
+        : 0
+    };
+    
+    console.log(`\n📊 [Apollo Provider] Hiring Stats Summary:`);
+    console.log(`   Companies with jobs: ${companiesWithJobs}/${companies.length}`);
+    console.log(`   Total job postings: ${totalJobPostings}`);
+    console.log(`   Avg jobs/company: ${hiringStats.averageJobsPerCompany}`);
+
     return {
       companies,
       stats: {
@@ -273,7 +302,8 @@ export class ApolloProvider implements DiscoveryProvider {
         enriched: companies.length,
         processingTimeSeconds: processingTime,
         apiCreditsUsed: companies.length * 2, // Org search + People search
-        providerUsed: 'apollo'
+        providerUsed: 'apollo',
+        hiringStats
       },
       // Include feedback about user-specified companies
       userRequestedCompanies: hasTargetCompanies ? {
@@ -1594,32 +1624,86 @@ Return JSON:
       return null;
     }
 
-    // Fetch job postings using correct Apollo endpoint
-    // FIXED: Correct endpoint is /v1/ not /api/v1/, and response field is job_postings not organization_job_postings
+    // =====================================================
+    // PHASE 1: ROBUST JOB POSTINGS RETRIEVAL
+    // Try BOTH endpoint variants and parse BOTH field names
+    // =====================================================
     let jobPostings: any[] = [];
-    try {
-      const jobResult = await fetchWithRetry<{ job_postings: any[] }>(
-        `https://api.apollo.io/v1/organizations/${org.id}/job_postings`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache',
-            'X-Api-Key': this.apolloApiKey!
-          }
-        },
-        LIGHT_RETRY_CONFIG,
-        `Apollo Job Postings (${org.name})`
-      );
+    let jobFetchStatus: 'success' | 'no_jobs' | 'permission_denied' | 'error' = 'no_jobs';
+    
+    // Endpoint variants to try (in order of preference)
+    const JOB_ENDPOINTS = [
+      { path: '/v1', description: 'Standard endpoint' },
+      { path: '/api/v1', description: 'API-prefixed endpoint' }
+    ];
+    
+    for (const endpoint of JOB_ENDPOINTS) {
+      if (jobPostings.length > 0) break; // Already found jobs, skip remaining
+      
+      const url = `https://api.apollo.io${endpoint.path}/organizations/${org.id}/job_postings?page=1&per_page=25`;
+      console.log(`  📡 Trying job postings: ${endpoint.description}`);
+      
+      try {
+        const jobResult = await fetchWithRetry<Record<string, any>>(
+          url,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache',
+              'X-Api-Key': this.apolloApiKey!
+            }
+          },
+          LIGHT_RETRY_CONFIG,
+          `Apollo Job Postings (${org.name})`
+        );
 
-      if (jobResult.success && jobResult.data?.job_postings) {
-        jobPostings = jobResult.data.job_postings.slice(0, 25);
-        console.log(`  ✓ Found ${jobPostings.length} job postings for ${org.name}`);
-      } else {
-        console.log(`  ℹ No job postings found for ${org.name}`);
+        if (!jobResult.success) {
+          // Check for permission-related failures
+          const errorStr = String(jobResult.error || '');
+          if (errorStr.includes('401') || errorStr.includes('402') || errorStr.includes('403')) {
+            console.log(`  ⚠️ Permission denied for job postings (${org.name})`);
+            jobFetchStatus = 'permission_denied';
+            break; // Don't try other endpoints if permission denied
+          }
+          console.log(`  ⚠️ Endpoint ${endpoint.path} failed: ${jobResult.error}`);
+          continue;
+        }
+
+        // Try BOTH possible field names
+        const data = jobResult.data || {};
+        let foundJobs: any[] = [];
+        
+        if (data.job_postings && Array.isArray(data.job_postings)) {
+          foundJobs = data.job_postings;
+          console.log(`  ✓ Found ${foundJobs.length} jobs in 'job_postings' field (${endpoint.description})`);
+        } else if (data.organization_job_postings && Array.isArray(data.organization_job_postings)) {
+          foundJobs = data.organization_job_postings;
+          console.log(`  ✓ Found ${foundJobs.length} jobs in 'organization_job_postings' field (${endpoint.description})`);
+        } else {
+          // Log top-level keys for debugging (only once)
+          const topKeys = Object.keys(data).slice(0, 10);
+          console.log(`  ℹ️ No job array found. Top-level keys: ${topKeys.join(', ')}`);
+        }
+
+        if (foundJobs.length > 0) {
+          jobPostings = foundJobs.slice(0, 25);
+          jobFetchStatus = 'success';
+        }
+
+      } catch (error) {
+        console.error(`  ❌ Job postings fetch error (${endpoint.description}):`, error);
+        jobFetchStatus = 'error';
       }
-    } catch (error) {
-      console.error(`  ❌ Job postings fetch error for ${org.name}:`, error);
+    }
+
+    // Final status log
+    if (jobPostings.length > 0) {
+      console.log(`  ✅ JOBS FOUND: ${jobPostings.length} job postings for ${org.name}`);
+    } else if (jobFetchStatus === 'permission_denied') {
+      console.log(`  🔒 JOBS UNAVAILABLE: Permission denied for ${org.name}`);
+    } else {
+      console.log(`  ℹ️ NO JOBS: ${org.name} has no active job postings (status: ${jobFetchStatus})`);
     }
 
     // Calculate buying intent signals
