@@ -4,10 +4,13 @@
 
 | Metric | Count |
 |--------|-------|
-| **Total TypeScript Files** | 223 |
-| **Total Lines of Code** | 54,458 |
-| **Frontend Files (src/)** | 144 files, 24,933 lines |
-| **Edge Functions (supabase/functions/)** | 78 files, 29,412 lines |
+| **Total Git-Tracked Files** | 401 |
+| **Total Lines of Code** | 108,444 |
+| **TypeScript/TSX Files** | 224 (121 .tsx + 103 .ts) |
+| **SQL Migration Files** | 71 |
+| **Documentation Files (.md)** | 83 |
+| **Frontend Files (src/)** | 147 files |
+| **Supabase Files** | 160 files |
 | **Page Components** | 22 |
 | **React Components** | 96 |
 | **Custom Hooks** | 9 |
@@ -223,6 +226,78 @@ form2: {
 
 ---
 
+### 5. Per-Keystroke API Refetching
+
+**Location:** `src/pages/MyOpportunities.tsx:60-64`
+
+```typescript
+useEffect(() => {
+  if (user) {
+    fetchJobMatches();
+  }
+}, [user, searchQuery, statusFilter]);  // searchQuery triggers on EVERY keystroke!
+```
+
+**Impact:** Typing "software" triggers 8 separate API calls (one per character). This causes:
+- Excessive database load
+- UI flicker from rapid loading states
+- Race conditions where results arrive out of order
+
+**Fix:** Debounce the search input (300-500ms) or use explicit "Search" button.
+
+---
+
+### 6. Sequential Dashboard Queries (Not Parallelized)
+
+**Location:** `src/pages/StudentDashboard.tsx:52-79`
+
+```typescript
+// Four sequential awaits - each blocks the next
+const { data: applications } = await supabase.from("project_applications")...
+const { count: jobCount } = await supabase.from("job_matches")...
+const { count: compCount } = await supabase.from("verified_competencies")...
+const { count: projectCount } = await supabase.from("projects")...
+```
+
+**Impact:** If any query is slow (e.g., 500ms each), total load time is 2+ seconds. Dashboard shows nothing until ALL queries complete.
+
+**Fix:**
+```typescript
+const [applications, jobCount, compCount, projectCount] = await Promise.all([
+  supabase.from("project_applications")...,
+  supabase.from("job_matches")...,
+  supabase.from("verified_competencies")...,
+  supabase.from("projects")...
+]);
+```
+
+---
+
+### 7. O(N×M) Client-Side Filtering in AdminHub
+
+**Location:** `src/pages/AdminHub.tsx:140-146`
+
+```typescript
+const projectsWithSignals = (projectData || []).map(project => {
+  const companySignals = (signalData || [])
+    .filter(signal => signal.company_id === project.company_profile_id);  // O(signals) per project!
+  // ...
+});
+```
+
+**Impact:** For 100 projects and 500 signals, this is 50,000 filter operations. Scales poorly as data grows.
+
+**Fix:** Use a database JOIN or create a `Map<companyId, signals[]>` for O(1) lookup:
+```typescript
+const signalMap = new Map();
+signalData.forEach(s => {
+  if (!signalMap.has(s.company_id)) signalMap.set(s.company_id, []);
+  signalMap.get(s.company_id).push(s);
+});
+```
+
+---
+
 ## API & Resource Orchestration Inefficiencies
 
 ### 1. Polling Instead of Realtime Subscriptions
@@ -382,7 +457,7 @@ Long-running operations (project generation, company enrichment) run synchronous
 | Category | Issues Found | Severity |
 |----------|-------------|----------|
 | Architectural Flaws | 5 | Critical |
-| Logical Flaws | 4 | High |
+| Logical Flaws | 7 | High |
 | API Inefficiencies | 6 | High |
 | Missing Infrastructure | 3 | Medium |
 | Code Duplication | ~500 lines | Medium |
@@ -391,13 +466,16 @@ Long-running operations (project generation, company enrichment) run synchronous
 
 ## Recommended Priority Actions
 
-1. **Split `discover-companies` into a saga** with separate functions per phase
-2. **Replace polling with Realtime subscriptions** in Configure page
-3. **Extract duplicated code** to shared modules
-4. **Parallelize O*NET and Firecrawl calls** with `Promise.all()`
-5. **Add circuit breaker** to Apollo API calls
-6. **Use atomic transactions** in run-single-project-generation
-7. **Implement background job queue** for long-running operations
+1. **Debounce search inputs** in MyOpportunities (quick win, high impact)
+2. **Parallelize dashboard queries** with `Promise.all()` in StudentDashboard
+3. **Fix O(N×M) filtering** in AdminHub with Map-based lookup
+4. **Split `discover-companies` into a saga** with separate functions per phase
+5. **Replace polling with Realtime subscriptions** in Configure page
+6. **Extract duplicated code** to shared modules
+7. **Parallelize O*NET and Firecrawl calls** with `Promise.all()`
+8. **Add circuit breaker** to Apollo API calls
+9. **Use atomic transactions** in run-single-project-generation
+10. **Implement background job queue** for long-running operations
 
 ---
 
