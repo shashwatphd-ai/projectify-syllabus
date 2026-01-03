@@ -148,6 +148,14 @@ export interface DiscoveryResult {
       totalJobPostings: number;
       averageJobsPerCompany: number;
     };
+    // Phase 3 Diagnostics: Job fetch status tracking
+    jobFetchDiagnostics?: {
+      attemptedJobFetches: number;
+      successfulJobFetches: number;
+      permissionDeniedFetches: number;
+      errorFetches: number;
+      noJobsFetches: number;
+    };
   };
   // Feedback about user-specified companies (optional)
   userRequestedCompanies?: {

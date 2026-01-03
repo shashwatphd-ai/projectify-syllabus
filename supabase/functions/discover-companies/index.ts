@@ -1384,7 +1384,7 @@ serve(async (req) => {
           ...discoveryResult.stats,
           totalProcessingTime
         },
-        // DIAGNOSTICS: Provider and fallback information
+        // DIAGNOSTICS: Provider and fallback information + hiring stats
         diagnostics: {
           primaryProvider: providerConfig.provider,
           usedFallback: usedFallback,
@@ -1396,7 +1396,9 @@ serve(async (req) => {
           semanticFilterApplied: !skipFiltering,
           averageSimilarity: !skipFiltering && filteredCompanies.length > 0
             ? (filteredCompanies.reduce((sum, c) => sum + (c.similarityScore || 0), 0) / filteredCompanies.length).toFixed(2)
-            : null
+            : null,
+          // Phase 3: Hiring diagnostics
+          hiringStats: discoveryResult.stats.hiringStats || null
         },
         // Feedback about user-specified companies (from Apollo provider)
         userRequestedCompanies: discoveryResult.userRequestedCompanies || null
