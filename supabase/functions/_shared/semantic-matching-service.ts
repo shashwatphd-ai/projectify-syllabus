@@ -44,6 +44,8 @@ export interface SemanticMatch {
   matchingSkills: string[];        // Skills that matched
   matchingDWAs: string[];          // DWAs that matched
   explanation: string;             // Why this is a good/bad match
+  hiringBoost?: number;            // Boost applied for active hiring (0-0.15)
+  hasActiveJobs?: boolean;         // Whether company has active job postings
 }
 
 export interface SemanticFilteringResult {
@@ -55,6 +57,12 @@ export interface SemanticFilteringResult {
   threshold: number;                // Threshold used
   processingTimeMs: number;
   embeddingProvider?: string;       // Which provider was used
+  hiringStats?: {                   // Hiring statistics for companies
+    companiesWithJobs: number;
+    companiesWithoutJobs: number;
+    totalJobPostings: number;
+    averageJobsPerCompany: number;
+  };
 }
 
 /**
@@ -109,21 +117,46 @@ async function computeSimilarityWithFallback(
 }
 
 /**
+ * Configuration for semantic ranking with hiring boost
+ */
+export interface RankingConfig {
+  threshold?: number;               // Similarity threshold (default: 0.7)
+  prioritizeHiring?: boolean;       // Whether to boost companies with active jobs (default: true)
+  hiringBoostFactor?: number;       // Boost multiplier for active hiring (default: 0.15 = 15%)
+  requireActiveHiring?: boolean;    // If true, filter out companies with no jobs (default: false)
+  minJobPostings?: number;          // Minimum jobs required (default: 0)
+}
+
+/**
  * Rank companies by semantic similarity to course
  * NOW OPTIMIZED: Uses batch embedding processing for efficiency
  * NOW CONTEXT-AWARE: Accepts socMappings for intelligent industry filtering
+ * NOW HIRING-AWARE: Boosts companies with active, relevant job postings
  */
 export async function rankCompaniesBySimilarity(
   courseSkills: ExtractedSkill[],
   occupations: StandardOccupation[],
   companies: any[],
   threshold: number = 0.7,
-  socMappings: SOCMapping[] = []
+  socMappings: SOCMapping[] = [],
+  config: RankingConfig = {}
 ): Promise<SemanticFilteringResult> {
   const startTime = Date.now();
+  
+  // Apply config defaults
+  const {
+    prioritizeHiring = true,
+    hiringBoostFactor = 0.15,
+    requireActiveHiring = false,
+    minJobPostings = 0
+  } = config;
 
   console.log(`\n🧠 [Phase 3] Ranking ${companies.length} companies by semantic similarity...`);
   console.log(`   Threshold: ${threshold.toFixed(2)}`);
+  console.log(`   Hiring Boost: ${prioritizeHiring ? `ENABLED (${(hiringBoostFactor * 100).toFixed(0)}%)` : 'DISABLED'}`);
+  if (requireActiveHiring) {
+    console.log(`   ⚠️  Require Active Hiring: YES (min ${minJobPostings} jobs)`);
+  }
 
   // Classify course domain for context-aware filtering
   const { domain: courseDomain } = classifyCourseDomain(socMappings);
@@ -177,9 +210,27 @@ export async function rankCompaniesBySimilarity(
     );
   }
 
-  // Build matches with industry penalties
+  // Calculate hiring stats for all companies
+  let companiesWithJobs = 0;
+  let companiesWithoutJobs = 0;
+  let totalJobPostings = 0;
+  
+  // Build matches with industry penalties and hiring boost
   const matches: SemanticMatch[] = companies.map((company, i) => {
     let similarity = similarities[i];
+    
+    // Get job postings for this company
+    const jobPostings = company.job_postings || company.jobPostings || [];
+    const jobCount = Array.isArray(jobPostings) ? jobPostings.length : 0;
+    const hasActiveJobs = jobCount > 0;
+    
+    // Track hiring stats
+    if (hasActiveJobs) {
+      companiesWithJobs++;
+      totalJobPostings += jobCount;
+    } else {
+      companiesWithoutJobs++;
+    }
     
     // INDUSTRY VALIDATION: Context-aware penalty system
     const companySector = (company.sector || '').toLowerCase();
@@ -187,7 +238,7 @@ export async function rankCompaniesBySimilarity(
       occupations,
       companySector,
       socMappings,
-      company.job_postings || company.jobPostings || []
+      jobPostings
     );
 
     const rawSimilarity = similarity;
@@ -195,6 +246,18 @@ export async function rankCompaniesBySimilarity(
       similarity = similarity * (1 - industryDecision.penalty);
       console.log(`   ⚠️  ${company.name}: ${industryDecision.reason}`);
       console.log(`      Raw: ${(rawSimilarity * 100).toFixed(0)}% → Penalized: ${(similarity * 100).toFixed(0)}%`);
+    }
+    
+    // HIRING BOOST: Increase score for companies with active job postings
+    let hiringBoost = 0;
+    if (prioritizeHiring && hasActiveJobs) {
+      // Scale boost by job count (more jobs = slightly higher boost, capped at hiringBoostFactor)
+      const jobCountMultiplier = Math.min(1, jobCount / 10); // 10+ jobs = full boost
+      hiringBoost = hiringBoostFactor * (0.5 + 0.5 * jobCountMultiplier);
+      similarity = similarity * (1 + hiringBoost);
+      
+      // Cap at 1.0
+      similarity = Math.min(1.0, similarity);
     }
 
     // Determine confidence level
@@ -215,20 +278,44 @@ export async function rankCompaniesBySimilarity(
       confidence,
       matchingSkills,
       matchingDWAs,
-      explanation
+      explanation,
+      hiringBoost,
+      hasActiveJobs
     };
   });
 
   // Sort by similarity (highest first)
   matches.sort((a, b) => b.similarityScore - a.similarityScore);
 
+  // Apply hiring filter if required
+  let preFilterCount = matches.length;
+  let matchesToFilter = matches;
+  
+  if (requireActiveHiring) {
+    matchesToFilter = matches.filter(m => {
+      const jobCount = companies.find(c => c.name === m.companyName)?.job_postings?.length || 0;
+      return jobCount >= minJobPostings;
+    });
+    console.log(`   🎯 Hiring Filter: ${preFilterCount} → ${matchesToFilter.length} companies (require ≥${minJobPostings} jobs)`);
+  }
+
   // Filter by threshold
-  const filteredMatches = matches.filter(m => m.similarityScore >= threshold);
+  const filteredMatches = matchesToFilter.filter(m => m.similarityScore >= threshold);
 
   const processingTimeMs = Date.now() - startTime;
   const averageSimilarity = matches.length > 0
     ? matches.reduce((sum, m) => sum + m.similarityScore, 0) / matches.length
     : 0;
+
+  // Calculate hiring stats
+  const hiringStats = {
+    companiesWithJobs,
+    companiesWithoutJobs,
+    totalJobPostings,
+    averageJobsPerCompany: companiesWithJobs > 0 
+      ? Math.round(totalJobPostings / companiesWithJobs * 10) / 10 
+      : 0
+  };
 
   console.log(`\n📊 [Semantic Filtering Results]`);
   console.log(`   Provider: ${embeddingProvider}`);
@@ -238,15 +325,22 @@ export async function rankCompaniesBySimilarity(
   console.log(`   Filtered Out: ${companies.length - filteredMatches.length}`);
   console.log(`   Average Similarity: ${(averageSimilarity * 100).toFixed(0)}%`);
   console.log(`   Processing Time: ${processingTimeMs}ms`);
+  console.log(`\n   📈 Hiring Stats:`);
+  console.log(`      Companies with jobs: ${hiringStats.companiesWithJobs}`);
+  console.log(`      Companies without jobs: ${hiringStats.companiesWithoutJobs}`);
+  console.log(`      Total job postings: ${hiringStats.totalJobPostings}`);
+  console.log(`      Avg jobs/company: ${hiringStats.averageJobsPerCompany}`);
 
   // Log ALL companies with their scores (for debugging)
   console.log(`\n   📋 All Companies (sorted by similarity):`);
   matches.forEach((match, i) => {
     const company = companies.find(c => c.name === match.companyName);
     const industry = company?.sector || 'Unknown';
+    const jobCount = company?.job_postings?.length || 0;
     const status = match.similarityScore >= threshold ? '✅ PASS' : '❌ FAIL';
-    console.log(`      ${i + 1}. ${match.companyName} - ${(match.similarityScore * 100).toFixed(0)}% (${match.confidence}) ${status}`);
-    console.log(`         Industry: ${industry} | Skills: ${match.matchingSkills.length} | DWAs: ${match.matchingDWAs.length}`);
+    const hiringBadge = match.hasActiveJobs ? `🟢 ${jobCount} jobs` : '⚪ No jobs';
+    console.log(`      ${i + 1}. ${match.companyName} - ${(match.similarityScore * 100).toFixed(0)}% (${match.confidence}) ${status} ${hiringBadge}`);
+    console.log(`         Industry: ${industry} | Skills: ${match.matchingSkills.length} | DWAs: ${match.matchingDWAs.length}${match.hiringBoost ? ` | Hiring Boost: +${(match.hiringBoost * 100).toFixed(0)}%` : ''}`);
   });
 
   // Log filtered out companies with industry information for debugging
@@ -280,7 +374,8 @@ export async function rankCompaniesBySimilarity(
     averageSimilarity,
     threshold,
     processingTimeMs,
-    embeddingProvider
+    embeddingProvider,
+    hiringStats
   };
 }
 

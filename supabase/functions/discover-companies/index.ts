@@ -231,7 +231,18 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const { courseId, location, industries = [], count = 4, targetCompanies = [], targetIndustries = [] } = await req.json();
+    const { 
+      courseId, 
+      location, 
+      industries = [], 
+      count = 4, 
+      targetCompanies = [], 
+      targetIndustries = [],
+      // New hiring configuration options
+      requireActiveHiring = false,
+      minJobPostings = 0,
+      prioritizeHiring = true
+    } = await req.json();
     
     // ========================================
     // INPUT VALIDATION
@@ -346,6 +357,12 @@ serve(async (req) => {
     if (targetIndustries.length > 0) {
       console.log(`🏭 USER REQUESTED SPECIFIC INDUSTRIES: ${targetIndustries.join(', ')}`);
     }
+    
+    // Log hiring configuration
+    console.log(`\n💼 HIRING CONFIGURATION:`);
+    console.log(`   prioritizeHiring: ${prioritizeHiring}`);
+    console.log(`   requireActiveHiring: ${requireActiveHiring}`);
+    console.log(`   minJobPostings: ${minJobPostings}`);
 
     // Get course data including search_location for Apollo queries
     const { data: course, error: courseError } = await supabase
@@ -774,7 +791,12 @@ serve(async (req) => {
           primaryOccupations, // Use O*NET direct results
           discoveryResult.companies,
           threshold,
-          socMappings // Pass SOC mappings for context-aware filtering
+          socMappings, // Pass SOC mappings for context-aware filtering
+          { // Hiring configuration
+            prioritizeHiring,
+            requireActiveHiring,
+            minJobPostings
+          }
         );
 
         console.log(`   Result: ${semanticResult.matches.length} companies passed`);
@@ -951,7 +973,12 @@ serve(async (req) => {
             primaryOccupations,
             adzunaResult.companies,
             adzunaThreshold,
-            socMappings
+            socMappings,
+            { // Hiring configuration
+              prioritizeHiring,
+              requireActiveHiring,
+              minJobPostings
+            }
           );
 
           console.log(`   📊 Adzuna semantic filtering: ${adzunaResult.companies.length} → ${adzunaSemanticResult.matches.length} companies`);
