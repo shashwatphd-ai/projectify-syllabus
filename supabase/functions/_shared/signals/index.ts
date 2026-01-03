@@ -14,6 +14,14 @@ export { MarketIntelSignal } from './market-intel-signal.ts';
 export { DepartmentFitSignal } from './department-fit-signal.ts';
 export { ContactQualitySignal } from './contact-quality-signal.ts';
 
+// Hiring signal (Phase 1 of Smart Hiring Integration)
+export { 
+  HiringSignal, 
+  calculateHiringScore, 
+  hasActiveJobs, 
+  getHiringStats 
+} from './hiring-signal.ts';
+
 // Orchestrator (Step 7)
 export {
   calculateCompanySignals,

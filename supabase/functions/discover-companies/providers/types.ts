@@ -141,6 +141,13 @@ export interface DiscoveryResult {
     processingTimeSeconds: number;
     apiCreditsUsed: number;
     providerUsed: string;
+    // Hiring statistics (optional, populated when available)
+    hiringStats?: {
+      companiesWithJobs: number;
+      companiesWithoutJobs: number;
+      totalJobPostings: number;
+      averageJobsPerCompany: number;
+    };
   };
   // Feedback about user-specified companies (optional)
   userRequestedCompanies?: {
