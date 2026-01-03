@@ -764,19 +764,84 @@ serve(async (req) => {
         .eq('id', generationRunId);
     }
     
+    // GRACEFUL FALLBACK: If all companies rejected, use best-of-rejected or return helpful error
+    let companiesForGeneration = validCompanies;
+    
     if (validCompanies.length === 0) {
-      console.error('❌ No companies passed AI validation for course fit');
-      throw new Error(`No companies are a good fit for "${course.title || level}". All ${companiesFound.length} companies were rejected as irrelevant to the course subject matter.`);
+      console.warn('⚠️ No companies passed strict AI validation for course fit');
+      console.log('   Attempting graceful fallback: using best-of-rejected companies...');
+      
+      // Sort rejected companies by confidence (lowest rejection confidence = best fit)
+      const sortedRejected = rejectedCompanies
+        .filter(r => r.company && r.company.name)
+        .sort((a, b) => {
+          // Extract confidence from reason if available, otherwise use arbitrary order
+          const confA = a.reason?.includes('100%') ? 1.0 : 0.5;
+          const confB = b.reason?.includes('100%') ? 1.0 : 0.5;
+          return confA - confB; // Lower rejection confidence = potentially better fit
+        });
+      
+      // Take up to numTeams from rejected companies as fallback
+      const fallbackCompanies = sortedRejected.slice(0, numTeams).map(r => r.company);
+      
+      if (fallbackCompanies.length > 0) {
+        console.log(`   ✅ Using ${fallbackCompanies.length} best-of-rejected companies as fallback`);
+        console.log(`   Fallback companies: ${fallbackCompanies.map(c => c.name).join(', ')}`);
+        companiesForGeneration = fallbackCompanies;
+        
+        // Update generation run with fallback info
+        if (generationRunId) {
+          await serviceRoleClient
+            .from('generation_runs')
+            .update({
+              scoring_notes: `FALLBACK MODE: No companies passed strict validation. Using ${fallbackCompanies.length} best-of-rejected companies. Original rejection: ${rejectedCompanies.map(r => `${r.company?.name || 'Unknown'}: ${r.reason?.substring(0, 50)}...`).join('; ')}`
+            })
+            .eq('id', generationRunId);
+        }
+      } else {
+        // No fallback possible - provide helpful error with suggestions
+        const courseKeywords = (course.title || '').toLowerCase();
+        let suggestion = 'Try specifying target industries or company names in the Configure page.';
+        
+        if (courseKeywords.includes('portfolio') || courseKeywords.includes('investment') || courseKeywords.includes('finance')) {
+          suggestion = 'For finance/investment courses, try targeting: investment management, asset management, financial advisory, or wealth management companies.';
+        } else if (courseKeywords.includes('engineering') || courseKeywords.includes('mechanical')) {
+          suggestion = 'For engineering courses, try targeting: aerospace, automotive, manufacturing, or technology companies.';
+        } else if (courseKeywords.includes('marketing')) {
+          suggestion = 'For marketing courses, try targeting: advertising agencies, e-commerce, or consumer goods companies.';
+        }
+        
+        console.error('❌ No companies available even after fallback');
+        return new Response(
+          JSON.stringify({
+            error: 'No suitable companies found',
+            message: `No companies are a good fit for "${course.title || level}". ${suggestion}`,
+            details: {
+              companiesDiscovered: companiesFound.length,
+              companiesRejected: rejectedCompanies.length,
+              rejectionReasons: rejectedCompanies.slice(0, 3).map(r => ({
+                company: r.company?.name,
+                reason: r.reason?.substring(0, 100)
+              }))
+            },
+            suggestion
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 422,
+          }
+        );
+      }
     }
     
-    console.log(`✅ ${validCompanies.length} companies passed validation, proceeding with project generation`);
+    console.log(`✅ ${companiesForGeneration.length} companies ready for project generation`);
 
     // Generate Full Projects Synchronously
     console.log('\n🚀 Generating full projects synchronously...');
     
-    for (let i = 0; i < validCompanies.length; i++) {
-      const company = validCompanies[i];
-      console.log(`\n📝 Generating project ${i + 1}/${validCompanies.length} for ${company.name}...`);
+    for (let i = 0; i < companiesForGeneration.length; i++) {
+      const company = companiesForGeneration[i];
+      console.log(`\n📝 Generating project ${i + 1}/${companiesForGeneration.length} for ${company.name}...`);
       
       try {
         // Filter company signals for relevance

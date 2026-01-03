@@ -145,6 +145,74 @@ const DISCIPLINE_SOC_MAP: Record<string, SOCMapping[]> = {
       industries: ['consulting', 'business services', 'finance'],
       keywords: ['strategy', 'consulting', 'business analysis', 'operations']
     }
+  ],
+  
+  // Finance/Investment/Portfolio Management
+  'finance': [
+    {
+      socCode: '13-2051.00',
+      title: 'Financial Analysts',
+      confidence: 0.95,
+      industries: ['investment management', 'financial services', 'asset management', 'banking', 'hedge funds', 'private equity', 'wealth management', 'insurance'],
+      keywords: ['finance', 'financial', 'investment', 'portfolio', 'securities', 'equity', 'risk', 'valuation', 'analysis']
+    },
+    {
+      socCode: '13-2052.00',
+      title: 'Personal Financial Advisors',
+      confidence: 0.85,
+      industries: ['wealth management', 'financial planning', 'investment advisory', 'asset management'],
+      keywords: ['wealth', 'advisory', 'financial planning', 'investment', 'client', 'retirement']
+    },
+    {
+      socCode: '11-3031.00',
+      title: 'Financial Managers',
+      confidence: 0.90,
+      industries: ['banking', 'corporate finance', 'investment management', 'financial services'],
+      keywords: ['treasury', 'capital', 'budgeting', 'financial management', 'corporate finance']
+    },
+    {
+      socCode: '13-2061.00',
+      title: 'Financial Examiners',
+      confidence: 0.75,
+      industries: ['regulatory', 'banking', 'compliance', 'financial services'],
+      keywords: ['compliance', 'audit', 'regulatory', 'examination', 'banking']
+    }
+  ],
+  
+  // Accounting
+  'accounting': [
+    {
+      socCode: '13-2011.00',
+      title: 'Accountants and Auditors',
+      confidence: 0.95,
+      industries: ['accounting', 'professional services', 'audit', 'tax', 'financial services'],
+      keywords: ['accounting', 'audit', 'tax', 'gaap', 'financial reporting', 'bookkeeping', 'cpa']
+    },
+    {
+      socCode: '13-2041.00',
+      title: 'Credit Analysts',
+      confidence: 0.80,
+      industries: ['banking', 'credit', 'lending', 'financial services'],
+      keywords: ['credit', 'loan', 'underwriting', 'risk assessment']
+    }
+  ],
+  
+  // Marketing
+  'marketing': [
+    {
+      socCode: '11-2021.00',
+      title: 'Marketing Managers',
+      confidence: 0.95,
+      industries: ['marketing and advertising', 'e-commerce', 'consumer goods', 'retail', 'technology'],
+      keywords: ['marketing', 'advertising', 'branding', 'campaign', 'digital marketing', 'social media']
+    },
+    {
+      socCode: '13-1161.00',
+      title: 'Market Research Analysts',
+      confidence: 0.90,
+      industries: ['market research', 'consulting', 'advertising', 'consumer insights'],
+      keywords: ['market research', 'consumer', 'survey', 'analytics', 'insights']
+    }
   ]
 };
 
@@ -173,7 +241,10 @@ export function mapCourseToSOC(
     'civil': ['civil'],
     'chemical': ['chemical', 'chemistry'],
     'data': ['data'],
-    'business': ['business', 'management', 'mba']
+    'business': ['business', 'management', 'mba'],
+    'finance': ['finance', 'financial', 'finn', 'investment', 'portfolio', 'banking', 'securities', 'equity', 'fund', 'asset management', 'wealth'],
+    'accounting': ['accounting', 'acct', 'audit', 'tax', 'cpa', 'bookkeeping'],
+    'marketing': ['marketing', 'mktg', 'advertising', 'branding', 'digital marketing']
   };
 
   // Check each discipline
