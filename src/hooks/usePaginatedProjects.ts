@@ -24,6 +24,7 @@ export interface ProjectWithCourse {
   skills: unknown;
   similarity_score?: number;
   course_profiles?: { owner_id: string; title: string } | null;
+  company_profiles?: { job_postings: unknown[] | null } | null;
 }
 
 interface UsePaginatedProjectsOptions {
@@ -66,7 +67,7 @@ export const usePaginatedProjects = ({
         // Students see curated_live projects
         query = supabase
           .from("projects")
-          .select("*, course_profiles(owner_id, title)")
+          .select("*, course_profiles(owner_id, title), company_profiles(job_postings)")
           .order("created_at", { ascending: false })
           .range(from, to);
 
@@ -78,7 +79,7 @@ export const usePaginatedProjects = ({
         // Faculty see their own course projects
         query = supabase
           .from("projects")
-          .select("*, course_profiles!inner(owner_id, title)")
+          .select("*, course_profiles!inner(owner_id, title), company_profiles(job_postings)")
           .eq("course_profiles.owner_id", userId)
           .order("created_at", { ascending: false })
           .range(from, to);
@@ -97,7 +98,7 @@ export const usePaginatedProjects = ({
         // Admins see all projects
         query = supabase
           .from("projects")
-          .select("*, course_profiles(owner_id, title)")
+          .select("*, course_profiles(owner_id, title), company_profiles(job_postings)")
           .order("created_at", { ascending: false })
           .range(from, to);
 
@@ -124,7 +125,7 @@ export const usePaginatedProjects = ({
 
         query = supabase
           .from("projects")
-          .select("*, course_profiles(owner_id, title)")
+          .select("*, course_profiles(owner_id, title), company_profiles(job_postings)")
           .eq("company_profile_id", companyData.id)
           .in("status", ["curated_live", "in_progress", "completed"])
           .order("created_at", { ascending: false })
