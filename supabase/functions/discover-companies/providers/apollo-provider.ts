@@ -850,9 +850,21 @@ Return JSON:
         industries.add('consulting');
         industries.add('business services');
 
-        if (title.includes('financial') || title.includes('accounting')) {
+        if (title.includes('financial') || title.includes('accounting') || title.includes('finance')) {
           industries.add('financial services');
           industries.add('fintech');
+          industries.add('investment management');
+          industries.add('asset management');
+          industries.add('banking');
+          industries.add('wealth management');
+        }
+        if (title.includes('portfolio') || title.includes('investment') || title.includes('securities')) {
+          industries.add('investment management');
+          industries.add('asset management');
+          industries.add('hedge funds');
+          industries.add('private equity');
+          industries.add('wealth management');
+          industries.add('financial advisory');
         }
         if (title.includes('marketing')) {
           industries.add('marketing');
