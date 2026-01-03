@@ -28,6 +28,7 @@ import {
 import { LiveDemandBadge } from "@/components/premium/LiveDemandBadge";
 import { ProjectsPageSkeleton } from "@/components/skeletons/DashboardSkeleton";
 import { usePaginatedProjects, type ProjectWithCourse } from "@/hooks/usePaginatedProjects";
+import { CompanyHiringBadge } from "@/components/hiring/CompanyHiringBadge";
 
 const getQualityBorder = (similarity: number) => {
   if (similarity >= 0.80) return 'border-l-4 border-l-green-500';
@@ -391,10 +392,10 @@ const Projects = () => {
                     <Badge variant="outline" className="text-xs py-0">{project.tier}</Badge>
                   </div>
 
-                  {/* Live Demand Badge - Premium Feature */}
-                  <div className="pt-2">
-                    <LiveDemandBadge 
-                      skills={Array.isArray(project.skills) ? project.skills.map((s: any) => typeof s === 'string' ? s : s?.name || '').filter(Boolean) : []}
+                  {/* Company Hiring Badge - Apollo Data */}
+                  <div className="pt-2 flex flex-wrap gap-2">
+                    <CompanyHiringBadge 
+                      jobPostings={project.company_profiles?.job_postings as unknown[] | null}
                       variant="compact"
                     />
                   </div>
