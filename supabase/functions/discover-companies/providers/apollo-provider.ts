@@ -1595,11 +1595,11 @@ Return JSON:
     }
 
     // Fetch job postings using correct Apollo endpoint
-    // BIT 2.4: Use fetchWithRetry for reliable API calls
+    // FIXED: Correct endpoint is /v1/ not /api/v1/, and response field is job_postings not organization_job_postings
     let jobPostings: any[] = [];
     try {
-      const jobResult = await fetchWithRetry<{ organization_job_postings: any[] }>(
-        `https://api.apollo.io/api/v1/organizations/${org.id}/job_postings?page=1&per_page=25`,
+      const jobResult = await fetchWithRetry<{ job_postings: any[] }>(
+        `https://api.apollo.io/v1/organizations/${org.id}/job_postings`,
         {
           method: 'GET',
           headers: {
@@ -1612,8 +1612,8 @@ Return JSON:
         `Apollo Job Postings (${org.name})`
       );
 
-      if (jobResult.success && jobResult.data?.organization_job_postings) {
-        jobPostings = jobResult.data.organization_job_postings.slice(0, 25);
+      if (jobResult.success && jobResult.data?.job_postings) {
+        jobPostings = jobResult.data.job_postings.slice(0, 25);
         console.log(`  ✓ Found ${jobPostings.length} job postings for ${org.name}`);
       } else {
         console.log(`  ℹ No job postings found for ${org.name}`);
