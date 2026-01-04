@@ -182,8 +182,12 @@ const Projects = () => {
         }
       } else {
         toast.success('Application submitted successfully!');
-        // Update local state
-        setAppliedProjects(prev => new Set([...prev, projectId]));
+        // Update local state - use Set.add() instead of spreading for better performance
+        setAppliedProjects(prev => {
+          const next = new Set(prev);
+          next.add(projectId);
+          return next;
+        });
       }
     } catch (error: any) {
       console.error('Apply error:', error);

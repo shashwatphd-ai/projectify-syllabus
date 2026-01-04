@@ -136,10 +136,20 @@ const AdminHub = () => {
 
       if (signalError) throw signalError;
 
-      // Map signals to projects
+      // Build signal lookup map first - O(signals) instead of O(N×M)
+      const signalMap = new Map<string, typeof signalData>();
+      (signalData || []).forEach(signal => {
+        if (!signal.company_id) return;
+        const existing = signalMap.get(signal.company_id) || [];
+        existing.push(signal);
+        signalMap.set(signal.company_id, existing);
+      });
+
+      // Map projects with O(1) signal lookup
       const projectsWithSignals = (projectData || []).map(project => {
-        const companySignals = (signalData || [])
-          .filter(signal => signal.company_id === project.company_profile_id);
+        const companySignals = project.company_profile_id 
+          ? signalMap.get(project.company_profile_id) || []
+          : [];
         
         const latestScore = companySignals.length > 0 
           ? companySignals[0].project_score 
