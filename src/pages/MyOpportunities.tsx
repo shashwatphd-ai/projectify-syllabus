@@ -33,6 +33,7 @@ export default function MyOpportunities() {
   const [loading, setLoading] = useState(true);
   const [jobMatches, setJobMatches] = useState<JobMatch[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -57,11 +58,20 @@ export default function MyOpportunities() {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
+  // Debounce search query with 300ms delay to reduce API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Only fetch when debounced value changes
   useEffect(() => {
     if (user) {
       fetchJobMatches();
     }
-  }, [user, searchQuery, statusFilter]);
+  }, [user, debouncedSearchQuery, statusFilter]);
 
   const fetchJobMatches = async () => {
     try {
@@ -76,10 +86,10 @@ export default function MyOpportunities() {
         query = query.eq("status", statusFilter);
       }
 
-      // Apply search filter (searches both title and company)
-      if (searchQuery.trim()) {
+      // Apply search filter (searches both title and company) - use debounced value
+      if (debouncedSearchQuery.trim()) {
         query = query.or(
-          `apollo_job_title.ilike.%${searchQuery}%,apollo_company_name.ilike.%${searchQuery}%`
+          `apollo_job_title.ilike.%${debouncedSearchQuery}%,apollo_company_name.ilike.%${debouncedSearchQuery}%`
         );
       }
 
